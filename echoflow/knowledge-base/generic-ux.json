@@ -149,5 +149,116 @@
     "finding": "Page has multiple H1 elements — should have exactly one for SEO",
     "ice": { "impact": 5, "confidence": 10, "ease": 9 },
     "target_selector": "h1"
+  },
+  {
+    "id": "ux-aria-roles-invalid",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["[role]"],
+      "attribute": "role",
+      "condition": "invalid_aria_role"
+    },
+    "finding": "Element has an invalid or misspelled ARIA role attribute",
+    "ice": { "impact": 7, "confidence": 9, "ease": 8 },
+    "target_selector": "[role]"
+  },
+  {
+    "id": "ux-focus-visible",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a", "button", "input", "select", "textarea", "[tabindex]"],
+      "property": "outlineStyle",
+      "condition": "focus_not_visible"
+    },
+    "finding": "Interactive element has no visible focus indicator — keyboard users cannot see what is selected",
+    "ice": { "impact": 8, "confidence": 7, "ease": 7 },
+    "target_selector": "a, button, input, [tabindex]"
+  },
+  {
+    "id": "ux-skip-nav-missing",
+    "category": "accessibility",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href='#content']", "a[href='#main']", "a[href='#main-content']", ".skip-link", ".skip-nav", "[class*='skip-to']"]
+    },
+    "finding": "No skip-to-content link found — keyboard/screen reader users must tab through all navigation",
+    "ice": { "impact": 6, "confidence": 8, "ease": 9 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-lang-attribute-missing",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["html"],
+      "attribute": "lang",
+      "condition": "missing"
+    },
+    "finding": "HTML element is missing lang attribute — screen readers cannot determine page language",
+    "ice": { "impact": 7, "confidence": 10, "ease": 10 },
+    "target_selector": "html"
+  },
+  {
+    "id": "ux-color-only-indicator",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": [".error", ".success", ".warning", "[class*='error']", "[class*='success']", "[class*='alert']"],
+      "property": "colorOnlyIndicator",
+      "condition": "color_only"
+    },
+    "finding": "Status/error message uses colour alone as indicator — fails WCAG 1.4.1 for colour-blind users",
+    "ice": { "impact": 6, "confidence": 6, "ease": 7 },
+    "target_selector": ".error, .success, .warning"
+  },
+  {
+    "id": "ux-grammar-button-text",
+    "category": "grammar",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", "a.button", "[role='button']", "input[type='submit']"],
+      "condition": "grammar_check"
+    },
+    "finding": "Button or CTA text contains a grammar/spelling issue",
+    "ice": { "impact": 5, "confidence": 7, "ease": 9 },
+    "target_selector": "button, a.btn, [role='button']"
+  },
+  {
+    "id": "ux-grammar-heading-text",
+    "category": "grammar",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "h4"],
+      "condition": "grammar_check"
+    },
+    "finding": "Heading text contains a grammar or capitalisation issue",
+    "ice": { "impact": 6, "confidence": 6, "ease": 9 },
+    "target_selector": "h1, h2, h3, h4"
+  },
+  {
+    "id": "ux-grammar-empty-links",
+    "category": "grammar",
+    "check": {
+      "type": "text_content",
+      "selectors": ["a"],
+      "condition": "empty_text"
+    },
+    "finding": "Link has no visible text — inaccessible and unhelpful for users and SEO",
+    "ice": { "impact": 7, "confidence": 9, "ease": 8 },
+    "target_selector": "a"
+  },
+  {
+    "id": "ux-grammar-placeholder-text",
+    "category": "grammar",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "p", "span"],
+      "condition": "placeholder_text"
+    },
+    "finding": "Element contains placeholder/Lorem Ipsum text that was not replaced",
+    "ice": { "impact": 9, "confidence": 9, "ease": 10 },
+    "target_selector": "h1, h2, h3, p"
   }
 ]

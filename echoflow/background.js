@@ -40,28 +40,50 @@ async function fetchApiEndpoints(origin, rules) {
 }
 
 // ── Screenshot Capture (local display only — never sent to AI) ──
+// Always captures current viewport only. Hides scrollbar before capture.
 
 async function captureScreenshot(tabId, resolution) {
   // resolution: '100' = standard, '120' = high-res (1.2x)
   const scale = resolution === '120' ? 1.2 : 1.0;
 
+  // Hide scrollbar before capture
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+      document.body.style.setProperty('overflow', 'hidden', 'important');
+    }
+  });
+  await sleep(100);
+
+  let dataUrl;
+
   if (scale !== 1.0) {
-    // Temporarily zoom the tab for higher resolution capture
     const originalZoom = await chrome.tabs.getZoom(tabId);
     await chrome.tabs.setZoom(tabId, scale);
-    await sleep(400); // Let the page re-render at new zoom
-    const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+    await sleep(400);
+    dataUrl = await chrome.tabs.captureVisibleTab(null, {
       format: 'jpeg',
       quality: 95
     });
     await chrome.tabs.setZoom(tabId, originalZoom);
-    return dataUrl;
+  } else {
+    dataUrl = await chrome.tabs.captureVisibleTab(null, {
+      format: 'jpeg',
+      quality: 90
+    });
   }
 
-  return chrome.tabs.captureVisibleTab(null, {
-    format: 'jpeg',
-    quality: 90
+  // Restore scrollbar
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      document.documentElement.style.removeProperty('overflow');
+      document.body.style.removeProperty('overflow');
+    }
   });
+
+  return dataUrl;
 }
 
 function sleep(ms) {

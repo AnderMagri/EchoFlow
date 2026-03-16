@@ -257,11 +257,17 @@
     renderMarkers();
   }
 
-  // ── Export / Import ──
+  // ── Save / Import ──
 
-  function exportAudit() {
-    const exportData = { ...auditData };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  function saveAudit() {
+    // Save includes screenshot + findings + AI analysis (if run)
+    const saveData = { ...auditData };
+    // Include AI analysis if it exists
+    const aiResultEl = document.getElementById('ai-result');
+    if (aiResultEl && aiResultEl.style.display !== 'none' && aiResultEl.textContent) {
+      saveData.aiAnalysis = aiResultEl.textContent;
+    }
+    const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -269,7 +275,7 @@
     a.download = `echoflow-audit-${dateStr}.echoflow`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('Audit exported');
+    showToast('Audit saved');
   }
 
   function importAudit(file) {
@@ -285,6 +291,13 @@
         findings = data.findings;
         renderAll();
         updateStoredFindings();
+        // Restore AI analysis if present in saved file
+        if (data.aiAnalysis) {
+          document.getElementById('ai-placeholder').style.display = 'none';
+          const resultEl = document.getElementById('ai-result');
+          resultEl.innerHTML = formatAIResponse(data.aiAnalysis);
+          resultEl.style.display = 'block';
+        }
         showToast('Audit imported');
       } catch (err) {
         showToast('Failed to parse file');
@@ -444,7 +457,7 @@
     });
 
     // ── Toolbar Buttons ──
-    document.getElementById('btn-export').addEventListener('click', exportAudit);
+    document.getElementById('btn-save').addEventListener('click', saveAudit);
     document.getElementById('btn-copy-all').addEventListener('click', copyAllFindings);
     document.getElementById('btn-settings').addEventListener('click', openSettings);
 

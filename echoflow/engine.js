@@ -175,6 +175,14 @@ function checkComputedStyle(check, data) {
       if (check.condition === 'not_tabular') {
         fires = !styles.fontVariantNumeric || !styles.fontVariantNumeric.includes('tabular');
       }
+    } else if (check.property === 'outlineStyle') {
+      if (check.condition === 'focus_not_visible') {
+        fires = styles.outlineStyle === 'none' && (!styles.boxShadow || styles.boxShadow === 'none');
+      }
+    } else if (check.property === 'colorOnlyIndicator') {
+      // Check if element uses color only without icon/text indicator
+      // Heuristic: has background-color set but no ::before/::after content
+      fires = false; // Difficult to check purely from computed styles — flag for AI review
     } else if (check.property === 'textOverflow') {
       if (check.condition === 'address_too_long') {
         // Check if the element text looks like a long address (40+ chars, hex-like)
@@ -338,6 +346,98 @@ function checkShopifyGlobal(check, data) {
   return [];
 }
 
+function checkTextContent(check, data) {
+  const matched = findMatchingElements(data, check.selectors);
+  const results = [];
+
+  // Common placeholder patterns
+  const placeholderPatterns = [
+    /lorem ipsum/i,
+    /dolor sit amet/i,
+    /placeholder/i,
+    /\[insert/i,
+    /\{.*text.*\}/i,
+    /coming soon placeholder/i,
+    /sample text/i,
+    /your text here/i
+  ];
+
+  // Common grammar issues in buttons/CTAs
+  const grammarIssues = [
+    { pattern: /\s{2,}/, desc: 'double spaces' },
+    { pattern: /^[a-z]/, desc: 'starts with lowercase (CTA/heading should be capitalised)' },
+    { pattern: /\.{4,}/, desc: 'excessive dots' },
+    { pattern: /[!?]{3,}/, desc: 'excessive punctuation' },
+    { pattern: /\s[.,;:!?]/, desc: 'space before punctuation' }
+  ];
+
+  for (const el of matched) {
+    const text = (el.text || '').trim();
+    if (!text || text.length < 1) {
+      if (check.condition === 'empty_text') {
+        // Check if it also lacks aria-label
+        if (!el.attributes?.['aria-label'] && !el.attributes?.['aria-labelledby']) {
+          results.push({
+            position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            selector: el.selector,
+            detail: 'Empty text content'
+          });
+        }
+      }
+      continue;
+    }
+
+    if (check.condition === 'placeholder_text') {
+      for (const pat of placeholderPatterns) {
+        if (pat.test(text)) {
+          results.push({
+            position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            selector: el.selector,
+            detail: 'Contains placeholder text: "' + text.substring(0, 40) + '..."'
+          });
+          break;
+        }
+      }
+    }
+
+    if (check.condition === 'grammar_check') {
+      for (const issue of grammarIssues) {
+        if (issue.pattern.test(text)) {
+          results.push({
+            position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            selector: el.selector,
+            detail: '"' + text.substring(0, 30) + '" — ' + issue.desc
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return results.slice(0, 10);
+}
+
+function checkFocusVisible(check, data) {
+  // This is handled as a computed_style check with condition 'focus_not_visible'
+  // The actual focus visibility can only be partially checked via computed styles
+  // We flag elements with outline:none and no box-shadow alternative
+  const matched = findMatchingElements(data, check.selectors);
+  const results = [];
+
+  for (const el of matched) {
+    const styles = el.computedStyles;
+    if (!styles) continue;
+    if (styles.outlineStyle === 'none' && !styles.boxShadow) {
+      results.push({
+        position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        selector: el.selector
+      });
+    }
+  }
+
+  return results.slice(0, 5);
+}
+
 function checkApiEndpoint(check, data) {
   const response = data.apiResponses?.[check.endpoint];
 
@@ -389,6 +489,9 @@ export function evaluateRules(rules, capturedData) {
         break;
       case 'api_endpoint':
         results = checkApiEndpoint(rule.check, capturedData);
+        break;
+      case 'text_content':
+        results = checkTextContent(rule.check, capturedData);
         break;
     }
 

@@ -91,7 +91,17 @@ body {
 }
 
 .vertical-icon {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.vertical-card.active .vertical-icon {
+  color: #00996e;
 }
 
 .vertical-name {
