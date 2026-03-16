@@ -1,5 +1,5 @@
 // EchoFlow Results Viewer
-// Two-column layout: wireframe schematic + tabbed findings (Rules / AI).
+// Two-column layout: screenshot with markers + tabbed findings (Rules / AI).
 
 (function () {
   // ── State ──
@@ -53,145 +53,45 @@
     document.getElementById('audit-time').textContent = date.toLocaleString();
   }
 
-  // ── Render Wireframe Schematic ──
+  // ── Render Screenshot + Markers ──
 
-  function renderWireframe() {
-    const container = document.getElementById('wireframe-container');
-    container.innerHTML = '';
-
-    const viewport = auditData.meta.viewport || { width: 1440, height: 900 };
-    const scrollHeight = auditData.meta.scrollHeight || viewport.height;
-
-    // Show viewport info
-    const vpEl = document.getElementById('wireframe-viewport');
-    vpEl.textContent = viewport.width + 'x' + viewport.height;
-
-    // Get layout blocks from structured data
-    const blocks = auditData.layout || buildLayoutFromSections();
-
-    if (blocks.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No page structure detected</p></div>';
+  function renderScreenshot() {
+    const img = document.getElementById('screenshot-img');
+    if (!auditData.screenshot) {
+      img.alt = 'No screenshot captured';
       return;
     }
+    img.src = auditData.screenshot;
+    img.onload = () => renderMarkers();
+  }
 
-    // Build a mapping: which findings belong to which block
-    const blockFindings = mapFindingsToBlocks(blocks);
+  function renderMarkers() {
+    const container = document.getElementById('markers-layer');
+    const img = document.getElementById('screenshot-img');
+    container.innerHTML = '';
 
-    // Track if we've drawn the fold line
-    let foldDrawn = false;
+    if (!img.naturalWidth) return;
 
-    blocks.forEach((block, i) => {
-      // Draw fold line before the first block that's below the fold
-      if (!foldDrawn && block.top >= viewport.height) {
-        const foldLine = document.createElement('div');
-        foldLine.className = 'wf-fold-line';
-        foldLine.textContent = 'fold (' + viewport.height + 'px)';
-        container.appendChild(foldLine);
-        foldDrawn = true;
-      }
+    const scaleX = img.clientWidth / (auditData.meta.viewport?.width || img.naturalWidth);
+    const scaleY = img.clientHeight / (auditData.meta.viewport?.height || img.naturalHeight);
 
-      const el = document.createElement('div');
-      el.className = 'wf-block';
-      el.dataset.blockIndex = i;
+    findings.forEach((finding) => {
+      const marker = document.createElement('div');
+      marker.className = 'marker';
+      marker.dataset.number = finding.number;
+      marker.textContent = finding.number;
+      marker.style.backgroundColor = getMarkerColor(finding.number - 1);
 
-      // Scale height proportionally — min 24px, max 80px
-      const scaledHeight = Math.max(24, Math.min(80, (block.height / scrollHeight) * 600));
-      el.style.minHeight = scaledHeight + 'px';
+      const pos = finding.position || { x: 0, y: 0 };
+      const cx = (pos.x + (pos.width || 0) / 2) * scaleX;
+      const cy = (pos.y + (pos.height || 0) / 2) * scaleY;
 
-      // Label
-      const label = document.createElement('span');
-      label.className = 'wf-block-label';
-      label.textContent = cleanLabel(block.label);
-      el.appendChild(label);
+      marker.style.left = Math.max(13, Math.min(cx, img.clientWidth - 13)) + 'px';
+      marker.style.top = Math.max(13, Math.min(cy, img.clientHeight - 13)) + 'px';
 
-      // Size indicator
-      const size = document.createElement('span');
-      size.className = 'wf-block-size';
-      size.textContent = Math.round(block.height) + 'px';
-      el.appendChild(size);
-
-      // Finding markers on this block
-      const findingsHere = blockFindings.get(i) || [];
-      findingsHere.forEach(f => {
-        const marker = document.createElement('div');
-        marker.className = 'wf-marker';
-        marker.dataset.number = f.number;
-        marker.textContent = f.number;
-        marker.style.backgroundColor = getMarkerColor(f.number - 1);
-        el.appendChild(marker);
-      });
-
-      // Click to highlight findings
-      el.addEventListener('click', () => {
-        if (findingsHere.length > 0) {
-          setActiveFinding(findingsHere[0].number);
-        }
-      });
-
-      container.appendChild(el);
+      marker.addEventListener('click', () => setActiveFinding(finding.number));
+      container.appendChild(marker);
     });
-
-    // Draw fold line at end if never drawn and page is shorter than viewport
-    if (!foldDrawn && scrollHeight > viewport.height) {
-      const foldLine = document.createElement('div');
-      foldLine.className = 'wf-fold-line';
-      foldLine.textContent = 'fold';
-      container.appendChild(foldLine);
-    }
-  }
-
-  function cleanLabel(label) {
-    // Clean up section type names: kebab-case → readable
-    return label
-      .replace(/-/g, ' ')
-      .replace(/_/g, ' ')
-      .replace(/\./g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase())
-      .trim();
-  }
-
-  function buildLayoutFromSections() {
-    // Fallback: build layout from sections data if no layout property
-    if (!auditData.sections?.length) return [];
-    return auditData.sections.map(s => ({
-      label: s.type || s.id || 'section',
-      type: 'section',
-      top: s.position?.top || 0,
-      height: s.position?.height || 100,
-      width: s.position?.width || 0
-    }));
-  }
-
-  function mapFindingsToBlocks(blocks) {
-    const map = new Map(); // blockIndex → [findings]
-
-    findings.forEach(f => {
-      const pos = f.position || {};
-      const fy = pos.y || 0;
-
-      // Find the block that contains this finding's y position
-      let bestIndex = 0;
-      let bestDist = Infinity;
-      blocks.forEach((block, i) => {
-        const blockTop = block.top;
-        const blockBottom = block.top + block.height;
-        if (fy >= blockTop && fy <= blockBottom) {
-          bestIndex = i;
-          bestDist = 0;
-        } else {
-          const dist = Math.min(Math.abs(fy - blockTop), Math.abs(fy - blockBottom));
-          if (dist < bestDist) {
-            bestDist = dist;
-            bestIndex = i;
-          }
-        }
-      });
-
-      if (!map.has(bestIndex)) map.set(bestIndex, []);
-      map.get(bestIndex).push(f);
-    });
-
-    return map;
   }
 
   // ── Render Findings List ──
@@ -266,22 +166,21 @@
       card.classList.toggle('active', parseInt(card.dataset.number) === number);
     });
 
-    // Highlight wireframe block
-    document.querySelectorAll('.wf-block').forEach(block => {
-      const hasMarker = block.querySelector(`.wf-marker[data-number="${number}"]`);
-      block.classList.toggle('active', !!hasMarker);
-    });
-
-    // Highlight wireframe marker
-    document.querySelectorAll('.wf-marker').forEach(marker => {
-      const isActive = parseInt(marker.dataset.number) === number;
-      marker.style.transform = isActive ? 'translateY(-50%) scale(1.3)' : 'translateY(-50%)';
+    // Highlight marker on screenshot
+    document.querySelectorAll('.marker').forEach(marker => {
+      marker.classList.toggle('active', parseInt(marker.dataset.number) === number);
     });
 
     // Scroll card into view
     const activeCard = document.querySelector(`.finding-card[data-number="${number}"]`);
     if (activeCard) {
       activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Scroll marker into view on screenshot
+    const activeMarker = document.querySelector(`.marker[data-number="${number}"]`);
+    if (activeMarker) {
+      activeMarker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
 
@@ -325,7 +224,7 @@
     findings = findings.filter(f => f.number !== number);
     findings.forEach((f, i) => { f.number = i + 1; });
     renderFindings();
-    renderWireframe();
+    renderMarkers();
     updateStoredFindings();
     showToast('Finding removed');
   }
@@ -355,7 +254,7 @@
     }
     findings.forEach((f, i) => { f.number = i + 1; });
     renderFindings();
-    renderWireframe();
+    renderMarkers();
   }
 
   // ── Export / Import ──
@@ -512,7 +411,7 @@
 
   function renderAll() {
     renderToolbar();
-    renderWireframe();
+    renderScreenshot();
     renderFindings();
   }
 
@@ -531,6 +430,13 @@
 
     findings = auditData.findings || [];
     renderAll();
+
+    // Resize observer for marker repositioning
+    const img = document.getElementById('screenshot-img');
+    if (img) {
+      const observer = new ResizeObserver(() => renderMarkers());
+      observer.observe(img);
+    }
 
     // ── Tabs ──
     document.querySelectorAll('.tab-btn').forEach(btn => {

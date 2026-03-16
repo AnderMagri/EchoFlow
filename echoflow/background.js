@@ -39,6 +39,31 @@ async function fetchApiEndpoints(origin, rules) {
   return responses;
 }
 
+// ── Screenshot Capture (local display only — never sent to AI) ──
+
+async function captureScreenshot(tabId, resolution) {
+  // resolution: '100' = standard, '120' = high-res (1.2x)
+  const scale = resolution === '120' ? 1.2 : 1.0;
+
+  if (scale !== 1.0) {
+    // Temporarily zoom the tab for higher resolution capture
+    const originalZoom = await chrome.tabs.getZoom(tabId);
+    await chrome.tabs.setZoom(tabId, scale);
+    await sleep(400); // Let the page re-render at new zoom
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+      format: 'jpeg',
+      quality: 95
+    });
+    await chrome.tabs.setZoom(tabId, originalZoom);
+    return dataUrl;
+  }
+
+  return chrome.tabs.captureVisibleTab(null, {
+    format: 'jpeg',
+    quality: 90
+  });
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -62,7 +87,7 @@ async function injectShopifyMainWorld(tabId) {
 
 // ── Main Audit Orchestration ──
 
-async function runAudit(tabId, tabUrl, vertical, mode) {
+async function runAudit(tabId, tabUrl, vertical, mode, resolution) {
   const origin = new URL(tabUrl).origin;
 
   // Step 1: Load rules
@@ -107,11 +132,11 @@ async function runAudit(tabId, tabUrl, vertical, mode) {
   // Step 6: Fetch API endpoints if rules need them
   domData.apiResponses = await fetchApiEndpoints(origin, rules);
 
-  // Step 7: Evaluate rules
-  const findings = evaluateRules(rules, domData);
+  // Step 7: Capture viewport screenshot (local proof only — never sent to AI)
+  const screenshot = await captureScreenshot(tabId, resolution);
 
-  // Step 8: Build wireframe layout from captured elements
-  const layout = buildLayout(domData);
+  // Step 8: Evaluate rules
+  const findings = evaluateRules(rules, domData);
 
   // Step 9: Assemble results
   const results = {
@@ -128,7 +153,7 @@ async function runAudit(tabId, tabUrl, vertical, mode) {
     shopify: domData.shopify,
     sections: domData.sections,
     catalog: domData.apiResponses,
-    layout: layout,
+    screenshot: screenshot,
     findings: findings,
     regionBounds: regionBounds,
     rawData: {
@@ -149,79 +174,11 @@ async function runAudit(tabId, tabUrl, vertical, mode) {
   return { success: true, findingCount: findings.length };
 }
 
-// ── Build Wireframe Layout ──
-// Extracts structural blocks from captured DOM data for the schematic view.
-
-function buildLayout(domData) {
-  const blocks = [];
-  const viewport = domData.viewport;
-  const seen = new Set();
-
-  // Priority 1: Shopify sections (most structured)
-  if (domData.sections?.length) {
-    for (const section of domData.sections) {
-      const key = section.type + '_' + Math.round(section.position.top);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      blocks.push({
-        label: section.type || section.id || 'section',
-        type: 'section',
-        top: section.position.top,
-        height: section.position.height,
-        width: section.position.width
-      });
-    }
-  }
-
-  // Priority 2: Semantic elements (header, nav, main, footer, article)
-  const semanticTags = ['header', 'nav', 'main', 'footer', 'article', 'section'];
-  for (const el of domData.elements || []) {
-    if (!semanticTags.includes(el.tagName)) continue;
-    const top = el.bounds.absoluteTop || el.bounds.top;
-    const key = el.tagName + '_' + Math.round(top);
-    if (seen.has(key)) continue;
-    if (el.bounds.height < 20) continue; // Skip tiny elements
-    seen.add(key);
-    blocks.push({
-      label: el.tagName,
-      type: 'semantic',
-      top: top,
-      height: el.bounds.height,
-      width: el.bounds.width
-    });
-  }
-
-  // Priority 3: Large divs / significant elements if we have few blocks
-  if (blocks.length < 3) {
-    for (const el of domData.elements || []) {
-      if (el.bounds.height < 100 || el.bounds.width < viewport.width * 0.5) continue;
-      const top = el.bounds.absoluteTop || el.bounds.top;
-      const key = el.tagName + '_' + Math.round(top);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      blocks.push({
-        label: el.tagName + (el.attributes?.class ? '.' + el.attributes.class.split(' ')[0] : ''),
-        type: 'block',
-        top: top,
-        height: el.bounds.height,
-        width: el.bounds.width
-      });
-      if (blocks.length >= 15) break;
-    }
-  }
-
-  // Sort by vertical position
-  blocks.sort((a, b) => a.top - b.top);
-
-  // Cap at 20 blocks
-  return blocks.slice(0, 20);
-}
-
 // ── Message Handler ──
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'START_AUDIT') {
-    const { vertical, mode } = message;
+    const { vertical, mode, resolution } = message;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs[0]) {
@@ -229,7 +186,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       try {
-        const result = await runAudit(tabs[0].id, tabs[0].url, vertical, mode);
+        const result = await runAudit(tabs[0].id, tabs[0].url, vertical, mode, resolution);
         sendResponse(result);
       } catch (err) {
         sendResponse({ success: false, error: err.message });

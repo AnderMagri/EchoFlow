@@ -30,6 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return checked ? checked.value : 'viewport';
   }
 
+  function getSelectedResolution() {
+    const checked = document.querySelector('input[name="resolution"]:checked');
+    return checked ? checked.value : '100';
+  }
+
   // ── Run Audit ──
 
   runBtn.addEventListener('click', async () => {
@@ -51,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await chrome.runtime.sendMessage({
         action: 'START_AUDIT',
         vertical: selectedVertical,
-        mode: mode
+        mode: mode,
+        resolution: getSelectedResolution()
       });
 
       if (result?.success) {
