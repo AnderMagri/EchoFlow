@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoFlow</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <header class="header">
+      <div class="logo">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="9" fill="#00C9A7"/>
+          <path d="M6 10L9 13L14 7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">EchoFlow</span>
+      </div>
+      <span class="version">v1.0</span>
+    </header>
+
+    <!-- Capture Panel -->
+    <div id="capture-panel">
+      <section class="section">
+        <label class="section-label">Audit Vertical</label>
+        <div class="vertical-grid">
+          <button class="vertical-card active" data-vertical="generic-ux">
+            <span class="vertical-icon">🎯</span>
+            <span class="vertical-name">Generic UX</span>
+          </button>
+          <button class="vertical-card" data-vertical="shopify">
+            <span class="vertical-icon">🛒</span>
+            <span class="vertical-name">Shopify</span>
+          </button>
+          <button class="vertical-card" data-vertical="fintech">
+            <span class="vertical-icon">💳</span>
+            <span class="vertical-name">Fintech</span>
+          </button>
+          <button class="vertical-card" data-vertical="crypto">
+            <span class="vertical-icon">⛓️</span>
+            <span class="vertical-name">Crypto</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="section">
+        <label class="section-label">Capture Mode</label>
+        <div class="mode-options">
+          <label class="mode-option">
+            <input type="radio" name="mode" value="viewport" checked>
+            <span class="mode-label">Viewport</span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mode" value="full_page">
+            <span class="mode-label">Full Page</span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mode" value="region">
+            <span class="mode-label">Region</span>
+          </label>
+        </div>
+      </section>
+
+      <button id="run-audit-btn" class="btn-primary">
+        <span class="btn-text">Run Audit</span>
+        <span class="btn-spinner" style="display:none;">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="spinner">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30 10" stroke-linecap="round"/>
+          </svg>
+        </span>
+      </button>
+
+      <div id="status" class="status"></div>
+
+      <div class="divider"></div>
+
+      <button id="load-audit-btn" class="btn-secondary">
+        Load Saved Audit
+      </button>
+      <input type="file" id="file-input" accept=".echoflow,.json" style="display:none;">
+    </div>
+
+    <!-- Error Panel -->
+    <div id="error-panel" style="display:none;">
+      <div class="error-box">
+        <p id="error-message"></p>
+      </div>
+      <button id="retry-btn" class="btn-secondary">Try Again</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

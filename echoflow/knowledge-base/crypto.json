@@ -1,0 +1,96 @@
+[
+  {
+    "id": "crypto-wallet-connect-below-fold",
+    "category": "conversion",
+    "check": {
+      "type": "element_position",
+      "selectors": ["[class*='wallet']", "[class*='connect-wallet']", "[data-testid*='wallet']", "button[class*='web3']", "[class*='walletconnect']"],
+      "condition": "below_fold"
+    },
+    "finding": "Wallet connect button is below the fold — primary action not immediately visible",
+    "ice": { "impact": 9, "confidence": 7, "ease": 8 },
+    "target_selector": "[class*='wallet'], [class*='connect-wallet']"
+  },
+  {
+    "id": "crypto-no-gas-fee-display",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='gas']", "[class*='fee']", "[class*='network-fee']", "[class*='transaction-fee']", "[class*='gas-price']"]
+    },
+    "finding": "No gas/network fee information visible near transaction actions",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "button[type='submit'], [class*='swap'], [class*='send']"
+  },
+  {
+    "id": "crypto-seed-phrase-insecure-input",
+    "category": "trust",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[name*='seed']", "input[name*='mnemonic']", "input[name*='recovery']", "input[placeholder*='seed']", "input[placeholder*='phrase']"],
+      "attribute": "type",
+      "condition": "equals",
+      "value": "text"
+    },
+    "finding": "Seed phrase input uses visible text type — should be masked or password type",
+    "ice": { "impact": 10, "confidence": 8, "ease": 9 },
+    "target_selector": "input[name*='seed'], input[name*='mnemonic']"
+  },
+  {
+    "id": "crypto-no-network-indicator",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='network']", "[class*='chain']", "[class*='mainnet']", "[class*='testnet']", "[data-chain]", "[class*='chain-selector']"]
+    },
+    "finding": "No network/chain indicator visible — users may transact on wrong network",
+    "ice": { "impact": 10, "confidence": 6, "ease": 8 },
+    "target_selector": "header, nav, [role='banner']"
+  },
+  {
+    "id": "crypto-no-confirmation-step",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='confirm']", "[class*='review']", "[class*='summary']", "dialog", "[role='dialog']", ".modal"]
+    },
+    "finding": "No transaction confirmation/review step detected — risk of accidental sends",
+    "ice": { "impact": 10, "confidence": 5, "ease": 6 },
+    "target_selector": "form, [class*='swap'], [class*='send']"
+  },
+  {
+    "id": "crypto-address-not-truncated",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["[class*='address']", "[class*='wallet-address']", "[class*='account']"],
+      "property": "textOverflow",
+      "condition": "address_too_long"
+    },
+    "finding": "Wallet address displayed in full without truncation — clutters UI",
+    "ice": { "impact": 4, "confidence": 7, "ease": 9 },
+    "target_selector": "[class*='address'], [class*='wallet-address']"
+  },
+  {
+    "id": "crypto-no-slippage-warning",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='slippage']", "[class*='price-impact']", "[class*='impact']", "[class*='tolerance']"]
+    },
+    "finding": "No slippage/price impact warning visible in swap interface",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='swap'], form"
+  },
+  {
+    "id": "crypto-no-dapp-auth-indicator",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='connected']", "[class*='authenticated']", "[class*='account-info']", "[class*='user-address']"]
+    },
+    "finding": "No dApp connection/authentication status indicator visible",
+    "ice": { "impact": 7, "confidence": 5, "ease": 8 },
+    "target_selector": "header, nav"
+  }
+]

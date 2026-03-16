@@ -1,0 +1,97 @@
+[
+  {
+    "id": "fintech-missing-trust-signals",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='ssl']", "[class*='secure']", "[class*='trust']", "[class*='badge']", "[class*='certification']", "img[alt*='secure']", "img[alt*='trust']"]
+    },
+    "finding": "No trust signals (SSL badges, security icons, certifications) detected",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "body"
+  },
+  {
+    "id": "fintech-no-progress-indicator",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".progress", "[role='progressbar']", ".stepper", ".step-indicator", "[class*='progress']", "[class*='stepper']", "[class*='steps']"]
+    },
+    "finding": "No progress indicator found for multi-step flow — users lose orientation",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "form, main"
+  },
+  {
+    "id": "fintech-form-no-validation",
+    "category": "trust",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[type='email']", "input[type='tel']", "input[type='number']", "input[inputmode='numeric']"],
+      "attribute": "pattern",
+      "condition": "missing"
+    },
+    "finding": "Financial form inputs lack validation patterns — increases error rate",
+    "ice": { "impact": 7, "confidence": 7, "ease": 8 },
+    "target_selector": "input[type='email'], input[type='tel'], input[type='number']"
+  },
+  {
+    "id": "fintech-number-formatting",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["[class*='amount']", "[class*='price']", "[class*='balance']", "[class*='total']", "[class*='currency']"],
+      "property": "fontVariantNumeric",
+      "condition": "not_tabular"
+    },
+    "finding": "Financial numbers not using tabular-nums — digits don't align in columns",
+    "ice": { "impact": 4, "confidence": 7, "ease": 9 },
+    "target_selector": "[class*='amount'], [class*='price'], [class*='balance']"
+  },
+  {
+    "id": "fintech-no-error-states",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[role='alert']", ".error", ".error-message", "[class*='error']", "[aria-invalid]"]
+    },
+    "finding": "No error state elements detected — form errors may not be communicated clearly",
+    "ice": { "impact": 7, "confidence": 5, "ease": 7 },
+    "target_selector": "form"
+  },
+  {
+    "id": "fintech-insecure-input-type",
+    "category": "trust",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[name*='ssn']", "input[name*='social']", "input[name*='tax']", "input[name*='account']", "input[name*='routing']"],
+      "attribute": "type",
+      "condition": "equals",
+      "value": "text"
+    },
+    "finding": "Sensitive financial input uses type='text' — should mask input for security",
+    "ice": { "impact": 9, "confidence": 8, "ease": 9 },
+    "target_selector": "input[name*='ssn'], input[name*='account']"
+  },
+  {
+    "id": "fintech-no-loading-state",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".spinner", ".loader", "[class*='loading']", "[class*='spinner']", "[role='status']", ".skeleton"]
+    },
+    "finding": "No loading/spinner elements found — transactions may feel unresponsive",
+    "ice": { "impact": 6, "confidence": 5, "ease": 7 },
+    "target_selector": "button[type='submit'], form"
+  },
+  {
+    "id": "fintech-no-data-viz-labels",
+    "category": "accessibility",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["svg text", "canvas + [class*='legend']", "[class*='chart'] [class*='label']", "[class*='graph'] [class*='label']", "[role='img'][aria-label]"]
+    },
+    "finding": "Data visualizations may lack text labels or legends — inaccessible",
+    "ice": { "impact": 6, "confidence": 5, "ease": 6 },
+    "target_selector": "svg, canvas, [class*='chart']"
+  }
+]

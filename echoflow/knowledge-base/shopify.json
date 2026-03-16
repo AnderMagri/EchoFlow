@@ -1,0 +1,122 @@
+[
+  {
+    "id": "shopify-atc-below-fold",
+    "category": "conversion",
+    "check": {
+      "type": "element_position",
+      "selectors": ["[name='add']", ".product-form__submit", "form[action*='/cart/add'] button[type='submit']", ".shopify-payment-button__button"],
+      "condition": "below_fold"
+    },
+    "finding": "Add-to-cart button is below the fold on product page",
+    "ice": { "impact": 9, "confidence": 9, "ease": 7 },
+    "target_selector": "[name='add'], .product-form__submit"
+  },
+  {
+    "id": "shopify-no-sticky-header",
+    "category": "conversion",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["header", "[role='banner']", ".header", "#header", ".site-header", ".header-wrapper"],
+      "property": "position",
+      "condition": "not_sticky"
+    },
+    "finding": "Header is not sticky — navigation disappears on scroll",
+    "ice": { "impact": 6, "confidence": 8, "ease": 5 },
+    "target_selector": "header, [role='banner'], .header"
+  },
+  {
+    "id": "shopify-no-reviews-app",
+    "category": "trust",
+    "check": {
+      "type": "script_detection",
+      "sources": ["judge.me", "yotpo", "okendo", "stamped", "loox", "rivyo", "ali-reviews"],
+      "condition": "none_found"
+    },
+    "finding": "No reviews app detected — social proof is missing",
+    "ice": { "impact": 8, "confidence": 7, "ease": 4 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-no-trust-badges",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".trust-badge", "[class*='trust']", "[class*='guarantee']", ".payment-icons", "[class*='payment-icon']", "[class*='secure']"]
+    },
+    "finding": "No trust badges or payment icons found near checkout area",
+    "ice": { "impact": 7, "confidence": 6, "ease": 8 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-no-live-chat",
+    "category": "conversion",
+    "check": {
+      "type": "script_detection",
+      "sources": ["tidio", "gorgias", "zendesk", "zdassets", "intercom", "drift", "crisp", "tawk"],
+      "condition": "none_found"
+    },
+    "finding": "No live chat widget detected — may reduce support accessibility",
+    "ice": { "impact": 5, "confidence": 7, "ease": 3 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-missing-sections",
+    "category": "structure",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[data-section-type]", "[id^='shopify-section-']"]
+    },
+    "finding": "No Shopify sections detected — theme may not use section architecture",
+    "ice": { "impact": 4, "confidence": 8, "ease": 3 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-excessive-scripts",
+    "category": "performance",
+    "check": {
+      "type": "script_detection",
+      "sources": [],
+      "condition": "count_gt",
+      "threshold": 20
+    },
+    "finding": "Excessive number of scripts loaded (>20) — likely slowing page performance",
+    "ice": { "impact": 7, "confidence": 7, "ease": 4 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-product-images-no-alt",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": [".product__media img", ".product-single__media img", "[class*='product'] img"],
+      "attribute": "alt",
+      "condition": "missing"
+    },
+    "finding": "Product images missing alt text — hurts SEO and accessibility",
+    "ice": { "impact": 7, "confidence": 9, "ease": 8 },
+    "target_selector": ".product__media img, [class*='product'] img"
+  },
+  {
+    "id": "shopify-no-predictive-search",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["predictive-search", "[data-predictive-search]", ".predictive-search", "[class*='predictive-search']"]
+    },
+    "finding": "No predictive/autocomplete search detected — may reduce product discovery",
+    "ice": { "impact": 6, "confidence": 7, "ease": 4 },
+    "target_selector": "form[action*='/search'], .search-form"
+  },
+  {
+    "id": "shopify-products-json-unavailable",
+    "category": "structure",
+    "check": {
+      "type": "api_endpoint",
+      "endpoint": "/products.json",
+      "condition": "unavailable"
+    },
+    "finding": "Public /products.json endpoint is disabled or unavailable",
+    "ice": { "impact": 3, "confidence": 10, "ease": 2 },
+    "target_selector": "body"
+  }
+]

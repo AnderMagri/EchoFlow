@@ -1,0 +1,153 @@
+[
+  {
+    "id": "ux-contrast-ratio-body",
+    "category": "accessibility",
+    "check": {
+      "type": "contrast_ratio",
+      "selectors": ["p", "li", "span", "td", "label"],
+      "threshold": 4.5
+    },
+    "finding": "Text has insufficient contrast ratio (below WCAG AA 4.5:1)",
+    "ice": { "impact": 8, "confidence": 9, "ease": 6 },
+    "target_selector": "p, li, span, td, label"
+  },
+  {
+    "id": "ux-contrast-ratio-large-text",
+    "category": "accessibility",
+    "check": {
+      "type": "contrast_ratio",
+      "selectors": ["h1", "h2", "h3", "h4"],
+      "threshold": 3.0
+    },
+    "finding": "Large text has insufficient contrast ratio (below WCAG AA 3:1)",
+    "ice": { "impact": 7, "confidence": 9, "ease": 6 },
+    "target_selector": "h1, h2, h3, h4"
+  },
+  {
+    "id": "ux-touch-target-size",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a", "button", "[role='button']", "input[type='submit']", "input[type='checkbox']", "input[type='radio']"],
+      "property": "minDimension",
+      "condition": "lt",
+      "threshold": 44
+    },
+    "finding": "Interactive element is smaller than 44x44px minimum touch target",
+    "ice": { "impact": 7, "confidence": 8, "ease": 7 },
+    "target_selector": "a, button, [role='button'], input[type='submit']"
+  },
+  {
+    "id": "ux-body-font-size",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["body"],
+      "property": "fontSize",
+      "condition": "lt",
+      "threshold": 16
+    },
+    "finding": "Base body font size is below 16px — may cause readability issues on mobile",
+    "ice": { "impact": 6, "confidence": 9, "ease": 9 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-cta-below-fold",
+    "category": "conversion",
+    "check": {
+      "type": "element_position",
+      "selectors": ["button[type='submit']", ".cta", "[data-cta]", "a.btn-primary", "a.button--primary"],
+      "condition": "below_fold"
+    },
+    "finding": "Primary CTA button is below the fold — users may not see it without scrolling",
+    "ice": { "impact": 9, "confidence": 7, "ease": 8 },
+    "target_selector": "button[type='submit'], .cta, [data-cta]"
+  },
+  {
+    "id": "ux-heading-hierarchy",
+    "category": "structure",
+    "check": {
+      "type": "heading_hierarchy",
+      "selectors": ["h1", "h2", "h3", "h4", "h5", "h6"]
+    },
+    "finding": "Heading hierarchy skips levels (e.g. h1 → h3) — hurts SEO and screen reader navigation",
+    "ice": { "impact": 6, "confidence": 9, "ease": 8 },
+    "target_selector": "h1, h2, h3, h4, h5, h6"
+  },
+  {
+    "id": "ux-img-alt-text",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["img"],
+      "attribute": "alt",
+      "condition": "missing"
+    },
+    "finding": "Image is missing alt text — inaccessible to screen readers and hurts SEO",
+    "ice": { "impact": 7, "confidence": 10, "ease": 9 },
+    "target_selector": "img"
+  },
+  {
+    "id": "ux-form-labels",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input:not([type='hidden']):not([type='submit']):not([type='button'])", "select", "textarea"],
+      "attribute": "aria-label",
+      "condition": "missing_label"
+    },
+    "finding": "Form input has no associated label or aria-label — inaccessible",
+    "ice": { "impact": 7, "confidence": 9, "ease": 8 },
+    "target_selector": "input, select, textarea"
+  },
+  {
+    "id": "ux-viewport-meta",
+    "category": "structure",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["meta[name='viewport']"]
+    },
+    "finding": "Missing viewport meta tag — page won't render properly on mobile",
+    "ice": { "impact": 9, "confidence": 10, "ease": 10 },
+    "target_selector": "head"
+  },
+  {
+    "id": "ux-horizontal-scroll",
+    "category": "structure",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["body"],
+      "property": "overflowX",
+      "condition": "has_overflow"
+    },
+    "finding": "Page has horizontal scroll — content overflows the viewport width",
+    "ice": { "impact": 8, "confidence": 8, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-link-distinguishable",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a"],
+      "property": "textDecoration",
+      "condition": "link_not_distinguishable"
+    },
+    "finding": "Links within text are not visually distinguishable (no underline or distinct color)",
+    "ice": { "impact": 5, "confidence": 6, "ease": 8 },
+    "target_selector": "a"
+  },
+  {
+    "id": "ux-multiple-h1",
+    "category": "structure",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["h1"],
+      "condition": "count_gt",
+      "threshold": 1
+    },
+    "finding": "Page has multiple H1 elements — should have exactly one for SEO",
+    "ice": { "impact": 5, "confidence": 10, "ease": 9 },
+    "target_selector": "h1"
+  }
+]
