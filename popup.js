@@ -13,6 +13,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedVertical = 'generic-ux';
 
+  // ── Page Type Options per Vertical ──
+
+  const PAGE_TYPES = {
+    'shopify': [
+      { value: 'homepage', label: 'Homepage' },
+      { value: 'pdp', label: 'Product Detail Page (PDP)' },
+      { value: 'collection', label: 'Collection Page' },
+      { value: 'checkout', label: 'Checkout' },
+      { value: 'landing', label: 'Landing Page' },
+      { value: 'other', label: 'Other' }
+    ],
+    'fintech': [
+      { value: 'dashboard', label: 'Dashboard' },
+      { value: 'onboarding', label: 'Onboarding / KYC' },
+      { value: 'portfolio', label: 'Portfolio Overview' },
+      { value: 'transactions', label: 'Transaction History' },
+      { value: 'payment', label: 'Payment / Transfer' },
+      { value: 'card-management', label: 'Card Management' },
+      { value: 'landing', label: 'Landing Page' },
+      { value: 'pricing', label: 'Pricing Page' },
+      { value: 'other', label: 'Other' }
+    ],
+    'crypto': [
+      { value: 'wallet', label: 'Wallet' },
+      { value: 'exchange', label: 'Exchange / Trading' },
+      { value: 'defi', label: 'DeFi Protocol' },
+      { value: 'token-detail', label: 'Token / NFT Detail' },
+      { value: 'onboarding', label: 'Onboarding' },
+      { value: 'portfolio', label: 'Portfolio' },
+      { value: 'staking', label: 'Staking / Yield' },
+      { value: 'landing', label: 'Landing Page' },
+      { value: 'other', label: 'Other' }
+    ]
+  };
+
+  function updatePageTypeSelector(vertical) {
+    const section = document.getElementById('page-type-section');
+    const select = document.getElementById('page-type-select');
+
+    if (!PAGE_TYPES[vertical]) {
+      section.style.display = 'none';
+      return;
+    }
+
+    select.innerHTML = PAGE_TYPES[vertical]
+      .map(opt => `<option value="${opt.value}">${opt.label}</option>`)
+      .join('');
+    section.style.display = 'block';
+  }
+
   // ── Vertical Selection ──
 
   document.querySelectorAll('.vertical-card').forEach(card => {
@@ -20,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.vertical-card').forEach(c => c.classList.remove('active'));
       card.classList.add('active');
       selectedVertical = card.dataset.vertical;
+      updatePageTypeSelector(selectedVertical);
     });
   });
 
@@ -53,9 +104,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
+      const pageTypeSelect = document.getElementById('page-type-select');
+      const pageType = PAGE_TYPES[selectedVertical] ? pageTypeSelect.value : null;
+
       const result = await chrome.runtime.sendMessage({
         action: 'START_AUDIT',
         vertical: selectedVertical,
+        pageType: pageType,
         mode: mode,
         resolution: getSelectedResolution()
       });

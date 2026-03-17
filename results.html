@@ -20,6 +20,8 @@
       <span class="toolbar-sep">|</span>
       <a id="audit-url" class="toolbar-url" href="#" target="_blank"></a>
       <span id="audit-badge" class="badge"></span>
+      <span id="audit-page-type" class="badge badge-secondary" style="display:none;"></span>
+      <span id="audit-device" class="badge badge-device"></span>
       <span id="audit-time" class="toolbar-time"></span>
     </div>
     <div class="toolbar-right">
@@ -38,6 +40,10 @@
       <button id="btn-copy-all" class="toolbar-btn" title="Copy All Findings">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M3 11V3a1 1 0 011-1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Copy All
+      </button>
+      <button id="btn-export-figma" class="toolbar-btn toolbar-btn-accent" title="Export Figma Run It script">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 1h3v4.5H5a2.25 2.25 0 010-4.5z" stroke="currentColor" stroke-width="1.3"/><path d="M8 1h3a2.25 2.25 0 010 4.5H8V1z" stroke="currentColor" stroke-width="1.3"/><path d="M8 5.5h3a2.25 2.25 0 010 4.5H8V5.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5 5.5h3V10H5a2.25 2.25 0 010-4.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5 10h3v2.25A2.25 2.25 0 015.75 14.5h-.5A2.25 2.25 0 013 12.25v0C3 11.01 3.76 10 5 10z" stroke="currentColor" stroke-width="1.3"/></svg>
+        Figma Export
       </button>
     </div>
   </header>
@@ -80,7 +86,11 @@
           <div id="ai-placeholder" class="ai-placeholder">
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="#00C9A7" stroke-width="2" stroke-dasharray="4 4"/><path d="M14 20h12M20 14v12" stroke="#00C9A7" stroke-width="2" stroke-linecap="round"/></svg>
             <p>Run AI analysis for deeper insights and prioritized recommendations.</p>
-            <button id="btn-run-ai" class="btn-ai">Analyze with Claude</button>
+            <div class="audit-context-wrap">
+              <label class="audit-context-label" for="audit-context">Audit Context <span class="optional-hint">(optional)</span></label>
+              <textarea id="audit-context" class="audit-context" rows="3" placeholder="Add context for the AI — e.g. &quot;Focus on checkout conversion&quot;, &quot;This is a redesign, compare to competitors&quot;, &quot;The client wants to improve mobile engagement&quot;..."></textarea>
+            </div>
+            <button id="btn-run-ai" class="btn-ai">Analyze with AI</button>
           </div>
           <div id="ai-loading" class="ai-loading" style="display:none;">
             <div class="spinner-ring"></div>
@@ -98,9 +108,63 @@
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3>Settings</h3>
-      <label class="settings-label">Anthropic API Key</label>
-      <input type="password" id="api-key-input" class="settings-input" placeholder="sk-ant-...">
-      <p class="settings-hint">Your key is stored locally and never sent anywhere except the Anthropic API.</p>
+      <label class="settings-label">AI Provider</label>
+      <select id="provider-select" class="settings-input">
+        <option value="claude">Claude (Anthropic)</option>
+        <option value="gemini">Gemini (Google)</option>
+      </select>
+      <div id="claude-key-group">
+        <label class="settings-label">Anthropic API Key</label>
+        <input type="password" id="claude-key-input" class="settings-input" placeholder="sk-ant-...">
+      </div>
+      <div id="gemini-key-group" style="display:none;">
+        <label class="settings-label">Gemini API Key</label>
+        <input type="password" id="gemini-key-input" class="settings-input" placeholder="AIza...">
+      </div>
+      <p class="settings-hint">Keys are stored locally and only sent to the selected provider's API.</p>
+
+      <hr class="settings-divider">
+      <h4 class="settings-section-title">Presentation Export</h4>
+
+      <label class="settings-label">Frame Size</label>
+      <select id="pres-frame-size" class="settings-input">
+        <option value="1920x1080">1920 x 1080 (16:9)</option>
+        <option value="1280x720">1280 x 720 (16:9)</option>
+        <option value="1600x900">1600 x 900 (16:9)</option>
+        <option value="custom">Custom</option>
+      </select>
+      <div id="pres-custom-size" style="display:none;" class="settings-row">
+        <input type="number" id="pres-width" class="settings-input settings-input-half" placeholder="Width" value="1920">
+        <span class="settings-x">x</span>
+        <input type="number" id="pres-height" class="settings-input settings-input-half" placeholder="Height" value="1080">
+      </div>
+
+      <label class="settings-label">Background Color</label>
+      <div class="settings-row">
+        <input type="color" id="pres-bg-color" class="settings-color" value="#000000">
+        <input type="text" id="pres-bg-hex" class="settings-input settings-input-color" value="#000000" maxlength="7">
+      </div>
+
+      <label class="settings-label">Layout</label>
+      <div class="pres-layout-options">
+        <label class="pres-layout-option">
+          <input type="radio" name="pres-layout" value="screenshot-left" checked>
+          <span class="pres-layout-preview">
+            <span class="pres-col pres-col-img"></span>
+            <span class="pres-col pres-col-txt"></span>
+          </span>
+          <span class="pres-layout-name">Screenshot | Content</span>
+        </label>
+        <label class="pres-layout-option">
+          <input type="radio" name="pres-layout" value="screenshot-right">
+          <span class="pres-layout-preview">
+            <span class="pres-col pres-col-txt"></span>
+            <span class="pres-col pres-col-img"></span>
+          </span>
+          <span class="pres-layout-name">Content | Screenshot</span>
+        </label>
+      </div>
+
       <div class="modal-actions">
         <button id="btn-save-settings" class="btn-primary-sm">Save</button>
         <button id="btn-cancel-settings" class="btn-secondary-sm">Cancel</button>

@@ -49,6 +49,21 @@
 
     document.getElementById('audit-badge').textContent = auditData.meta.vertical.replace('-', ' ');
 
+    // Device badge
+    const device = auditData.meta.device || 'desktop';
+    const deviceBadge = document.getElementById('audit-device');
+    if (deviceBadge) {
+      const icon = device === 'mobile' ? '\u{1F4F1}' : device === 'tablet' ? '\u{1F4CB}' : '\u{1F5A5}';
+      deviceBadge.textContent = icon + ' ' + device;
+    }
+
+    // Page type badge
+    const pageTypeBadge = document.getElementById('audit-page-type');
+    if (pageTypeBadge && auditData.meta.pageType) {
+      pageTypeBadge.textContent = auditData.meta.pageType.replace(/-/g, ' ');
+      pageTypeBadge.style.display = 'inline-block';
+    }
+
     const date = new Date(auditData.meta.timestamp);
     document.getElementById('audit-time').textContent = date.toLocaleString();
   }
@@ -72,8 +87,13 @@
 
     if (!img.naturalWidth) return;
 
-    const scaleX = img.clientWidth / (auditData.meta.viewport?.width || img.naturalWidth);
-    const scaleY = img.clientHeight / (auditData.meta.viewport?.height || img.naturalHeight);
+    const isFullPage = auditData.meta.captureMode === 'full_page';
+    const sourceWidth = auditData.meta.viewport?.width || img.naturalWidth;
+    const sourceHeight = isFullPage
+      ? (auditData.meta.scrollHeight || img.naturalHeight)
+      : (auditData.meta.viewport?.height || img.naturalHeight);
+    const scaleX = img.clientWidth / sourceWidth;
+    const scaleY = img.clientHeight / sourceHeight;
 
     findings.forEach((finding) => {
       const marker = document.createElement('div');
@@ -306,6 +326,274 @@
     reader.readAsText(file);
   }
 
+  // ── Export to Figma ──
+
+  function getPresSettings() {
+    const sizeVal = document.getElementById('pres-frame-size').value;
+    let width, height;
+    if (sizeVal === 'custom') {
+      width = parseInt(document.getElementById('pres-width').value) || 1920;
+      height = parseInt(document.getElementById('pres-height').value) || 1080;
+    } else {
+      [width, height] = sizeVal.split('x').map(Number);
+    }
+    const bgColor = document.getElementById('pres-bg-hex').value || '#000000';
+    const layout = document.querySelector('input[name="pres-layout"]:checked')?.value || 'screenshot-left';
+    return { width, height, bgColor, layout };
+  }
+
+  function exportToFigma() {
+    if (!auditData || findings.length === 0) {
+      showToast('No findings to export');
+      return;
+    }
+
+    const pres = getPresSettings();
+    const W = pres.width;
+    const H = pres.height;
+    const bg = pres.bgColor;
+    const layout = pres.layout;
+    const url = auditData.meta.url;
+    const vertical = auditData.meta.vertical.replace('-', ' ');
+    const dateStr = new Date(auditData.meta.timestamp).toLocaleString();
+
+    // Parse hex color to Figma RGB (0-1)
+    function hexToFigma(hex) {
+      const h = hex.replace('#', '');
+      return {
+        r: parseInt(h.substring(0, 2), 16) / 255,
+        g: parseInt(h.substring(2, 4), 16) / 255,
+        b: parseInt(h.substring(4, 6), 16) / 255
+      };
+    }
+
+    const bgRgb = hexToFigma(bg);
+    // Determine text color based on bg brightness
+    const bgLum = 0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b;
+    const txtColor = bgLum > 0.5 ? '{r:0.1,g:0.1,b:0.18}' : '{r:1,g:1,b:1}';
+    const subtxtColor = bgLum > 0.5 ? '{r:0.4,g:0.4,b:0.45}' : '{r:0.65,g:0.65,b:0.7}';
+    const accentColor = '{r:0,g:0.788,b:0.655}'; // #00C9A7
+
+    // Screenshot base64 (strip data URI prefix)
+    const screenshotB64 = auditData.screenshot
+      ? auditData.screenshot.split(',')[1] || ''
+      : '';
+
+    // Column positions based on layout
+    const PAD = 80;
+    const GAP = 60;
+    const colW = Math.floor((W - PAD * 2 - GAP) / 2);
+    const imgX = layout === 'screenshot-left' ? PAD : PAD + colW + GAP;
+    const txtX = layout === 'screenshot-left' ? PAD + colW + GAP : PAD;
+
+    // Build the Figma Plugin API script
+    let script = `
+// EchoFlow Presentation — Auto-generated for Figma Run It
+// ${url} | ${vertical} | ${dateStr}
+
+(async () => {
+  // ── Helpers ──
+  const W = ${W}, H = ${H};
+  const PAD = ${PAD}, GAP = ${GAP}, COL_W = ${colW};
+  const IMG_X = ${imgX}, TXT_X = ${txtX};
+  const BG = {r:${bgRgb.r.toFixed(3)},g:${bgRgb.g.toFixed(3)},b:${bgRgb.b.toFixed(3)}};
+  const TXT = ${txtColor};
+  const SUBTXT = ${subtxtColor};
+  const ACCENT = ${accentColor};
+
+  await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+  await figma.loadFontAsync({ family: "Inter", style: "Bold" });
+  await figma.loadFontAsync({ family: "Inter", style: "Semi Bold" });
+
+  let imageHash = null;
+`;
+
+    // Add screenshot decoding if available
+    if (screenshotB64) {
+      script += `
+  // Decode screenshot
+  try {
+    const b64 = "${screenshotB64}";
+    const raw = atob(b64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    const img = figma.createImage(arr);
+    imageHash = img.hash;
+  } catch(e) {
+    console.log("Screenshot decode failed:", e);
+  }
+`;
+    }
+
+    script += `
+  const section = figma.createSection();
+  section.name = "EchoFlow — ${escapeStr(url)}";
+  let slideY = 0;
+
+  function createSlide(name) {
+    const frame = figma.createFrame();
+    frame.name = name;
+    frame.resize(W, H);
+    frame.x = 0;
+    frame.y = slideY;
+    frame.fills = [{ type: "SOLID", color: BG }];
+    frame.clipsContent = true;
+    section.appendChild(frame);
+    slideY += H + 100;
+    return frame;
+  }
+
+  function addText(parent, x, y, w, text, size, color, weight) {
+    const t = figma.createText();
+    t.x = x;
+    t.y = y;
+    t.resize(w, size * 2);
+    t.textAutoResize = "HEIGHT";
+    t.characters = text;
+    t.fontSize = size;
+    t.fills = [{ type: "SOLID", color: color }];
+    t.fontName = { family: "Inter", style: weight || "Regular" };
+    parent.appendChild(t);
+    return t;
+  }
+
+  function addScreenshot(parent, x, y, w, h) {
+    const rect = figma.createRectangle();
+    rect.name = "Screenshot";
+    rect.x = x;
+    rect.y = y;
+    rect.resize(w, h);
+    rect.cornerRadius = 12;
+    if (imageHash) {
+      rect.fills = [{ type: "IMAGE", imageHash: imageHash, scaleMode: "FIT" }];
+    } else {
+      rect.fills = [{ type: "SOLID", color: { r: 0.15, g: 0.15, b: 0.2 } }];
+    }
+    parent.appendChild(rect);
+    return rect;
+  }
+
+  function addBadge(parent, x, y, text, color) {
+    const badge = figma.createFrame();
+    badge.name = "Badge";
+    badge.x = x;
+    badge.y = y;
+    badge.cornerRadius = 6;
+    badge.fills = [{ type: "SOLID", color: color, opacity: 0.15 }];
+    badge.layoutMode = "HORIZONTAL";
+    badge.paddingLeft = 12;
+    badge.paddingRight = 12;
+    badge.paddingTop = 6;
+    badge.paddingBottom = 6;
+    badge.primaryAxisSizingMode = "AUTO";
+    badge.counterAxisSizingMode = "AUTO";
+    const t = figma.createText();
+    t.characters = text;
+    t.fontSize = 14;
+    t.fills = [{ type: "SOLID", color: color }];
+    t.fontName = { family: "Inter", style: "Semi Bold" };
+    badge.appendChild(t);
+    parent.appendChild(badge);
+    return badge;
+  }
+`;
+
+    // ── Slide 1: Title ──
+    script += `
+  // ── Title Slide ──
+  {
+    const slide = createSlide("Title");
+    addText(slide, TXT_X, ${H * 0.25}, COL_W, "UX Audit Report", 56, TXT, "Bold");
+    addText(slide, TXT_X, ${H * 0.25 + 80}, COL_W, "${escapeStr(url)}", 22, ACCENT, "Semi Bold");
+    addText(slide, TXT_X, ${H * 0.25 + 120}, COL_W, "${escapeStr(vertical)} | ${escapeStr(dateStr)}", 18, SUBTXT, "Regular");
+    addText(slide, TXT_X, ${H * 0.25 + 160}, COL_W, "${findings.length} findings identified", 18, SUBTXT, "Regular");
+    addScreenshot(slide, IMG_X, PAD, COL_W, H - PAD * 2);
+  }
+`;
+
+    // ── Finding slides ──
+    findings.forEach((f) => {
+      const cat = f.category.toUpperCase();
+      const desc = escapeStr(f.description);
+      const iceText = `Impact: ${f.ice.impact}/10    Confidence: ${f.ice.confidence}/10    Ease: ${f.ice.ease}/10    Average: ${iceAverage(f.ice)}`;
+
+      script += `
+  // ── Finding #${f.number} ──
+  {
+    const slide = createSlide("Finding #${f.number}");
+    addScreenshot(slide, IMG_X, PAD, COL_W, H - PAD * 2);
+
+    // Finding number circle
+    const circle = figma.createEllipse();
+    circle.name = "Number";
+    circle.x = TXT_X;
+    circle.y = ${PAD + 20};
+    circle.resize(56, 56);
+    circle.fills = [{ type: "SOLID", color: ACCENT }];
+    slide.appendChild(circle);
+    const numText = addText(slide, TXT_X + 16, ${PAD + 32}, 24, "${f.number}", 24, {r:1,g:1,b:1}, "Bold");
+
+    addBadge(slide, TXT_X + 72, ${PAD + 30}, "${cat}", ACCENT);
+
+    addText(slide, TXT_X, ${PAD + 110}, COL_W, "Finding #${f.number}", 40, TXT, "Bold");
+    addText(slide, TXT_X, ${PAD + 170}, COL_W, "${desc}", 24, SUBTXT, "Regular");
+
+    // ICE scores
+    addText(slide, TXT_X, ${H - PAD - 100}, COL_W, "ICE Score", 16, SUBTXT, "Semi Bold");
+    addText(slide, TXT_X, ${H - PAD - 70}, COL_W, "${iceText}", 16, TXT, "Regular");
+  }
+`;
+    });
+
+    // ── Summary slide ──
+    const categories = findings.reduce((acc, f) => {
+      acc[f.category] = (acc[f.category] || 0) + 1;
+      return acc;
+    }, {});
+    const avgScore = (findings.reduce((sum, f) => sum + parseFloat(iceAverage(f.ice)), 0) / findings.length).toFixed(1);
+    const catLines = Object.entries(categories).map(([k, v]) => `${k}: ${v}`).join('    ');
+
+    script += `
+  // ── Summary Slide ──
+  {
+    const slide = createSlide("Summary");
+    addScreenshot(slide, IMG_X, PAD, COL_W, H - PAD * 2);
+
+    addText(slide, TXT_X, ${PAD + 20}, COL_W, "Summary", 56, TXT, "Bold");
+    addText(slide, TXT_X, ${PAD + 110}, COL_W, "Total Findings", 16, SUBTXT, "Semi Bold");
+    addText(slide, TXT_X, ${PAD + 135}, COL_W, "${findings.length}", 48, ACCENT, "Bold");
+
+    addText(slide, TXT_X, ${PAD + 220}, COL_W, "Average ICE Score", 16, SUBTXT, "Semi Bold");
+    addText(slide, TXT_X, ${PAD + 245}, COL_W, "${avgScore}", 48, ACCENT, "Bold");
+
+    addText(slide, TXT_X, ${PAD + 340}, COL_W, "Categories", 16, SUBTXT, "Semi Bold");
+    addText(slide, TXT_X, ${PAD + 370}, COL_W, "${escapeStr(catLines)}", 20, TXT, "Regular");
+
+    addText(slide, TXT_X, ${H - PAD - 40}, COL_W, "Generated by EchoFlow", 14, SUBTXT, "Regular");
+  }
+
+  // Focus on the section
+  figma.viewport.scrollAndZoomIntoView([section]);
+  figma.notify("EchoFlow: ${findings.length + 2} slides created ✓");
+})();
+`;
+
+    // Save as .js file
+    const blob = new Blob([script], { type: 'text/javascript' });
+    const dlUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fileDateStr = new Date().toISOString().slice(0, 10);
+    a.href = dlUrl;
+    a.download = `echoflow-presentation-${fileDateStr}.js`;
+    a.click();
+    URL.revokeObjectURL(dlUrl);
+    showToast('Figma script exported — paste into Run It plugin');
+  }
+
+  function escapeStr(str) {
+    return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
+  }
+
   // ── Copy All ──
 
   function copyAllFindings() {
@@ -320,12 +608,13 @@
   // ── AI Analysis ──
 
   async function runAIAnalysis() {
-    const stored = await chrome.storage.local.get('echoflowApiKey');
-    const apiKey = stored.echoflowApiKey;
+    const stored = await chrome.storage.local.get(['echoflowProvider', 'echoflowClaudeKey', 'echoflowGeminiKey']);
+    const provider = stored.echoflowProvider || 'claude';
+    const apiKey = provider === 'gemini' ? stored.echoflowGeminiKey : stored.echoflowClaudeKey;
 
     if (!apiKey) {
       openSettings();
-      showToast('Set your API key first');
+      showToast('Set your ' + (provider === 'gemini' ? 'Gemini' : 'Claude') + ' API key first');
       return;
     }
 
@@ -336,10 +625,15 @@
     document.getElementById('ai-error').style.display = 'none';
 
     try {
+      const contextEl = document.getElementById('audit-context');
+      const auditContext = contextEl ? contextEl.value.trim() : '';
+
       const response = await chrome.runtime.sendMessage({
         action: 'AI_ANALYZE',
         data: auditData,
-        apiKey: apiKey
+        apiKey: apiKey,
+        provider: provider,
+        auditContext: auditContext || null
       });
 
       document.getElementById('ai-loading').style.display = 'none';
@@ -380,9 +674,39 @@
   function openSettings() {
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';
-    chrome.storage.local.get('echoflowApiKey', (stored) => {
-      document.getElementById('api-key-input').value = stored.echoflowApiKey || '';
+    chrome.storage.local.get([
+      'echoflowProvider', 'echoflowClaudeKey', 'echoflowGeminiKey',
+      'echoflowPresSize', 'echoflowPresWidth', 'echoflowPresHeight',
+      'echoflowPresBg', 'echoflowPresLayout'
+    ], (stored) => {
+      // AI settings
+      const provider = stored.echoflowProvider || 'claude';
+      document.getElementById('provider-select').value = provider;
+      document.getElementById('claude-key-input').value = stored.echoflowClaudeKey || '';
+      document.getElementById('gemini-key-input').value = stored.echoflowGeminiKey || '';
+      toggleKeyFields(provider);
+
+      // Presentation settings
+      document.getElementById('pres-frame-size').value = stored.echoflowPresSize || '1920x1080';
+      toggleCustomSize(stored.echoflowPresSize || '1920x1080');
+      if (stored.echoflowPresWidth) document.getElementById('pres-width').value = stored.echoflowPresWidth;
+      if (stored.echoflowPresHeight) document.getElementById('pres-height').value = stored.echoflowPresHeight;
+      const bg = stored.echoflowPresBg || '#000000';
+      document.getElementById('pres-bg-color').value = bg;
+      document.getElementById('pres-bg-hex').value = bg;
+      const layout = stored.echoflowPresLayout || 'screenshot-left';
+      const layoutRadio = document.querySelector(`input[name="pres-layout"][value="${layout}"]`);
+      if (layoutRadio) layoutRadio.checked = true;
     });
+  }
+
+  function toggleKeyFields(provider) {
+    document.getElementById('claude-key-group').style.display = provider === 'claude' ? 'block' : 'none';
+    document.getElementById('gemini-key-group').style.display = provider === 'gemini' ? 'block' : 'none';
+  }
+
+  function toggleCustomSize(sizeVal) {
+    document.getElementById('pres-custom-size').style.display = sizeVal === 'custom' ? 'flex' : 'none';
   }
 
   function closeSettings() {
@@ -390,10 +714,27 @@
   }
 
   function saveSettings() {
-    const key = document.getElementById('api-key-input').value.trim();
-    chrome.storage.local.set({ echoflowApiKey: key }, () => {
+    const provider = document.getElementById('provider-select').value;
+    const claudeKey = document.getElementById('claude-key-input').value.trim();
+    const geminiKey = document.getElementById('gemini-key-input').value.trim();
+    const presSize = document.getElementById('pres-frame-size').value;
+    const presWidth = document.getElementById('pres-width').value;
+    const presHeight = document.getElementById('pres-height').value;
+    const presBg = document.getElementById('pres-bg-hex').value.trim();
+    const presLayout = document.querySelector('input[name="pres-layout"]:checked')?.value || 'screenshot-left';
+
+    chrome.storage.local.set({
+      echoflowProvider: provider,
+      echoflowClaudeKey: claudeKey,
+      echoflowGeminiKey: geminiKey,
+      echoflowPresSize: presSize,
+      echoflowPresWidth: presWidth,
+      echoflowPresHeight: presHeight,
+      echoflowPresBg: presBg,
+      echoflowPresLayout: presLayout
+    }, () => {
       closeSettings();
-      showToast(key ? 'API key saved' : 'API key cleared');
+      showToast('Settings saved');
     });
   }
 
@@ -459,6 +800,7 @@
     // ── Toolbar Buttons ──
     document.getElementById('btn-save').addEventListener('click', saveAudit);
     document.getElementById('btn-copy-all').addEventListener('click', copyAllFindings);
+    document.getElementById('btn-export-figma').addEventListener('click', exportToFigma);
     document.getElementById('btn-settings').addEventListener('click', openSettings);
 
     const importInput = document.getElementById('import-input');
@@ -477,6 +819,22 @@
     document.getElementById('btn-run-ai').addEventListener('click', runAIAnalysis);
 
     // ── Settings Modal ──
+    document.getElementById('provider-select').addEventListener('change', (e) => {
+      toggleKeyFields(e.target.value);
+    });
+    document.getElementById('pres-frame-size').addEventListener('change', (e) => {
+      toggleCustomSize(e.target.value);
+    });
+    // Sync color picker ↔ hex input
+    document.getElementById('pres-bg-color').addEventListener('input', (e) => {
+      document.getElementById('pres-bg-hex').value = e.target.value;
+    });
+    document.getElementById('pres-bg-hex').addEventListener('input', (e) => {
+      const hex = e.target.value;
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        document.getElementById('pres-bg-color').value = hex;
+      }
+    });
     document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
     document.getElementById('btn-cancel-settings').addEventListener('click', closeSettings);
     document.querySelector('.modal-backdrop')?.addEventListener('click', closeSettings);

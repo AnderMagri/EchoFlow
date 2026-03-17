@@ -64,7 +64,7 @@ function findFirstMatchPosition(data, selectors) {
   const matched = findMatchingElements(data, selectors);
   if (matched.length > 0) {
     const b = matched[0].bounds;
-    return { x: b.left, y: b.top, width: b.width, height: b.height };
+    return { x: b.absoluteLeft || b.left, y: b.absoluteTop || b.top, width: b.width, height: b.height };
   }
   return { x: 0, y: 0, width: 100, height: 30 };
 }
@@ -77,7 +77,7 @@ function checkElementExists(check, data) {
   if (check.condition === 'count_gt') {
     if (matched.length > (check.threshold || 1)) {
       return matched.map(el => ({
-        position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
         selector: el.selector
       }));
     }
@@ -87,7 +87,7 @@ function checkElementExists(check, data) {
   // Default: finding fires if element exists
   if (matched.length > 0) {
     return matched.map(el => ({
-      position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+      position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
       selector: el.selector
     }));
   }
@@ -202,7 +202,7 @@ function checkComputedStyle(check, data) {
 
     if (fires) {
       results.push({
-        position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
         selector: el.selector
       });
     }
@@ -233,7 +233,7 @@ function checkContrastRatio(check, data) {
 
     if (ratio !== null && ratio < check.threshold) {
       results.push({
-        position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
         selector: el.selector,
         detail: 'Contrast ratio: ' + ratio.toFixed(2) + ':1 (required: ' + check.threshold + ':1)'
       });
@@ -271,7 +271,7 @@ function checkAttributeCheck(check, data) {
 
     if (fires) {
       results.push({
-        position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
         selector: el.selector
       });
     }
@@ -378,7 +378,7 @@ function checkTextContent(check, data) {
         // Check if it also lacks aria-label
         if (!el.attributes?.['aria-label'] && !el.attributes?.['aria-labelledby']) {
           results.push({
-            position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
             selector: el.selector,
             detail: 'Empty text content'
           });
@@ -391,7 +391,7 @@ function checkTextContent(check, data) {
       for (const pat of placeholderPatterns) {
         if (pat.test(text)) {
           results.push({
-            position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
             selector: el.selector,
             detail: 'Contains placeholder text: "' + text.substring(0, 40) + '..."'
           });
@@ -404,7 +404,7 @@ function checkTextContent(check, data) {
       for (const issue of grammarIssues) {
         if (issue.pattern.test(text)) {
           results.push({
-            position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
             selector: el.selector,
             detail: '"' + text.substring(0, 30) + '" — ' + issue.desc
           });
@@ -429,7 +429,7 @@ function checkFocusVisible(check, data) {
     if (!styles) continue;
     if (styles.outlineStyle === 'none' && !styles.boxShadow) {
       results.push({
-        position: { x: el.bounds.left, y: el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
         selector: el.selector
       });
     }

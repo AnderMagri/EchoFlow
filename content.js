@@ -395,6 +395,53 @@
       return true;
     }
 
-    // scrollHeight is now captured in CAPTURE_DOM response for wireframe layout
+    if (message.action === 'SCROLL_TO') {
+      // Force instant scroll — override any smooth scrolling on the page
+      document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+      window.scrollTo({ top: message.y, behavior: 'instant' });
+      // Small delay for repaint
+      setTimeout(() => {
+        sendResponse({ success: true, scrollY: window.scrollY });
+      }, 50);
+      return true;
+    }
+
+    if (message.action === 'GET_SCROLL_INFO') {
+      sendResponse({
+        success: true,
+        scrollY: window.scrollY,
+        scrollHeight: document.documentElement.scrollHeight,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+        devicePixelRatio: window.devicePixelRatio || 1
+      });
+      return true;
+    }
+
+    if (message.action === 'HIDE_FIXED_ELEMENTS') {
+      // Hide sticky/fixed elements (headers, navs, chat widgets) to avoid duplication in stitched screenshots
+      const fixed = document.querySelectorAll('*');
+      const hidden = [];
+      for (const el of fixed) {
+        const pos = getComputedStyle(el).position;
+        if ((pos === 'fixed' || pos === 'sticky') && el.tagName !== 'HTML' && el.tagName !== 'BODY') {
+          hidden.push({ el, display: el.style.display });
+          el.style.setProperty('display', 'none', 'important');
+        }
+      }
+      window.__echoflowHiddenFixed = hidden;
+      sendResponse({ success: true, count: hidden.length });
+      return true;
+    }
+
+    if (message.action === 'RESTORE_FIXED_ELEMENTS') {
+      const hidden = window.__echoflowHiddenFixed || [];
+      for (const item of hidden) {
+        item.el.style.display = item.display;
+      }
+      window.__echoflowHiddenFixed = [];
+      sendResponse({ success: true });
+      return true;
+    }
   });
 })();

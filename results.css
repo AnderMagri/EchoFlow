@@ -78,6 +78,15 @@ body {
   flex-shrink: 0;
 }
 
+.badge-secondary {
+  background: #6366f1;
+}
+
+.badge-device {
+  background: #475569;
+  text-transform: capitalize;
+}
+
 .toolbar-time {
   font-size: 11px;
   color: #888;
@@ -109,6 +118,16 @@ body {
 .toolbar-btn:hover {
   background: rgba(255,255,255,0.1);
   color: #fff;
+}
+
+.toolbar-btn-accent {
+  border-color: #00C9A7;
+  color: #00C9A7;
+}
+
+.toolbar-btn-accent:hover {
+  background: rgba(0,201,167,0.15);
+  color: #00C9A7;
 }
 
 /* ── Main Layout ── */
@@ -422,10 +441,53 @@ body {
 }
 
 .ai-placeholder p {
-  margin: 16px 0 24px;
+  margin: 16px 0 20px;
   font-size: 14px;
   max-width: 320px;
   line-height: 1.5;
+}
+
+.audit-context-wrap {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.audit-context-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.audit-context-label .optional-hint {
+  font-weight: 400;
+  color: #aaa;
+}
+
+.audit-context {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1a1a2e;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+
+.audit-context:focus {
+  outline: none;
+  border-color: #00C9A7;
+  box-shadow: 0 0 0 1px #00C9A7;
+}
+
+.audit-context::placeholder {
+  color: #bbb;
 }
 
 .btn-ai {
@@ -534,8 +596,10 @@ body {
   background: #fff;
   border-radius: 12px;
   padding: 24px;
-  width: 400px;
+  width: 420px;
   max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 
@@ -560,6 +624,13 @@ body {
   font-size: 13px;
   font-family: inherit;
   outline: none;
+  margin-bottom: 12px;
+}
+
+select.settings-input {
+  cursor: pointer;
+  background: #fff;
+  appearance: auto;
 }
 
 .settings-input:focus {
@@ -571,6 +642,110 @@ body {
   color: #999;
   margin-top: 6px;
   line-height: 1.4;
+}
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 20px 0 16px;
+}
+
+.settings-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 14px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-input-half {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.settings-x {
+  color: #999;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.settings-color {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.settings-input-color {
+  flex: 1;
+  margin-bottom: 0;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 13px;
+}
+
+/* Presentation Layout Picker */
+.pres-layout-options {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.pres-layout-option {
+  flex: 1;
+  cursor: pointer;
+}
+
+.pres-layout-option input {
+  display: none;
+}
+
+.pres-layout-preview {
+  display: flex;
+  gap: 3px;
+  height: 48px;
+  padding: 4px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.pres-layout-option input:checked + .pres-layout-preview {
+  border-color: #00C9A7;
+  box-shadow: 0 0 0 1px #00C9A7;
+}
+
+.pres-col {
+  border-radius: 3px;
+  flex: 1;
+}
+
+.pres-col-img {
+  background: #bbb;
+}
+
+.pres-col-txt {
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pres-layout-name {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
 }
 
 .modal-actions {

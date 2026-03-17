@@ -40,10 +40,8 @@ async function fetchApiEndpoints(origin, rules) {
 }
 
 // ── Screenshot Capture (local display only — never sent to AI) ──
-// Always captures current viewport only. Hides scrollbar before capture.
 
-async function captureScreenshot(tabId, resolution) {
-  // resolution: '100' = standard, '120' = high-res (1.2x)
+async function captureViewport(tabId, resolution) {
   const scale = resolution === '120' ? 1.2 : 1.0;
 
   // Hide scrollbar before capture
@@ -86,6 +84,157 @@ async function captureScreenshot(tabId, resolution) {
   return dataUrl;
 }
 
+async function captureFullPage(tabId) {
+  // Get page dimensions
+  const scrollInfo = await chrome.tabs.sendMessage(tabId, { action: 'GET_SCROLL_INFO' });
+  if (!scrollInfo?.success) {
+    throw new Error('Could not get scroll info');
+  }
+
+  const { scrollHeight, viewportHeight, viewportWidth, devicePixelRatio } = scrollInfo;
+  const dpr = devicePixelRatio || 1;
+  const originalScrollY = scrollInfo.scrollY;
+
+  // Cap at reasonable height to avoid memory issues (max ~15000px)
+  const totalHeight = Math.min(scrollHeight, 15000);
+  const maxScrollY = totalHeight - viewportHeight;
+
+  // Disable smooth scrolling and hide scrollbar (but keep scroll functional)
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+      const style = document.createElement('style');
+      style.id = '__echoflow-hide-scrollbar';
+      style.textContent = `
+        html::-webkit-scrollbar { display: none !important; }
+        html { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+      `;
+      document.head.appendChild(style);
+    }
+  });
+
+  // Capture first viewport (keep fixed/sticky elements visible for first strip)
+  await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: 0 });
+  await sleep(400);
+  const firstStrip = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 90 });
+  await sleep(600); // Rate limit: max ~2 captureVisibleTab calls/sec
+
+  // Each strip tracks: actual scroll position, how much to crop from top, and output Y
+  const strips = [{
+    dataUrl: firstStrip,
+    srcY: 0,               // crop from top of captured image
+    srcHeight: viewportHeight, // how much of captured image to use
+    destY: 0               // where to place it on the final canvas
+  }];
+
+  let coveredUpTo = viewportHeight; // we've captured content from 0 to viewportHeight
+
+  // Hide fixed/sticky elements for remaining strips to avoid duplication
+  if (totalHeight > viewportHeight) {
+    await chrome.tabs.sendMessage(tabId, { action: 'HIDE_FIXED_ELEMENTS' });
+    await sleep(100);
+  }
+
+  // Capture remaining strips — scroll in viewport-sized steps
+  let targetY = viewportHeight;
+  while (coveredUpTo < totalHeight) {
+    const scrollResult = await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: targetY });
+    await sleep(400);
+
+    // The browser clamps scrollY to the maximum scrollable position
+    const actualScrollY = scrollResult.scrollY;
+
+    // This capture shows content from actualScrollY to actualScrollY + viewportHeight
+    const captureTop = actualScrollY;
+    const captureBottom = actualScrollY + viewportHeight;
+
+    // How much of this capture overlaps with what we already have?
+    const overlap = Math.max(0, coveredUpTo - captureTop);
+
+    // Only use the non-overlapping portion
+    const usableHeight = Math.min(viewportHeight - overlap, totalHeight - coveredUpTo);
+
+    if (usableHeight <= 0) break;
+
+    const stripDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 90 });
+    await sleep(600); // Rate limit: max ~2 captureVisibleTab calls/sec
+
+    strips.push({
+      dataUrl: stripDataUrl,
+      srcY: overlap,          // skip overlapping pixels from top of capture
+      srcHeight: usableHeight, // only use this many pixels
+      destY: coveredUpTo       // place at the bottom edge of what we've covered
+    });
+
+    coveredUpTo += usableHeight;
+    targetY += viewportHeight;
+
+    // Safety: if we've reached max scroll and captured everything, stop
+    if (actualScrollY >= maxScrollY) break;
+  }
+
+  // Restore fixed elements and scroll position
+  if (totalHeight > viewportHeight) {
+    await chrome.tabs.sendMessage(tabId, { action: 'RESTORE_FIXED_ELEMENTS' });
+  }
+
+  // Restore scrollbar and scroll-behavior
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      document.documentElement.style.removeProperty('scroll-behavior');
+      const style = document.getElementById('__echoflow-hide-scrollbar');
+      if (style) style.remove();
+    }
+  });
+
+  // Restore original scroll position
+  await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: originalScrollY });
+
+  // If only one strip, return it directly (no stitching needed)
+  if (strips.length === 1) {
+    return firstStrip;
+  }
+
+  // Stitch via offscreen document
+  await ensureOffscreenDocument();
+  const stitchResult = await chrome.runtime.sendMessage({
+    action: 'STITCH_SCREENSHOTS',
+    strips: strips,
+    totalWidth: viewportWidth,
+    totalHeight: coveredUpTo,
+    devicePixelRatio: dpr
+  });
+
+  if (!stitchResult?.success) {
+    throw new Error(stitchResult?.error || 'Screenshot stitching failed');
+  }
+
+  return stitchResult.dataUrl;
+}
+
+async function ensureOffscreenDocument() {
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT']
+  });
+
+  if (existingContexts.length > 0) return;
+
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['BLOBS'],
+    justification: 'Stitch full-page screenshot strips on canvas'
+  });
+}
+
+async function captureScreenshot(tabId, resolution, mode) {
+  if (mode === 'full_page') {
+    return captureFullPage(tabId);
+  }
+  return captureViewport(tabId, resolution);
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -109,7 +258,7 @@ async function injectShopifyMainWorld(tabId) {
 
 // ── Main Audit Orchestration ──
 
-async function runAudit(tabId, tabUrl, vertical, mode, resolution) {
+async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType) {
   const origin = new URL(tabUrl).origin;
 
   // Step 1: Load rules
@@ -154,8 +303,8 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution) {
   // Step 6: Fetch API endpoints if rules need them
   domData.apiResponses = await fetchApiEndpoints(origin, rules);
 
-  // Step 7: Capture viewport screenshot (local proof only — never sent to AI)
-  const screenshot = await captureScreenshot(tabId, resolution);
+  // Step 7: Capture screenshot (local proof only — never sent to AI)
+  const screenshot = await captureScreenshot(tabId, resolution, mode);
 
   // Step 8: Evaluate rules
   const findings = evaluateRules(rules, domData);
@@ -167,6 +316,8 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution) {
       url: domData.url,
       title: domData.title,
       vertical: vertical,
+      pageType: pageType || null,
+      device: domData.viewport.width <= 480 ? 'mobile' : domData.viewport.width <= 1024 ? 'tablet' : 'desktop',
       captureMode: mode,
       timestamp: Date.now(),
       viewport: domData.viewport,
@@ -200,7 +351,7 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'START_AUDIT') {
-    const { vertical, mode, resolution } = message;
+    const { vertical, pageType, mode, resolution } = message;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs[0]) {
@@ -208,7 +359,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       try {
-        const result = await runAudit(tabs[0].id, tabs[0].url, vertical, mode, resolution);
+        const result = await runAudit(tabs[0].id, tabs[0].url, vertical, mode, resolution, pageType);
         sendResponse(result);
       } catch (err) {
         sendResponse({ success: false, error: err.message });
@@ -227,20 +378,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'AI_ANALYZE') {
-    runAIAnalysis(message.data, message.apiKey)
+    const provider = message.provider || 'claude';
+    const analyzeFn = provider === 'gemini' ? runGeminiAnalysis : runClaudeAnalysis;
+    analyzeFn(message.data, message.apiKey, message.auditContext)
       .then(result => sendResponse(result))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });
 
-// ── AI Analysis via Claude API ──
+// ── AI Analysis ──
 
-async function runAIAnalysis(auditData, apiKey) {
-  if (!apiKey) {
-    return { success: false, error: 'No API key configured. Go to Settings.' };
-  }
-
+function buildAnalysisPrompt(auditData, auditContext) {
   const findingsText = auditData.findings.map(f =>
     `${f.number}. [${f.category}] ${f.description} (ICE: I:${f.ice.impact} C:${f.ice.confidence} E:${f.ice.ease})`
   ).join('\n');
@@ -249,11 +398,25 @@ async function runAIAnalysis(auditData, apiKey) {
     `- ${s.type || s.id || 'unknown'} (${Math.round(s.position.height)}px tall)`
   ).join('\n');
 
-  const prompt = `You are a UX auditor analyzing a ${auditData.meta.vertical} website.
+  const meta = auditData.meta;
+  const device = meta.device || 'desktop';
+  const pageType = meta.pageType ? ` — ${meta.pageType.replace(/-/g, ' ')}` : '';
 
-URL: ${auditData.meta.url}
-Page title: ${auditData.meta.title}
-Viewport: ${auditData.meta.viewport.width}x${auditData.meta.viewport.height}
+  let prompt = `You are a senior UX auditor analyzing a ${meta.vertical}${pageType} page on ${device}.
+
+URL: ${meta.url}
+Page title: ${meta.title}
+Device: ${device} (${meta.viewport.width}x${meta.viewport.height})`;
+
+  if (meta.pageType) {
+    prompt += `\nPage type: ${meta.pageType.replace(/-/g, ' ')}`;
+  }
+
+  if (auditContext) {
+    prompt += `\n\nAuditor notes:\n${auditContext}`;
+  }
+
+  prompt += `
 
 Page sections:
 ${sectionsList || 'No sections detected'}
@@ -263,13 +426,25 @@ ${findingsText || 'No rule-based findings'}
 
 Raw stats: ${auditData.rawData.elementCount} elements, ${auditData.rawData.imageCount} images, ${auditData.rawData.linkCount} links, ${auditData.rawData.forms?.length || 0} forms
 
-Provide a concise UX analysis:
-1. Top 5 priority issues with specific, actionable fixes
+Provide a concise UX analysis considering this is a ${device} experience${pageType ? ' for a ' + meta.pageType.replace(/-/g, ' ') + ' page' : ''}:
+1. Top 5 priority issues with specific, actionable fixes${device !== 'desktop' ? ' (consider touch targets, thumb zones, mobile patterns)' : ''}
 2. Quick wins (high ease, high impact)
-3. Any patterns or issues the rules may have missed
+3. Any patterns or issues the rules may have missed${meta.pageType ? ' — consider ' + meta.vertical + ' ' + meta.pageType.replace(/-/g, ' ') + ' best practices' : ''}
 4. Overall UX score (1-10) with brief justification
 
 Be direct and specific. Reference element positions and types.`;
+
+  return prompt;
+}
+
+// ── Claude API ──
+
+async function runClaudeAnalysis(auditData, apiKey, auditContext) {
+  if (!apiKey) {
+    return { success: false, error: 'No Claude API key configured. Go to Settings.' };
+  }
+
+  const prompt = buildAnalysisPrompt(auditData, auditContext);
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -288,11 +463,43 @@ Be direct and specific. Reference element positions and types.`;
 
   if (!response.ok) {
     const err = await response.text();
-    return { success: false, error: 'API error: ' + response.status + ' — ' + err };
+    return { success: false, error: 'Claude API error: ' + response.status + ' — ' + err };
   }
 
   const data = await response.json();
   const text = data.content?.[0]?.text || 'No response';
+
+  return { success: true, analysis: text };
+}
+
+// ── Gemini API ──
+
+async function runGeminiAnalysis(auditData, apiKey, auditContext) {
+  if (!apiKey) {
+    return { success: false, error: 'No Gemini API key configured. Go to Settings.' };
+  }
+
+  const prompt = buildAnalysisPrompt(auditData, auditContext);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1500 }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.text();
+    return { success: false, error: 'Gemini API error: ' + response.status + ' — ' + err };
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
 
   return { success: true, analysis: text };
 }

@@ -7,7 +7,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "alarms"
+    "alarms",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -24,7 +25,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["results.html"],
+      "resources": ["results.html", "offscreen.html"],
       "matches": ["<all_urls>"]
     }
   ],
