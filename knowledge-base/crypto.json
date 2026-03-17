@@ -92,5 +92,204 @@
     "finding": "No dApp connection/authentication status indicator visible",
     "ice": { "impact": 7, "confidence": 5, "ease": 8 },
     "target_selector": "header, nav"
+  },
+  {
+    "id": "crypto-no-balance-display",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='balance']", "[class*='total-value']", "[class*='portfolio-value']", "[class*='net-worth']"]
+    },
+    "finding": "No token or asset balance displayed prominently — users cannot see their holdings at a glance",
+    "ice": { "impact": 9, "confidence": 7, "ease": 8 },
+    "target_selector": "main, [class*='dashboard'], [class*='wallet']"
+  },
+  {
+    "id": "crypto-missing-transaction-history",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='transaction']", "[class*='history']", "[class*='activity']", "a[href*='transaction']", "a[href*='history']"]
+    },
+    "finding": "No transaction history link or section visible — users cannot review past activity",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "main, nav, [class*='wallet']"
+  },
+  {
+    "id": "crypto-send-receive-below-fold",
+    "category": "conversion",
+    "check": {
+      "type": "element_position",
+      "selectors": ["button[class*='send']", "button[class*='receive']", "[class*='send-button']", "[class*='receive-button']", "a[href*='send']", "a[href*='receive']"],
+      "condition": "below_fold"
+    },
+    "finding": "Send/receive buttons are below the fold — core wallet actions not immediately accessible",
+    "ice": { "impact": 8, "confidence": 7, "ease": 8 },
+    "target_selector": "button[class*='send'], button[class*='receive'], [class*='send-button'], [class*='receive-button']"
+  },
+  {
+    "id": "crypto-no-qr-code-receive",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='qr']", "canvas[class*='qr']", "img[alt*='QR']", "svg[class*='qr']"]
+    },
+    "finding": "No QR code for receive address — makes in-person and mobile transfers cumbersome",
+    "ice": { "impact": 6, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='receive'], [class*='deposit'], [class*='address']"
+  },
+  {
+    "id": "crypto-missing-fiat-equivalent",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='fiat']", "[class*='usd']", "[class*='dollar']", "[class*='converted']"]
+    },
+    "finding": "No fiat currency equivalent shown for token values — users cannot gauge real-world value",
+    "ice": { "impact": 7, "confidence": 6, "ease": 8 },
+    "target_selector": "[class*='balance'], [class*='amount'], [class*='token-value']"
+  },
+  {
+    "id": "crypto-no-order-type-selector",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='order-type']", "[class*='market-order']", "[class*='limit-order']", "select[class*='order']", "[class*='trade-type']"]
+    },
+    "finding": "No order type selector (market/limit) visible — limits trading flexibility",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='trade'], [class*='exchange'], form"
+  },
+  {
+    "id": "crypto-missing-fee-breakdown",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='fee']", "[class*='commission']", "[class*='cost-breakdown']", "[class*='trading-fee']", "[class*='gas-estimate']"]
+    },
+    "finding": "No fee or cost breakdown shown — users cannot evaluate the true cost of a trade",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='trade'], [class*='order'], form"
+  },
+  {
+    "id": "crypto-no-price-chart",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["canvas[class*='chart']", "[class*='chart']", "[class*='sparkline']", "[class*='price-graph']", "svg[class*='chart']"]
+    },
+    "finding": "No price chart or sparkline visible — users lack visual context for price trends",
+    "ice": { "impact": 7, "confidence": 7, "ease": 6 },
+    "target_selector": "[class*='trade'], [class*='market'], main"
+  },
+  {
+    "id": "crypto-missing-buy-sell-toggle",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='buy-sell']", "[class*='trade-toggle']", "button[class*='buy']", "button[class*='sell']", "[class*='trade-direction']"]
+    },
+    "finding": "No buy/sell toggle or tabs visible — trade direction is unclear",
+    "ice": { "impact": 8, "confidence": 6, "ease": 8 },
+    "target_selector": "[class*='trade'], [class*='exchange'], form"
+  },
+  {
+    "id": "crypto-no-trade-confirmation",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='confirm']", "[class*='review-order']", "[class*='order-summary']", "[class*='trade-confirm']"]
+    },
+    "finding": "No trade confirmation dialog or review step detected — risk of unintended orders",
+    "ice": { "impact": 9, "confidence": 5, "ease": 6 },
+    "target_selector": "[class*='trade'], [class*='order'], form"
+  },
+  {
+    "id": "crypto-no-apy-apr-display",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='apy']", "[class*='apr']", "[class*='yield']", "[class*='interest-rate']", "[class*='reward-rate']"]
+    },
+    "finding": "No APY/APR display visible — users cannot evaluate yield or return potential",
+    "ice": { "impact": 8, "confidence": 7, "ease": 7 },
+    "target_selector": "[class*='pool'], [class*='stake'], [class*='farm'], main"
+  },
+  {
+    "id": "crypto-missing-tvl-display",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='tvl']", "[class*='total-locked']", "[class*='liquidity']", "[class*='pool-size']"]
+    },
+    "finding": "No TVL (Total Value Locked) display — users cannot assess protocol or pool trustworthiness",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='pool'], [class*='protocol'], main"
+  },
+  {
+    "id": "crypto-no-audit-badge",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='audit']", "[class*='audited']", "a[href*='certik']", "a[href*='hacken']", "a[href*='slowmist']", "[class*='security-badge']"]
+    },
+    "finding": "No contract audit badge or link to audit report — reduces user confidence in protocol security",
+    "ice": { "impact": 8, "confidence": 6, "ease": 8 },
+    "target_selector": "footer, [class*='security'], main"
+  },
+  {
+    "id": "crypto-missing-impermanent-loss-warning",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='impermanent']", "[class*='il-warning']", "[class*='risk-warning']", "[class*='pool-risk']"]
+    },
+    "finding": "No impermanent loss warning visible — users may not understand liquidity provision risks",
+    "ice": { "impact": 8, "confidence": 5, "ease": 7 },
+    "target_selector": "[class*='pool'], [class*='liquidity'], [class*='stake']"
+  },
+  {
+    "id": "crypto-no-connected-wallet-indicator",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='wallet-connected']", "[class*='connected-wallet']", "[class*='wallet-address']", "[class*='account-address']"]
+    },
+    "finding": "No connected wallet indicator visible — users cannot confirm which wallet is active",
+    "ice": { "impact": 8, "confidence": 6, "ease": 8 },
+    "target_selector": "header, nav, [role='banner']"
+  },
+  {
+    "id": "crypto-missing-disconnect-wallet",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["button[class*='disconnect']", "[class*='disconnect-wallet']", "button[aria-label*='disconnect']"]
+    },
+    "finding": "No disconnect wallet option available — users cannot easily revoke dApp access",
+    "ice": { "impact": 7, "confidence": 6, "ease": 9 },
+    "target_selector": "header, nav, [class*='wallet'], [class*='account']"
+  },
+  {
+    "id": "crypto-no-chain-network-selector",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='network']", "[class*='chain-selector']", "[class*='chain-indicator']", "[class*='network-badge']", "select[class*='network']"]
+    },
+    "finding": "No chain/network selector or indicator — users may not know which blockchain they are interacting with",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "header, nav, [role='banner']"
+  },
+  {
+    "id": "crypto-missing-help-docs-web3",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='docs']", "a[href*='guide']", "a[href*='learn']", "[class*='help']", "a[href*='faq']"]
+    },
+    "finding": "No help, docs, or FAQ link for Web3 onboarding — new users lack guidance for getting started",
+    "ice": { "impact": 6, "confidence": 6, "ease": 9 },
+    "target_selector": "header, nav, footer"
   }
 ]

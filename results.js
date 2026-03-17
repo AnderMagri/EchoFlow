@@ -511,11 +511,22 @@
   }
 `;
 
+    // Severity color helper in generated script
+    script += `
+  function getSeverityColor(avg) {
+    if (avg >= 7) return {r:0.937,g:0.267,b:0.267}; // red
+    if (avg >= 5) return {r:0.961,g:0.620,b:0.043}; // amber
+    return {r:0.133,g:0.773,b:0.369}; // green
+  }
+`;
+
     // ── Finding slides ──
     findings.forEach((f) => {
       const cat = f.category.toUpperCase();
       const desc = escapeStr(f.description);
-      const iceText = `Impact: ${f.ice.impact}/10    Confidence: ${f.ice.confidence}/10    Ease: ${f.ice.ease}/10    Average: ${iceAverage(f.ice)}`;
+      const avg = iceAverage(f.ice);
+      const iceText = `Impact: ${f.ice.impact}/10    Confidence: ${f.ice.confidence}/10    Ease: ${f.ice.ease}/10    Average: ${avg}`;
+      const sevLabel = parseFloat(avg) >= 7 ? 'HIGH' : parseFloat(avg) >= 5 ? 'MEDIUM' : 'LOW';
 
       script += `
   // ── Finding #${f.number} ──
@@ -523,17 +534,19 @@
     const slide = createSlide("Finding #${f.number}");
     addScreenshot(slide, IMG_X, PAD, COL_W, H - PAD * 2);
 
-    // Finding number circle
+    // Finding number circle — colored by severity
+    const sevColor = getSeverityColor(${avg});
     const circle = figma.createEllipse();
     circle.name = "Number";
     circle.x = TXT_X;
     circle.y = ${PAD + 20};
     circle.resize(56, 56);
-    circle.fills = [{ type: "SOLID", color: ACCENT }];
+    circle.fills = [{ type: "SOLID", color: sevColor }];
     slide.appendChild(circle);
-    const numText = addText(slide, TXT_X + 16, ${PAD + 32}, 24, "${f.number}", 24, {r:1,g:1,b:1}, "Bold");
+    addText(slide, TXT_X + 16, ${PAD + 32}, 24, "${f.number}", 24, {r:1,g:1,b:1}, "Bold");
 
     addBadge(slide, TXT_X + 72, ${PAD + 30}, "${cat}", ACCENT);
+    addBadge(slide, TXT_X + 72 + ${cat.length * 10 + 40}, ${PAD + 30}, "${sevLabel}", sevColor);
 
     addText(slide, TXT_X, ${PAD + 110}, COL_W, "Finding #${f.number}", 40, TXT, "Bold");
     addText(slide, TXT_X, ${PAD + 170}, COL_W, "${desc}", 24, SUBTXT, "Regular");
@@ -544,6 +557,20 @@
   }
 `;
     });
+
+    // ── AI Analysis slide (if available) ──
+    const aiResultEl2 = document.getElementById('ai-result');
+    if (aiResultEl2 && aiResultEl2.style.display !== 'none' && aiResultEl2.textContent) {
+      const aiText = escapeStr(aiResultEl2.textContent.substring(0, 2000));
+      script += `
+  // ── AI Analysis Slide ──
+  {
+    const slide = createSlide("AI Analysis");
+    addText(slide, PAD, PAD, W - PAD * 2, "AI Analysis", 48, TXT, "Bold");
+    addText(slide, PAD, PAD + 70, W - PAD * 2, "${aiText}", 18, SUBTXT, "Regular");
+  }
+`;
+    }
 
     // ── Summary slide ──
     const categories = findings.reduce((acc, f) => {
@@ -603,6 +630,239 @@
     const text = `EchoFlow UX Audit — ${auditData.meta.url}\n${auditData.meta.vertical} | ${new Date(auditData.meta.timestamp).toLocaleString()}\n\n${lines.join('\n')}`;
     navigator.clipboard.writeText(text);
     showToast('All findings copied');
+  }
+
+  // ── Export: CSV ──
+
+  function exportCSV() {
+    if (!findings.length) { showToast('No findings to export'); return; }
+
+    const meta = auditData.meta;
+    const device = meta.device || 'desktop';
+    const pageType = meta.pageType || '';
+
+    const headers = ['#', 'Description', 'Category', 'Page Type', 'Device', 'Impact', 'Confidence', 'Ease', 'ICE Average', 'Status'];
+    const rows = findings.map(f => [
+      f.number,
+      `"${f.description.replace(/"/g, '""')}"`,
+      f.category,
+      pageType,
+      device,
+      f.ice.impact,
+      f.ice.confidence,
+      f.ice.ease,
+      iceAverage(f.ice),
+      'Open'
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `echoflow-findings-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV exported');
+  }
+
+  // ── Export: Markdown ──
+
+  function exportMarkdown() {
+    if (!findings.length) { showToast('No findings to export'); return; }
+
+    const meta = auditData.meta;
+    const device = meta.device || 'desktop';
+    const pageType = meta.pageType ? ` — ${meta.pageType.replace(/-/g, ' ')}` : '';
+    const dateStr = new Date(meta.timestamp).toLocaleString();
+
+    let md = `# EchoFlow UX Audit Report\n\n`;
+    md += `**URL:** ${meta.url}  \n`;
+    md += `**Vertical:** ${meta.vertical.replace('-', ' ')}${pageType}  \n`;
+    md += `**Device:** ${device} (${meta.viewport.width}x${meta.viewport.height})  \n`;
+    md += `**Date:** ${dateStr}  \n`;
+    md += `**Findings:** ${findings.length}\n\n`;
+    md += `---\n\n`;
+
+    // Summary table
+    const categories = findings.reduce((acc, f) => {
+      acc[f.category] = (acc[f.category] || 0) + 1;
+      return acc;
+    }, {});
+
+    md += `## Summary\n\n`;
+    md += `| Category | Count |\n|----------|-------|\n`;
+    Object.entries(categories).forEach(([cat, count]) => {
+      md += `| ${cat} | ${count} |\n`;
+    });
+    md += `\n`;
+
+    // Findings table
+    md += `## Findings\n\n`;
+    md += `| # | Finding | Category | Impact | Confidence | Ease | ICE Avg |\n`;
+    md += `|---|---------|----------|--------|------------|------|---------|\n`;
+    findings.forEach(f => {
+      md += `| ${f.number} | ${f.description.replace(/\|/g, '/')} | ${f.category} | ${f.ice.impact} | ${f.ice.confidence} | ${f.ice.ease} | ${iceAverage(f.ice)} |\n`;
+    });
+    md += `\n`;
+
+    // Detailed findings
+    md += `## Detailed Findings\n\n`;
+    findings.forEach(f => {
+      const avg = iceAverage(f.ice);
+      const severity = avg >= 7 ? '🔴 High' : avg >= 5 ? '🟡 Medium' : '🟢 Low';
+      md += `### ${f.number}. ${f.description}\n\n`;
+      md += `- **Category:** ${f.category}\n`;
+      md += `- **Severity:** ${severity} (ICE: ${avg})\n`;
+      md += `- **Impact:** ${f.ice.impact}/10 | **Confidence:** ${f.ice.confidence}/10 | **Ease:** ${f.ice.ease}/10\n\n`;
+    });
+
+    // AI analysis if available
+    const aiResultEl = document.getElementById('ai-result');
+    if (aiResultEl && aiResultEl.style.display !== 'none' && aiResultEl.textContent) {
+      md += `---\n\n## AI Analysis\n\n${aiResultEl.textContent}\n`;
+    }
+
+    md += `\n---\n*Generated by EchoFlow*\n`;
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `echoflow-audit-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Markdown exported');
+  }
+
+  // ── Export: PDF Report ──
+
+  function exportPDF() {
+    if (!findings.length) { showToast('No findings to export'); return; }
+
+    const meta = auditData.meta;
+    const device = meta.device || 'desktop';
+    const pageType = meta.pageType ? ` — ${meta.pageType.replace(/-/g, ' ')}` : '';
+    const dateStr = new Date(meta.timestamp).toLocaleString();
+    const screenshot = auditData.screenshot || '';
+
+    // Build category summary
+    const categories = findings.reduce((acc, f) => {
+      acc[f.category] = (acc[f.category] || 0) + 1;
+      return acc;
+    }, {});
+    const avgScore = (findings.reduce((sum, f) => sum + parseFloat(iceAverage(f.ice)), 0) / findings.length).toFixed(1);
+
+    // Severity helper
+    function severity(ice) {
+      const avg = parseFloat(iceAverage(ice));
+      if (avg >= 7) return { label: 'High', color: '#ef4444', bg: '#fef2f2' };
+      if (avg >= 5) return { label: 'Medium', color: '#f59e0b', bg: '#fffbeb' };
+      return { label: 'Low', color: '#22c55e', bg: '#f0fdf4' };
+    }
+
+    // Build HTML
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>EchoFlow Audit Report — ${escapeHtml(meta.url)}</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11pt; color: #1a1a2e; line-height: 1.5; }
+  .page-break { page-break-before: always; }
+  .cover { display: flex; flex-direction: column; justify-content: center; min-height: 90vh; }
+  .cover h1 { font-size: 36pt; color: #00C9A7; margin-bottom: 12px; }
+  .cover .url { font-size: 14pt; color: #666; word-break: break-all; }
+  .cover .meta-row { display: flex; gap: 16px; margin-top: 20px; flex-wrap: wrap; }
+  .cover .meta-pill { padding: 6px 14px; border-radius: 20px; font-size: 10pt; font-weight: 600; }
+  .cover .meta-pill.vert { background: #f0fdf9; color: #00996e; }
+  .cover .meta-pill.dev { background: #f1f5f9; color: #475569; }
+  .cover .meta-pill.date { background: #f5f3ff; color: #6366f1; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 30px 0; }
+  .stat-card { border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; text-align: center; }
+  .stat-value { font-size: 28pt; font-weight: 700; color: #00C9A7; }
+  .stat-label { font-size: 9pt; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 16px 0 30px; }
+  .cat-pill { padding: 8px 12px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 10pt; display: flex; justify-content: space-between; }
+  .cat-count { font-weight: 700; color: #00C9A7; }
+  h2 { font-size: 18pt; color: #1a1a2e; border-bottom: 2px solid #00C9A7; padding-bottom: 6px; margin: 24px 0 16px; }
+  .finding-card { border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 16px; break-inside: avoid; }
+  .finding-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .finding-num { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13pt; color: #fff; flex-shrink: 0; }
+  .finding-title { flex: 1; font-size: 11pt; font-weight: 500; }
+  .finding-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .fbadge { padding: 3px 10px; border-radius: 12px; font-size: 8.5pt; font-weight: 600; }
+  .ice-row { display: flex; gap: 16px; margin-top: 12px; font-size: 9.5pt; color: #666; }
+  .ice-item strong { color: #1a1a2e; }
+  .screenshot-section { margin: 20px 0; text-align: center; }
+  .screenshot-section img { max-width: 100%; border-radius: 8px; border: 1px solid #e0e0e0; }
+  .ai-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-top: 16px; white-space: pre-wrap; font-size: 10pt; line-height: 1.6; }
+  .footer { text-align: center; color: #aaa; font-size: 9pt; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; }
+  @media print { .no-print { display: none; } }
+</style></head><body>`;
+
+    // Cover page
+    html += `<div class="cover">
+  <h1>UX Audit Report</h1>
+  <div class="url">${escapeHtml(meta.url)}</div>
+  <div class="meta-row">
+    <span class="meta-pill vert">${escapeHtml(meta.vertical.replace('-', ' '))}${escapeHtml(pageType)}</span>
+    <span class="meta-pill dev">${device} (${meta.viewport.width}x${meta.viewport.height})</span>
+    <span class="meta-pill date">${escapeHtml(dateStr)}</span>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value">${findings.length}</div><div class="stat-label">Total Findings</div></div>
+    <div class="stat-card"><div class="stat-value">${avgScore}</div><div class="stat-label">Avg ICE Score</div></div>
+    <div class="stat-card"><div class="stat-value">${Object.keys(categories).length}</div><div class="stat-label">Categories</div></div>
+  </div>
+  <div class="cat-grid">
+    ${Object.entries(categories).map(([k, v]) => `<div class="cat-pill"><span>${k}</span><span class="cat-count">${v}</span></div>`).join('')}
+  </div>
+</div>`;
+
+    // Screenshot page
+    if (screenshot) {
+      html += `<div class="page-break"></div><h2>Page Screenshot</h2>
+<div class="screenshot-section"><img src="${screenshot}" alt="Page screenshot"></div>`;
+    }
+
+    // Findings
+    html += `<div class="page-break"></div><h2>Findings (${findings.length})</h2>`;
+    findings.forEach(f => {
+      const sev = severity(f.ice);
+      const avg = iceAverage(f.ice);
+      html += `<div class="finding-card">
+  <div class="finding-header">
+    <div class="finding-num" style="background:${sev.color};">${f.number}</div>
+    <div class="finding-title">${escapeHtml(f.description)}</div>
+  </div>
+  <div class="finding-badges">
+    <span class="fbadge" style="background:${sev.bg};color:${sev.color};">${sev.label} Priority</span>
+    <span class="fbadge" style="background:#f0fdf9;color:#00996e;">${f.category}</span>
+  </div>
+  <div class="ice-row">
+    <span><strong>Impact:</strong> ${f.ice.impact}/10</span>
+    <span><strong>Confidence:</strong> ${f.ice.confidence}/10</span>
+    <span><strong>Ease:</strong> ${f.ice.ease}/10</span>
+    <span><strong>Average:</strong> ${avg}</span>
+  </div>
+</div>`;
+    });
+
+    // AI analysis if available
+    const aiResultEl = document.getElementById('ai-result');
+    if (aiResultEl && aiResultEl.style.display !== 'none' && aiResultEl.textContent) {
+      html += `<div class="page-break"></div><h2>AI Analysis</h2>
+<div class="ai-section">${escapeHtml(aiResultEl.textContent)}</div>`;
+    }
+
+    html += `<div class="footer">Generated by EchoFlow — ${escapeHtml(dateStr)}</div>`;
+    html += `</body></html>`;
+
+    // Open in new tab for print
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    showToast('PDF report opened — use Ctrl/Cmd+P to print');
   }
 
   // ── AI Analysis ──
@@ -800,8 +1060,22 @@
     // ── Toolbar Buttons ──
     document.getElementById('btn-save').addEventListener('click', saveAudit);
     document.getElementById('btn-copy-all').addEventListener('click', copyAllFindings);
-    document.getElementById('btn-export-figma').addEventListener('click', exportToFigma);
     document.getElementById('btn-settings').addEventListener('click', openSettings);
+
+    // Export dropdown
+    const exportBtn = document.getElementById('btn-export');
+    const exportMenu = document.getElementById('export-menu');
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', () => exportMenu.classList.remove('open'));
+    exportMenu.addEventListener('click', (e) => e.stopPropagation());
+
+    document.getElementById('btn-export-figma').addEventListener('click', () => { exportMenu.classList.remove('open'); exportToFigma(); });
+    document.getElementById('btn-export-pdf').addEventListener('click', () => { exportMenu.classList.remove('open'); exportPDF(); });
+    document.getElementById('btn-export-csv').addEventListener('click', () => { exportMenu.classList.remove('open'); exportCSV(); });
+    document.getElementById('btn-export-md').addEventListener('click', () => { exportMenu.classList.remove('open'); exportMarkdown(); });
 
     const importInput = document.getElementById('import-input');
     document.getElementById('btn-import').addEventListener('click', () => importInput.click());

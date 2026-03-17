@@ -260,5 +260,364 @@
     "finding": "Element contains placeholder/Lorem Ipsum text that was not replaced",
     "ice": { "impact": 9, "confidence": 9, "ease": 10 },
     "target_selector": "h1, h2, h3, p"
+  },
+
+  {
+    "id": "ux-perf-images-lazy-loading",
+    "category": "performance",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["img:not([loading])"],
+      "attribute": "loading",
+      "condition": "missing"
+    },
+    "finding": "Images are missing loading=\"lazy\" attribute — all images load eagerly, hurting initial page speed",
+    "ice": { "impact": 7, "confidence": 9, "ease": 9 },
+    "target_selector": "img:not([loading])"
+  },
+  {
+    "id": "ux-perf-excessive-dom-elements",
+    "category": "performance",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["*"],
+      "condition": "count_gt",
+      "threshold": 1500
+    },
+    "finding": "Page has over 1500 DOM elements — excessive DOM size slows rendering and increases memory usage",
+    "ice": { "impact": 7, "confidence": 8, "ease": 3 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-perf-too-many-scripts",
+    "category": "performance",
+    "check": {
+      "type": "script_detection",
+      "selectors": ["script[src]"],
+      "condition": "count_gt",
+      "threshold": 15
+    },
+    "finding": "Page loads more than 15 external scripts — too many third-party scripts degrade performance",
+    "ice": { "impact": 8, "confidence": 8, "ease": 4 },
+    "target_selector": "script[src]"
+  },
+  {
+    "id": "ux-perf-img-missing-dimensions",
+    "category": "performance",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["img:not([width]):not([height])"],
+      "attribute": "width",
+      "condition": "missing"
+    },
+    "finding": "Images are missing explicit width/height attributes — causes Cumulative Layout Shift (CLS)",
+    "ice": { "impact": 7, "confidence": 9, "ease": 8 },
+    "target_selector": "img:not([width]):not([height])"
+  },
+  {
+    "id": "ux-perf-iframe-lazy-loading",
+    "category": "performance",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["iframe:not([loading])"],
+      "attribute": "loading",
+      "condition": "missing"
+    },
+    "finding": "Iframes are missing loading=\"lazy\" attribute — embedded content loads eagerly, blocking page render",
+    "ice": { "impact": 6, "confidence": 9, "ease": 9 },
+    "target_selector": "iframe:not([loading])"
+  },
+  {
+    "id": "ux-perf-inline-styles-overuse",
+    "category": "performance",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["[style]"],
+      "condition": "count_gt",
+      "threshold": 20
+    },
+    "finding": "Page has over 20 elements with inline styles — suggests poor CSS architecture and increases HTML payload",
+    "ice": { "impact": 4, "confidence": 7, "ease": 4 },
+    "target_selector": "[style]"
+  },
+
+  {
+    "id": "ux-nav-breadcrumb-missing",
+    "category": "navigation",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["nav[aria-label='breadcrumb']", "nav[aria-label='Breadcrumb']", ".breadcrumb", ".breadcrumbs", "[class*='breadcrumb']", "ol[class*='breadcrumb']"]
+    },
+    "finding": "No breadcrumb navigation found — users lack context about their location in the site hierarchy",
+    "ice": { "impact": 5, "confidence": 7, "ease": 6 },
+    "target_selector": "nav, header"
+  },
+  {
+    "id": "ux-nav-search-missing",
+    "category": "navigation",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["input[type='search']", "[role='search']", "form[action*='search']", "input[name='q']", "input[name='search']", "input[name='query']"]
+    },
+    "finding": "No search input or search form found — users cannot quickly find specific content",
+    "ice": { "impact": 6, "confidence": 7, "ease": 5 },
+    "target_selector": "header, nav"
+  },
+  {
+    "id": "ux-nav-too-many-items",
+    "category": "navigation",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["nav li", "nav > ul > li", "nav > ol > li"],
+      "condition": "count_gt",
+      "threshold": 7
+    },
+    "finding": "Primary navigation has more than 7 items — cognitive overload reduces usability",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "nav"
+  },
+  {
+    "id": "ux-nav-footer-legal-links",
+    "category": "navigation",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["footer a[href*='privacy']", "footer a[href*='terms']", "footer a[href*='legal']", "footer a[href*='policy']"]
+    },
+    "finding": "Footer is missing privacy policy or terms of service links — reduces trust and may violate legal requirements",
+    "ice": { "impact": 6, "confidence": 7, "ease": 9 },
+    "target_selector": "footer"
+  },
+  {
+    "id": "ux-nav-empty-anchors",
+    "category": "navigation",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["a[href='#']", "a[href='']", "a:not([href])"]
+    },
+    "finding": "Links with empty or '#' href found — these do nothing when clicked and confuse users",
+    "ice": { "impact": 5, "confidence": 9, "ease": 8 },
+    "target_selector": "a[href='#'], a[href=''], a:not([href])"
+  },
+
+  {
+    "id": "ux-mobile-large-fixed-elements",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["[style*='position: fixed']", "[style*='position:fixed']", ".fixed-top", ".fixed-bottom", ".sticky-top"],
+      "property": "minDimension",
+      "condition": "gt",
+      "threshold": 150
+    },
+    "finding": "Large fixed/sticky element detected — may cover excessive viewport area on mobile devices",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": ".fixed-top, .fixed-bottom, .sticky-top"
+  },
+  {
+    "id": "ux-mobile-line-length-too-wide",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["p", "li", "article", ".content", "main"],
+      "property": "fontSize",
+      "condition": "gt",
+      "threshold": 900
+    },
+    "finding": "Content containers are wider than 900px — text line length may exceed comfortable reading range",
+    "ice": { "impact": 5, "confidence": 5, "ease": 6 },
+    "target_selector": "p, article, main, .content"
+  },
+  {
+    "id": "ux-mobile-input-types",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input:not([type])", "input[type='text']"],
+      "attribute": "inputmode",
+      "condition": "missing"
+    },
+    "finding": "Text inputs are missing inputmode attribute — mobile users may get the wrong virtual keyboard",
+    "ice": { "impact": 4, "confidence": 6, "ease": 8 },
+    "target_selector": "input:not([type]), input[type='text']"
+  },
+  {
+    "id": "ux-mobile-sticky-nav-not-sticky",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["nav", "header nav", "[role='navigation']"],
+      "property": "position",
+      "condition": "not_sticky"
+    },
+    "finding": "Primary navigation is not sticky/fixed — users must scroll back to the top to navigate on long pages",
+    "ice": { "impact": 4, "confidence": 5, "ease": 6 },
+    "target_selector": "nav, [role='navigation']"
+  },
+
+  {
+    "id": "ux-seo-meta-description-missing",
+    "category": "seo",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["meta[name='description']"]
+    },
+    "finding": "Missing meta description tag — search engines will auto-generate a snippet, reducing click-through rate",
+    "ice": { "impact": 7, "confidence": 10, "ease": 10 },
+    "target_selector": "head"
+  },
+  {
+    "id": "ux-seo-open-graph-missing",
+    "category": "seo",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["meta[property='og:title']", "meta[property='og:image']"]
+    },
+    "finding": "Missing Open Graph meta tags (og:title, og:image) — shared links on social media will lack rich previews",
+    "ice": { "impact": 6, "confidence": 9, "ease": 9 },
+    "target_selector": "head"
+  },
+  {
+    "id": "ux-seo-no-h1",
+    "category": "seo",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["h1"]
+    },
+    "finding": "Page has no H1 tag — the primary heading is a critical SEO signal and helps users understand page purpose",
+    "ice": { "impact": 8, "confidence": 10, "ease": 10 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-seo-title-missing",
+    "category": "seo",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["title"]
+    },
+    "finding": "Page is missing a title tag — essential for SEO and shown in browser tabs and search results",
+    "ice": { "impact": 9, "confidence": 10, "ease": 10 },
+    "target_selector": "head"
+  },
+  {
+    "id": "ux-seo-canonical-missing",
+    "category": "seo",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["link[rel='canonical']"]
+    },
+    "finding": "Missing canonical link tag — search engines may index duplicate versions of this page",
+    "ice": { "impact": 5, "confidence": 9, "ease": 9 },
+    "target_selector": "head"
+  },
+
+  {
+    "id": "ux-trust-favicon-missing",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["link[rel='icon']", "link[rel='shortcut icon']", "link[rel='apple-touch-icon']"]
+    },
+    "finding": "No favicon detected — the browser tab shows a generic icon, reducing brand trust and recognition",
+    "ice": { "impact": 4, "confidence": 10, "ease": 10 },
+    "target_selector": "head"
+  },
+  {
+    "id": "ux-trust-external-links-noopener",
+    "category": "trust",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["a[target='_blank']:not([rel*='noopener'])"],
+      "attribute": "rel",
+      "condition": "missing"
+    },
+    "finding": "External links opening in new tabs are missing rel=\"noopener\" — potential security and performance risk",
+    "ice": { "impact": 6, "confidence": 9, "ease": 9 },
+    "target_selector": "a[target='_blank']"
+  },
+  {
+    "id": "ux-trust-mixed-content",
+    "category": "trust",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["img[src^='http:']", "script[src^='http:']", "link[href^='http:']", "iframe[src^='http:']"]
+    },
+    "finding": "Mixed content detected — HTTP resources loaded on an HTTPS page trigger browser warnings and reduce trust",
+    "ice": { "impact": 8, "confidence": 9, "ease": 7 },
+    "target_selector": "img[src^='http:'], script[src^='http:']"
+  },
+
+  {
+    "id": "ux-visual-no-hierarchy",
+    "category": "visual",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["h1", "h2", "h3"]
+    },
+    "finding": "No heading elements found — page lacks visual hierarchy, making it hard to scan and understand structure",
+    "ice": { "impact": 7, "confidence": 8, "ease": 7 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-visual-content-too-wide",
+    "category": "visual",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["main", "article", ".content", ".container", "#content"],
+      "property": "fontSize",
+      "condition": "gt",
+      "threshold": 1200
+    },
+    "finding": "Main content container exceeds 1200px width — text becomes difficult to read without constrained line length",
+    "ice": { "impact": 5, "confidence": 6, "ease": 7 },
+    "target_selector": "main, article, .content, .container"
+  },
+  {
+    "id": "ux-visual-missing-section-spacing",
+    "category": "visual",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["section", "article", "main > div", ".section"],
+      "property": "fontSize",
+      "condition": "lt",
+      "threshold": 1
+    },
+    "finding": "Content sections lack vertical spacing — page feels cramped and hard to visually parse",
+    "ice": { "impact": 5, "confidence": 5, "ease": 7 },
+    "target_selector": "section, article, .section"
+  },
+
+  {
+    "id": "ux-seo-title-empty",
+    "category": "seo",
+    "check": {
+      "type": "text_content",
+      "selectors": ["title"],
+      "condition": "empty_text"
+    },
+    "finding": "Title tag exists but is empty — search engines and browser tabs will show no meaningful page title",
+    "ice": { "impact": 9, "confidence": 10, "ease": 10 },
+    "target_selector": "title"
+  },
+  {
+    "id": "ux-conversion-no-form",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["form", "[role='form']"]
+    },
+    "finding": "No form or conversion element found on the page — visitors have no way to take action or submit information",
+    "ice": { "impact": 6, "confidence": 5, "ease": 4 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-trust-no-ssl-links",
+    "category": "trust",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["a[href^='http:']"]
+    },
+    "finding": "Links pointing to non-HTTPS URLs found — may direct users to insecure pages",
+    "ice": { "impact": 5, "confidence": 8, "ease": 7 },
+    "target_selector": "a[href^='http:']"
   }
 ]

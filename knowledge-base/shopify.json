@@ -118,5 +118,170 @@
     "finding": "Public /products.json endpoint is disabled or unavailable",
     "ice": { "impact": 3, "confidence": 10, "ease": 2 },
     "target_selector": "body"
+  },
+  {
+    "id": "shopify-pdp-no-price-above-fold",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".price", ".product-price", "[class*='price']", ".product__price", ".price-item", "[data-product-price]"]
+    },
+    "finding": "No product price displayed — customers cannot see cost without scrolling or price is missing entirely",
+    "ice": { "impact": 10, "confidence": 8, "ease": 8 },
+    "target_selector": ".product-form, [class*='product']"
+  },
+  {
+    "id": "shopify-pdp-no-variant-selector",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".variant-selector", "select[name*='option']", "[class*='swatch']", ".product-form__option", "variant-selects", "variant-radios", "[data-option-index]"]
+    },
+    "finding": "No variant selector found on product page — customers cannot choose size, color, or other options",
+    "ice": { "impact": 9, "confidence": 7, "ease": 7 },
+    "target_selector": ".product-form, form[action*='/cart/add']"
+  },
+  {
+    "id": "shopify-pdp-no-description",
+    "category": "structure",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".product-description", ".product__description", "[class*='product-description']", ".rte", ".product-single__description", "[data-product-description]"]
+    },
+    "finding": "No product description found — customers lack key information to make a purchase decision",
+    "ice": { "impact": 8, "confidence": 7, "ease": 9 },
+    "target_selector": ".product-form, [class*='product']"
+  },
+  {
+    "id": "shopify-pdp-no-related-products",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='related']", "[class*='recommend']", "[data-section-type*='recommend']", "product-recommendations", "[class*='cross-sell']", "[class*='upsell']"]
+    },
+    "finding": "No related or recommended products section — missing cross-sell and upsell opportunities",
+    "ice": { "impact": 7, "confidence": 7, "ease": 5 },
+    "target_selector": "main, #MainContent"
+  },
+  {
+    "id": "shopify-pdp-no-image-zoom-gallery",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='zoom']", ".product-media-modal", "[class*='gallery']", "[class*='slider']", "[class*='lightbox']", "media-gallery", "[data-media-gallery]"]
+    },
+    "finding": "Product images lack zoom or gallery functionality — customers cannot inspect products in detail",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": ".product__media-list, [class*='product-image']"
+  },
+  {
+    "id": "shopify-pdp-no-dynamic-checkout",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".shopify-payment-button", "[class*='dynamic-checkout']", ".dynamic-checkout__content", "[data-shopify='payment-button']"]
+    },
+    "finding": "No dynamic checkout button (Buy Now / Apple Pay / Google Pay) — adds friction to the purchase flow",
+    "ice": { "impact": 8, "confidence": 8, "ease": 9 },
+    "target_selector": "form[action*='/cart/add'], .product-form"
+  },
+  {
+    "id": "shopify-pdp-no-structured-data",
+    "category": "structure",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["script[type='application/ld+json']"]
+    },
+    "finding": "No JSON-LD structured data found — product rich snippets will not appear in search results",
+    "ice": { "impact": 7, "confidence": 9, "ease": 7 },
+    "target_selector": "head"
+  },
+  {
+    "id": "shopify-collection-no-filters",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='filter']", "[class*='facet']", "form[action*='filter']", "[data-filter]", "facet-filters-form", "[class*='facets']"]
+    },
+    "finding": "No filter functionality on collection page — customers cannot narrow down products efficiently",
+    "ice": { "impact": 8, "confidence": 7, "ease": 5 },
+    "target_selector": "main, #MainContent, .collection"
+  },
+  {
+    "id": "shopify-collection-no-sort",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='sort']", "select[name*='sort']", "[data-sort]", "facet-filters-form select", "[class*='sort-by']"]
+    },
+    "finding": "No sort option on collection page — customers cannot reorder products by price, popularity, or date",
+    "ice": { "impact": 6, "confidence": 7, "ease": 6 },
+    "target_selector": "main, #MainContent, .collection"
+  },
+  {
+    "id": "shopify-collection-no-product-count",
+    "category": "structure",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='product-count']", "[class*='results-count']", "[class*='products-count']", "[data-product-count]"]
+    },
+    "finding": "No product count displayed on collection page — customers lack context on how many products are available",
+    "ice": { "impact": 3, "confidence": 6, "ease": 8 },
+    "target_selector": "main, #MainContent, .collection"
+  },
+  {
+    "id": "shopify-homepage-no-hero",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='hero']", "[class*='banner']", "[data-section-type='hero']", "[data-section-type*='banner']", "[class*='slideshow']", "[data-section-type='slideshow']"]
+    },
+    "finding": "No hero section or value proposition above the fold — homepage lacks a clear message to engage visitors",
+    "ice": { "impact": 8, "confidence": 6, "ease": 6 },
+    "target_selector": "main, #MainContent"
+  },
+  {
+    "id": "shopify-no-announcement-bar",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='announcement']", "[data-section-type='announcement']", ".announcement-bar", "#shopify-section-announcement-bar"]
+    },
+    "finding": "No announcement bar detected — missing opportunity to promote sales, free shipping, or key messages",
+    "ice": { "impact": 5, "confidence": 7, "ease": 9 },
+    "target_selector": "header, [role='banner']"
+  },
+  {
+    "id": "shopify-no-newsletter-signup",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='newsletter']", "[class*='email-signup']", "form[action*='subscribe']", "form[action*='/contact#newsletter']", "[data-section-type='newsletter']", "input[name='contact[email]']"]
+    },
+    "finding": "No email signup or newsletter form found — missing opportunity to capture leads and build customer list",
+    "ice": { "impact": 7, "confidence": 7, "ease": 7 },
+    "target_selector": "footer, main, #MainContent"
+  },
+  {
+    "id": "shopify-no-social-media-links",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='instagram.com']", "a[href*='facebook.com']", "a[href*='twitter.com']", "a[href*='tiktok.com']", "a[href*='pinterest.com']", "[class*='social'] a"]
+    },
+    "finding": "No social media links found — reduces brand credibility and limits customer engagement channels",
+    "ice": { "impact": 5, "confidence": 8, "ease": 9 },
+    "target_selector": "footer, header"
+  },
+  {
+    "id": "shopify-no-return-shipping-policy",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='return']", "a[href*='shipping']", "a[href*='refund']", "[class*='shipping-policy']", "a[href*='policies/refund']", "a[href*='policies/shipping']"]
+    },
+    "finding": "No visible return or shipping policy link — customers may hesitate to purchase without clear policy information",
+    "ice": { "impact": 7, "confidence": 7, "ease": 9 },
+    "target_selector": "footer, .product-form, main"
   }
 ]

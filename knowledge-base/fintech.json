@@ -93,5 +93,162 @@
     "finding": "Data visualizations may lack text labels or legends — inaccessible",
     "ice": { "impact": 6, "confidence": 5, "ease": 6 },
     "target_selector": "svg, canvas, [class*='chart']"
+  },
+  {
+    "id": "fintech-no-ssl-security-badge",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='secure']", "[class*='ssl']", "[class*='encrypted']", "[class*='shield']", "[alt*='secure']", "img[alt*='ssl']", "[class*='lock']"]
+    },
+    "finding": "No SSL/security badge visible — users may not trust the page with sensitive financial data",
+    "ice": { "impact": 8, "confidence": 6, "ease": 8 },
+    "target_selector": "header, footer, form"
+  },
+  {
+    "id": "fintech-missing-2fa-indicator",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='2fa']", "[class*='mfa']", "[class*='two-factor']", "[class*='authenticator']", "[class*='multi-factor']", "[class*='verification-code']"]
+    },
+    "finding": "No 2FA/MFA indicator found — users cannot verify multi-factor authentication is available",
+    "ice": { "impact": 8, "confidence": 5, "ease": 6 },
+    "target_selector": "form, [class*='login'], [class*='auth']"
+  },
+  {
+    "id": "fintech-no-session-timeout-warning",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='session']", "[class*='timeout']", "[class*='expire']", "[data-timeout]", "[class*='inactivity']", "[class*='session-timer']"]
+    },
+    "finding": "No session timeout warning detected — users risk losing unsaved data or unauthorized access",
+    "ice": { "impact": 7, "confidence": 5, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "fintech-sensitive-input-not-masked",
+    "category": "security",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["input[name*='ssn']:not([type='password'])", "input[name*='social-security']:not([type='password'])", "input[name*='account_number']:not([type='password'])", "input[name*='account-number']:not([type='password'])", "input[name*='routing']:not([type='password'])"]
+    },
+    "finding": "Sensitive form inputs (SSN, account numbers) are not masked — visible data increases shoulder-surfing risk",
+    "ice": { "impact": 9, "confidence": 8, "ease": 9 },
+    "target_selector": "input[name*='ssn'], input[name*='account']"
+  },
+  {
+    "id": "fintech-missing-regulatory-compliance",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='fdic']", "[class*='compliance']", "[class*='regulated']", "[class*='license']", "[class*='registration']", "[class*='regulatory']", "img[alt*='FDIC']", "[class*='sipc']"]
+    },
+    "finding": "No regulatory or compliance information found — missing FDIC, licensing, or registration disclosures reduces trust",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "footer, body"
+  },
+  {
+    "id": "fintech-no-privacy-policy-link",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='privacy']", "a[href*='terms']", "footer a[href*='legal']", "[class*='privacy']", "[class*='terms-of-service']", "a[href*='policy']"]
+    },
+    "finding": "No privacy policy or terms link found in the page — required for financial services compliance",
+    "ice": { "impact": 8, "confidence": 7, "ease": 9 },
+    "target_selector": "footer, body"
+  },
+  {
+    "id": "fintech-no-account-balance-visible",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='balance']", "[class*='total']", "[class*='account-summary']", "[class*='net-worth']", "[class*='portfolio-value']", "[class*='available-funds']"]
+    },
+    "finding": "No account balance or summary visible — users cannot quickly assess their financial standing",
+    "ice": { "impact": 9, "confidence": 6, "ease": 6 },
+    "target_selector": "main, [class*='dashboard']"
+  },
+  {
+    "id": "fintech-missing-quick-actions",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='quick-action']", "[class*='transfer']", "[class*='send-money']", "[class*='pay']", "[class*='action-button']", "[class*='quick-link']", "a[href*='transfer']", "a[href*='payment']"]
+    },
+    "finding": "No quick-action buttons (transfer, pay, send) detected — users must navigate deeper for common tasks",
+    "ice": { "impact": 7, "confidence": 5, "ease": 7 },
+    "target_selector": "main, [class*='dashboard'], nav"
+  },
+  {
+    "id": "fintech-no-notification-indicator",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='notification']", "[class*='alert']", "[class*='bell']", "[class*='badge']", "[aria-label*='notification']", "[class*='inbox']", "[class*='message-count']"]
+    },
+    "finding": "No notification or alert indicator found — users may miss important account activity or security alerts",
+    "ice": { "impact": 7, "confidence": 5, "ease": 7 },
+    "target_selector": "header, nav"
+  },
+  {
+    "id": "fintech-no-help-support-link",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='help']", "[class*='support']", "a[href*='help']", "a[href*='support']", "a[href*='faq']", "[class*='chat']", "[class*='contact']", "[aria-label*='help']"]
+    },
+    "finding": "No help or support link detected — users have no clear path to assistance when encountering issues",
+    "ice": { "impact": 6, "confidence": 6, "ease": 8 },
+    "target_selector": "header, footer, nav"
+  },
+  {
+    "id": "fintech-missing-transaction-status",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='status']", "[class*='pending']", "[class*='completed']", "[class*='transaction-status']", "[class*='settled']", "[class*='processing']"]
+    },
+    "finding": "No transaction status indicators found — users cannot tell if payments are pending, completed, or failed",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='transaction'], table, [class*='history']"
+  },
+  {
+    "id": "fintech-no-currency-formatting-guidance",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='currency']", "[inputmode='decimal']", "input[type='number'][step]", "[class*='currency-symbol']", "[class*='dollar']", "[class*='money-input']"]
+    },
+    "finding": "No currency or amount formatting guidance detected — users may enter amounts in inconsistent formats",
+    "ice": { "impact": 6, "confidence": 5, "ease": 7 },
+    "target_selector": "input[type='number'], input[class*='amount'], form"
+  },
+  {
+    "id": "fintech-amount-input-too-small",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["input[type='number']", "input[inputmode='decimal']", "input[class*='amount']", "input[class*='price']", "input[class*='payment']"],
+      "property": "fontSize",
+      "condition": "lt",
+      "threshold": "16"
+    },
+    "finding": "Amount input font size is below 16px — difficult to read and triggers zoom on mobile devices",
+    "ice": { "impact": 7, "confidence": 8, "ease": 9 },
+    "target_selector": "input[type='number'], input[class*='amount']"
+  },
+  {
+    "id": "fintech-no-confirmation-review-step",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='review']", "[class*='confirm']", "[class*='summary']", "button[class*='review']", "[class*='order-summary']", "[class*='confirmation']", "[class*='verify-details']"]
+    },
+    "finding": "No confirmation or review step signaled — users may submit financial transactions without verifying details",
+    "ice": { "impact": 9, "confidence": 5, "ease": 6 },
+    "target_selector": "form, [class*='checkout'], [class*='payment']"
   }
 ]
