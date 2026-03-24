@@ -283,5 +283,158 @@
     "finding": "No visible return or shipping policy link — customers may hesitate to purchase without clear policy information",
     "ice": { "impact": 7, "confidence": 7, "ease": 9 },
     "target_selector": "footer, .product-form, main"
+  },
+  {
+    "id": "shopify-copy-generic-atc",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[name='add']", ".product-form__submit", "form[action*='/cart/add'] button", ".add-to-cart", ".btn-addtocart"],
+      "condition": "contains_pattern",
+      "patterns": ["buy", "purchase", "buy now", "buy it"]
+    },
+    "finding": "'Add to Cart' performs 15% better than 'Buy' in A/B tests — use 'Add to Cart' or 'Add to Bag'",
+    "ice": { "impact": 7, "confidence": 7, "ease": 9 },
+    "target_selector": "[name='add'], .product-form__submit"
+  },
+  {
+    "id": "shopify-copy-urgency-language",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["p", "span", "div", ".announcement-bar", "[class*='banner']", "[class*='urgency']", "[class*='countdown']"],
+      "condition": "contains_pattern",
+      "patterns": ["only x left", "selling fast", "hurry", "limited time", "act now", "don't miss out", "while supplies last", "almost gone", "last chance", "ending soon"]
+    },
+    "finding": "Page uses urgency/scarcity language — verify claims are truthful (FTC compliance requirement)",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": "p, span, .announcement-bar"
+  },
+  {
+    "id": "shopify-copy-no-value-prop",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1"],
+      "condition": "heading_too_short",
+      "threshold": 2
+    },
+    "finding": "Hero H1 is too short to communicate value proposition — should convey what you sell and why it matters",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "h1"
+  },
+  {
+    "id": "shopify-copy-product-desc-short",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": [".product-description", ".product__description", "[class*='product-description']", ".rte", ".product-single__description"],
+      "condition": "text_length_lt",
+      "threshold": 50
+    },
+    "finding": "Product description is under 50 characters — provide enough detail for informed purchase decisions",
+    "ice": { "impact": 8, "confidence": 7, "ease": 7 },
+    "target_selector": ".product-description, .product__description, .rte"
+  },
+  {
+    "id": "shopify-copy-weak-cta",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", "[role='button']", ".shopify-payment-button__button"],
+      "condition": "weak_cta_verb",
+      "patterns": ["submit", "go", "ok", "click", "enter", "next", "continue"]
+    },
+    "finding": "Ecommerce button uses generic verb — use specific action words like 'Add to Cart', 'Shop Now', 'Get Yours'",
+    "ice": { "impact": 7, "confidence": 7, "ease": 9 },
+    "target_selector": "button, a.btn"
+  },
+  {
+    "id": "shopify-copy-trust-words-missing",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": [".product-description", ".product__description", ".rte", ".product-single__description"],
+      "condition": "missing_pattern",
+      "patterns": ["guarantee", "return", "warranty", "refund", "free", "secure", "quality", "handmade", "organic", "certified"]
+    },
+    "finding": "Product description lacks trust-building language — mention guarantees, returns, quality, or certifications",
+    "ice": { "impact": 6, "confidence": 5, "ease": 7 },
+    "target_selector": ".product-description, .rte"
+  },
+  {
+    "id": "shopify-copy-sold-out-handling",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[name='add']", ".product-form__submit", ".add-to-cart", ".btn-addtocart"],
+      "condition": "contains_pattern",
+      "patterns": ["unavailable", "sold out", "out of stock", "coming soon"]
+    },
+    "finding": "Product shows sold-out state — consider adding 'Notify Me' or suggesting similar products",
+    "ice": { "impact": 7, "confidence": 8, "ease": 6 },
+    "target_selector": "[name='add'], .product-form__submit"
+  },
+  {
+    "id": "shopify-copy-heading-placeholder",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "[class*='hero'] h1", "[class*='banner'] h1"],
+      "condition": "placeholder_text"
+    },
+    "finding": "Store heading contains placeholder text — replace before going live",
+    "ice": { "impact": 9, "confidence": 9, "ease": 10 },
+    "target_selector": "h1, h2, h3"
+  },
+  {
+    "id": "shopify-copy-cta-too-long",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", ".shopify-payment-button__button", "[role='button']"],
+      "condition": "cta_too_long",
+      "threshold": 40
+    },
+    "finding": "Ecommerce CTA exceeds 40 characters — short, punchy buttons convert better",
+    "ice": { "impact": 6, "confidence": 7, "ease": 9 },
+    "target_selector": "button, a.btn"
+  },
+  {
+    "id": "shopify-copy-all-caps-title",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": [".product__title", ".product-title", "h1", ".product-single__title"],
+      "condition": "all_caps_text"
+    },
+    "finding": "Product title is ALL CAPS — harder to read; use title case for product names",
+    "ice": { "impact": 5, "confidence": 8, "ease": 9 },
+    "target_selector": ".product__title, .product-title, h1"
+  },
+  {
+    "id": "shopify-copy-collection-no-desc",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": [".collection-description", ".collection__description", "[class*='collection-description']", ".rte"],
+      "condition": "empty_text"
+    },
+    "finding": "Collection page has no description — add copy to improve SEO and help customers understand the category",
+    "ice": { "impact": 6, "confidence": 7, "ease": 8 },
+    "target_selector": ".collection-description, .collection__description"
+  },
+  {
+    "id": "shopify-copy-excessive-exclamation",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "p", "button", ".announcement-bar"],
+      "condition": "excessive_exclamation",
+      "threshold": 2
+    },
+    "finding": "Ecommerce copy contains excessive exclamation marks — undermines brand credibility",
+    "ice": { "impact": 4, "confidence": 8, "ease": 9 },
+    "target_selector": "h1, h2, p, button"
   }
 ]

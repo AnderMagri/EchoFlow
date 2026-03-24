@@ -619,5 +619,198 @@
     "finding": "Links pointing to non-HTTPS URLs found — may direct users to insecure pages",
     "ice": { "impact": 5, "confidence": 8, "ease": 7 },
     "target_selector": "a[href^='http:']"
+  },
+
+  {
+    "id": "ux-copy-cta-too-short",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", "a.button", "[role='button']", "input[type='submit']"],
+      "condition": "cta_too_short",
+      "threshold": 2
+    },
+    "finding": "CTA text is too short to convey a clear action",
+    "ice": { "impact": 5, "confidence": 7, "ease": 9 },
+    "target_selector": "button, a.btn, [role='button']"
+  },
+  {
+    "id": "ux-copy-cta-too-long",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", "a.button", "[role='button']", "input[type='submit']"],
+      "condition": "cta_too_long",
+      "threshold": 50
+    },
+    "finding": "CTA text exceeds 50 characters — button copy should be concise and scannable",
+    "ice": { "impact": 4, "confidence": 8, "ease": 9 },
+    "target_selector": "button, a.btn, [role='button']"
+  },
+  {
+    "id": "ux-copy-weak-cta",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", "a.button", "[role='button']", "input[type='submit']"],
+      "condition": "weak_cta_verb",
+      "patterns": ["click here", "submit", "go", "ok", "press here", "click", "enter", "send", "yes"]
+    },
+    "finding": "CTA uses generic/weak verb — replace with action-specific copy (e.g. 'Get started', 'Create account')",
+    "ice": { "impact": 6, "confidence": 6, "ease": 8 },
+    "target_selector": "button, [role='button']"
+  },
+  {
+    "id": "ux-copy-vague-link",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["a"],
+      "condition": "vague_link_text",
+      "patterns": ["read more", "learn more", "click here", "here", "more", "link", "this page", "this"]
+    },
+    "finding": "Link uses vague text — screen readers and users need descriptive link copy",
+    "ice": { "impact": 7, "confidence": 7, "ease": 8 },
+    "target_selector": "a"
+  },
+  {
+    "id": "ux-copy-heading-too-long",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "h4"],
+      "condition": "heading_too_long",
+      "threshold": 80
+    },
+    "finding": "Heading exceeds 80 characters — long headings reduce scannability",
+    "ice": { "impact": 5, "confidence": 8, "ease": 8 },
+    "target_selector": "h1, h2, h3, h4"
+  },
+  {
+    "id": "ux-copy-heading-single-word",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2"],
+      "condition": "heading_too_short",
+      "threshold": 1
+    },
+    "finding": "Heading is a single word — too vague to communicate page purpose or section content",
+    "ice": { "impact": 5, "confidence": 6, "ease": 8 },
+    "target_selector": "h1, h2"
+  },
+  {
+    "id": "ux-copy-all-caps-body",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["p", "li", "span", "td"],
+      "condition": "all_caps_text"
+    },
+    "finding": "Body text is ALL CAPS — reduces readability by 13-20% per usability research",
+    "ice": { "impact": 6, "confidence": 8, "ease": 9 },
+    "target_selector": "p, li, span"
+  },
+  {
+    "id": "ux-copy-all-caps-heading",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3"],
+      "condition": "all_caps_text"
+    },
+    "finding": "Heading is ALL CAPS in source — consider CSS text-transform instead for accessibility",
+    "ice": { "impact": 4, "confidence": 7, "ease": 9 },
+    "target_selector": "h1, h2, h3"
+  },
+  {
+    "id": "ux-copy-excessive-exclamation",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "p", "button", "a"],
+      "condition": "excessive_exclamation",
+      "threshold": 2
+    },
+    "finding": "Text contains multiple exclamation marks — appears unprofessional and reduces trust",
+    "ice": { "impact": 4, "confidence": 8, "ease": 9 },
+    "target_selector": "h1, h2, p, button"
+  },
+  {
+    "id": "ux-copy-button-empty",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "[role='button']"],
+      "condition": "empty_text"
+    },
+    "finding": "Button has no visible text — users cannot determine its purpose",
+    "ice": { "impact": 8, "confidence": 9, "ease": 9 },
+    "target_selector": "button, [role='button']"
+  },
+  {
+    "id": "ux-copy-title-too-long",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["title"],
+      "condition": "text_length_gt",
+      "threshold": 60
+    },
+    "finding": "Page title exceeds 60 characters — will be truncated in search engine results",
+    "ice": { "impact": 6, "confidence": 9, "ease": 8 },
+    "target_selector": "title"
+  },
+  {
+    "id": "ux-copy-paragraph-too-long",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["p"],
+      "condition": "text_length_gt",
+      "threshold": 600
+    },
+    "finding": "Paragraph exceeds 600 characters — break into shorter paragraphs for better readability",
+    "ice": { "impact": 5, "confidence": 7, "ease": 8 },
+    "target_selector": "p"
+  },
+  {
+    "id": "ux-copy-negative-framing",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "h1", "h2", ".cta", "[role='button']"],
+      "condition": "contains_pattern",
+      "patterns": ["don't miss", "don't forget", "you'll lose", "last chance", "act now or"]
+    },
+    "finding": "CTA or heading uses negative/fear-based framing — consider positive, benefit-oriented copy",
+    "ice": { "impact": 5, "confidence": 5, "ease": 7 },
+    "target_selector": "button, h1, h2"
+  },
+  {
+    "id": "ux-copy-generic-heading",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1"],
+      "condition": "contains_pattern",
+      "patterns": ["welcome", "home", "untitled", "page title", "new page"]
+    },
+    "finding": "H1 uses generic/placeholder heading — should clearly describe the page content or value proposition",
+    "ice": { "impact": 7, "confidence": 6, "ease": 8 },
+    "target_selector": "h1"
+  },
+  {
+    "id": "ux-copy-link-opens-new-warning",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["a[target='_blank']"],
+      "condition": "missing_pattern",
+      "patterns": ["new tab", "new window", "opens in", "external"]
+    },
+    "finding": "Link opens in new tab but text doesn't indicate this — add '(opens in new tab)' or an icon for accessibility",
+    "ice": { "impact": 5, "confidence": 6, "ease": 8 },
+    "target_selector": "a[target='_blank']"
   }
 ]

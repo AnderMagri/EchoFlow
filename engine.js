@@ -412,6 +412,146 @@ function checkTextContent(check, data) {
         }
       }
     }
+
+    // ── Copy analysis conditions ──
+
+    if (check.condition === 'contains_pattern') {
+      const lower = text.toLowerCase();
+      const suppress = check.suppress_if_attribute && el.attributes?.[check.suppress_if_attribute];
+      if (!suppress) {
+        for (const p of (check.patterns || [])) {
+          if (lower.includes(p.toLowerCase())) {
+            results.push({
+              position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+              selector: el.selector,
+              detail: '"' + text.substring(0, 30) + '" — contains "' + p + '"'
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    if (check.condition === 'missing_pattern') {
+      const lower = text.toLowerCase();
+      const hasAny = (check.patterns || []).some(p => lower.includes(p.toLowerCase()));
+      if (!hasAny) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text.substring(0, 30) + '" — lacks expected keywords'
+        });
+      }
+    }
+
+    if (check.condition === 'weak_cta_verb') {
+      const lower = text.trim().toLowerCase();
+      for (const p of (check.patterns || [])) {
+        if (lower === p || lower.startsWith(p + ' ') || lower.endsWith(' ' + p)) {
+          results.push({
+            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            selector: el.selector,
+            detail: '"' + text.substring(0, 30) + '" — weak/generic CTA verb'
+          });
+          break;
+        }
+      }
+    }
+
+    if (check.condition === 'vague_link_text') {
+      const lower = text.trim().toLowerCase();
+      for (const p of (check.patterns || [])) {
+        if (lower === p || lower.startsWith(p + ' ') || lower.endsWith(' ' + p)) {
+          results.push({
+            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            selector: el.selector,
+            detail: '"' + text.substring(0, 30) + '" — vague link text'
+          });
+          break;
+        }
+      }
+    }
+
+    if (check.condition === 'cta_too_short') {
+      if (text.length <= (check.threshold || 2)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text + '" — CTA text is only ' + text.length + ' characters'
+        });
+      }
+    }
+
+    if (check.condition === 'cta_too_long') {
+      if (text.length > (check.threshold || 50)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text.substring(0, 40) + '..." — ' + text.length + ' characters'
+        });
+      }
+    }
+
+    if (check.condition === 'heading_too_long') {
+      if (text.length > (check.threshold || 80)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text.substring(0, 40) + '..." — ' + text.length + ' characters'
+        });
+      }
+    }
+
+    if (check.condition === 'heading_too_short') {
+      if (text.split(/\s+/).length <= (check.threshold || 1)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text + '" — heading is too short/vague'
+        });
+      }
+    }
+
+    if (check.condition === 'text_length_lt') {
+      if (text.length < (check.threshold || 10)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text + '" — only ' + text.length + ' characters (min: ' + (check.threshold || 10) + ')'
+        });
+      }
+    }
+
+    if (check.condition === 'text_length_gt') {
+      if (text.length > (check.threshold || 160)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text.substring(0, 40) + '..." — ' + text.length + ' characters (max: ' + (check.threshold || 160) + ')'
+        });
+      }
+    }
+
+    if (check.condition === 'all_caps_text') {
+      if (text.length > 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text.substring(0, 30) + '" — ALL CAPS in source'
+        });
+      }
+    }
+
+    if (check.condition === 'excessive_exclamation') {
+      const count = (text.match(/!/g) || []).length;
+      if (count >= (check.threshold || 2)) {
+        results.push({
+          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          selector: el.selector,
+          detail: '"' + text.substring(0, 30) + '" — ' + count + ' exclamation marks'
+        });
+      }
+    }
   }
 
   return results.slice(0, 10);

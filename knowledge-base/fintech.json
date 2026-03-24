@@ -250,5 +250,156 @@
     "finding": "No confirmation or review step signaled — users may submit financial transactions without verifying details",
     "ice": { "impact": 9, "confidence": 5, "ease": 6 },
     "target_selector": "form, [class*='checkout'], [class*='payment']"
+  },
+  {
+    "id": "fintech-copy-jargon-in-cta",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "a.btn", "[role='button']", "input[type='submit']"],
+      "condition": "contains_pattern",
+      "patterns": ["amortize", "escheat", "remittance", "fiduciary", "disburse", "collateralize", "arbitrage"]
+    },
+    "finding": "CTA contains financial jargon — use plain language for broader accessibility",
+    "ice": { "impact": 7, "confidence": 8, "ease": 8 },
+    "target_selector": "button, [role='button']"
+  },
+  {
+    "id": "fintech-copy-vague-error",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": [".error", "[class*='error']", "[role='alert']", ".error-message", ".alert-danger", "[class*='alert']"],
+      "condition": "contains_pattern",
+      "patterns": ["something went wrong", "error occurred", "please try again", "invalid input", "an error", "unexpected error", "oops"]
+    },
+    "finding": "Error message is vague — financial errors must explain what happened and how to recover",
+    "ice": { "impact": 8, "confidence": 7, "ease": 7 },
+    "target_selector": ".error, [role='alert']"
+  },
+  {
+    "id": "fintech-copy-missing-security-language",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["form", "[class*='login']", "[class*='signup']", "[class*='sign-in']", "[class*='register']"],
+      "condition": "missing_pattern",
+      "patterns": ["secure", "encrypt", "protect", "safe", "privacy", "ssl", "256-bit", "bank-level"]
+    },
+    "finding": "Financial form area lacks security reassurance — users need to feel safe entering sensitive data",
+    "ice": { "impact": 7, "confidence": 5, "ease": 8 },
+    "target_selector": "form, [class*='login']"
+  },
+  {
+    "id": "fintech-copy-ambiguous-action",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button[type='submit']", "[class*='transfer'] button", "[class*='payment'] button", "[class*='send'] button"],
+      "condition": "weak_cta_verb",
+      "patterns": ["submit", "go", "ok", "next", "continue", "proceed", "confirm"]
+    },
+    "finding": "Financial action button uses ambiguous verb — use specific copy like 'Send $X', 'Transfer Funds', or 'Pay Now'",
+    "ice": { "impact": 8, "confidence": 7, "ease": 8 },
+    "target_selector": "button[type='submit']"
+  },
+  {
+    "id": "fintech-copy-no-disclaimer",
+    "category": "copy",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='disclaimer']", "[class*='disclosure']", ".legal-text", "[class*='terms']", "small", "[class*='fine-print']", "[class*='legal']"]
+    },
+    "finding": "No disclaimer or disclosure text found — may be required by financial regulations (FDIC, SEC, FINRA)",
+    "ice": { "impact": 8, "confidence": 5, "ease": 7 },
+    "target_selector": "footer"
+  },
+  {
+    "id": "fintech-copy-amount-no-currency",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='amount']", "[class*='balance']", "[class*='total']", "[class*='price']", "[class*='value']"],
+      "condition": "missing_pattern",
+      "patterns": ["$", "usd", "eur", "gbp", "cad", "aud", "£", "€", "¥"]
+    },
+    "finding": "Financial amount displayed without currency indicator — users cannot confirm the denomination",
+    "ice": { "impact": 7, "confidence": 6, "ease": 9 },
+    "target_selector": "[class*='amount'], [class*='balance']"
+  },
+  {
+    "id": "fintech-copy-heading-jargon",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3"],
+      "condition": "contains_pattern",
+      "patterns": ["accrual", "amortization", "basis points", "capitalization rate", "disbursement", "escrow", "garnishment", "lien", "securitization"]
+    },
+    "finding": "Heading contains technical financial term — consider simplified language for non-expert users",
+    "ice": { "impact": 5, "confidence": 7, "ease": 7 },
+    "target_selector": "h1, h2, h3"
+  },
+  {
+    "id": "fintech-copy-all-caps-amount",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='amount']", "[class*='balance']", "[class*='total']", "label"],
+      "condition": "all_caps_text"
+    },
+    "finding": "Financial label is ALL CAPS — can appear aggressive and reduce trust in financial contexts",
+    "ice": { "impact": 4, "confidence": 7, "ease": 9 },
+    "target_selector": "[class*='amount'], label"
+  },
+  {
+    "id": "fintech-copy-button-empty",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "[role='button']", "input[type='submit']"],
+      "condition": "empty_text"
+    },
+    "finding": "Financial action button has no text — critical actions must have clear, descriptive labels",
+    "ice": { "impact": 9, "confidence": 9, "ease": 9 },
+    "target_selector": "button, [role='button']"
+  },
+  {
+    "id": "fintech-copy-placeholder-text",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "label", "p"],
+      "condition": "placeholder_text"
+    },
+    "finding": "Financial page contains placeholder/Lorem Ipsum text — must be replaced before production",
+    "ice": { "impact": 10, "confidence": 9, "ease": 10 },
+    "target_selector": "h1, h2, label, p"
+  },
+  {
+    "id": "fintech-copy-excessive-exclamation",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "p", "button", "label"],
+      "condition": "excessive_exclamation",
+      "threshold": 1
+    },
+    "finding": "Exclamation marks in financial copy reduce professionalism — use measured, confident tone",
+    "ice": { "impact": 5, "confidence": 8, "ease": 9 },
+    "target_selector": "h1, h2, p, button"
+  },
+  {
+    "id": "fintech-copy-missing-confirmation-details",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='confirm']", "[class*='review']", "[class*='summary']", "[class*='receipt']"],
+      "condition": "missing_pattern",
+      "patterns": ["amount", "total", "fee", "to", "from", "recipient", "account"]
+    },
+    "finding": "Confirmation screen lacks transaction summary — show amount, recipient, and fees before final action",
+    "ice": { "impact": 9, "confidence": 5, "ease": 6 },
+    "target_selector": "[class*='confirm'], [class*='summary']"
   }
 ]

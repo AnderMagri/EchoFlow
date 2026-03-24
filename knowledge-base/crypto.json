@@ -291,5 +291,159 @@
     "finding": "No help, docs, or FAQ link for Web3 onboarding — new users lack guidance for getting started",
     "ice": { "impact": 6, "confidence": 6, "ease": 9 },
     "target_selector": "header, nav, footer"
+  },
+  {
+    "id": "crypto-copy-jargon-no-tooltip",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "h1", "h2", "h3", "p", "label", "span"],
+      "condition": "contains_pattern",
+      "patterns": ["impermanent loss", "slippage", "gwei", "merkle", "nonce", "wei", "finality", "epoch", "shard", "mempool"],
+      "suppress_if_attribute": "title"
+    },
+    "finding": "Page uses Web3 jargon without tooltip or explanation — alienates mainstream users",
+    "ice": { "impact": 6, "confidence": 6, "ease": 6 },
+    "target_selector": "p, span, label"
+  },
+  {
+    "id": "crypto-copy-missing-risk-warning",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='swap']", "[class*='trade']", "[class*='stake']", "[class*='pool']", "form", "[class*='exchange']"],
+      "condition": "missing_pattern",
+      "patterns": ["risk", "loss", "volatile", "not financial advice", "dyor", "caution", "warning", "may lose"]
+    },
+    "finding": "Transaction area lacks risk warning — users should understand potential for loss before acting",
+    "ice": { "impact": 8, "confidence": 5, "ease": 7 },
+    "target_selector": "[class*='swap'], [class*='trade'], form"
+  },
+  {
+    "id": "crypto-copy-gas-no-estimation",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='gas']", "[class*='fee']", "[class*='network-fee']", "[class*='tx-fee']"],
+      "condition": "missing_pattern",
+      "patterns": ["estimated", "approximately", "~", "max", "up to", "est."]
+    },
+    "finding": "Gas/network fee display lacks estimation context — show 'estimated' or 'max' to set user expectations",
+    "ice": { "impact": 7, "confidence": 6, "ease": 8 },
+    "target_selector": "[class*='gas'], [class*='fee']"
+  },
+  {
+    "id": "crypto-copy-weak-connect-cta",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='connect']", "[class*='wallet'] button", "button[class*='web3']", "[class*='login'] button"],
+      "condition": "weak_cta_verb",
+      "patterns": ["submit", "go", "ok", "click", "enter", "login", "sign in"]
+    },
+    "finding": "Wallet connect button uses generic verb — use 'Connect Wallet' or name the wallet (e.g. 'Connect MetaMask')",
+    "ice": { "impact": 6, "confidence": 7, "ease": 9 },
+    "target_selector": "[class*='connect'] button"
+  },
+  {
+    "id": "crypto-copy-approval-no-explanation",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "[role='button']", "p", "span", "[class*='approve']"],
+      "condition": "contains_pattern",
+      "patterns": ["approve", "unlimited approval", "infinite approval", "approve token", "allow access"]
+    },
+    "finding": "Token approval detected — explain what the user is approving and the security implications clearly",
+    "ice": { "impact": 9, "confidence": 7, "ease": 6 },
+    "target_selector": "button, [class*='approve']"
+  },
+  {
+    "id": "crypto-copy-heading-too-vague",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2"],
+      "condition": "heading_too_short",
+      "threshold": 1
+    },
+    "finding": "DApp heading is a single word — provide context about the protocol's purpose and what users can do",
+    "ice": { "impact": 5, "confidence": 6, "ease": 8 },
+    "target_selector": "h1, h2"
+  },
+  {
+    "id": "crypto-copy-all-caps-warning",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='warning']", "[class*='alert']", "[class*='risk']", "[role='alert']", "[class*='danger']"],
+      "condition": "all_caps_text"
+    },
+    "finding": "Warning text is ALL CAPS — reduces readability of critical security information when users need it most",
+    "ice": { "impact": 6, "confidence": 8, "ease": 9 },
+    "target_selector": "[class*='warning'], [role='alert']"
+  },
+  {
+    "id": "crypto-copy-scam-patterns",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "h3", "p", "span", "[class*='hero']", "[class*='banner']"],
+      "condition": "contains_pattern",
+      "patterns": ["guaranteed returns", "100% safe", "risk free", "double your", "guaranteed profit", "no risk", "get rich", "passive income guaranteed"]
+    },
+    "finding": "Page contains language commonly associated with scam projects — 'guaranteed returns' and 'risk-free' are red flags",
+    "ice": { "impact": 10, "confidence": 7, "ease": 3 },
+    "target_selector": "h1, h2, p"
+  },
+  {
+    "id": "crypto-copy-placeholder-text",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["h1", "h2", "p", "[class*='description']", "[class*='about']"],
+      "condition": "placeholder_text"
+    },
+    "finding": "DApp contains placeholder text — must be replaced before mainnet deployment",
+    "ice": { "impact": 10, "confidence": 9, "ease": 10 },
+    "target_selector": "h1, h2, p"
+  },
+  {
+    "id": "crypto-copy-empty-button",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "[role='button']"],
+      "condition": "empty_text"
+    },
+    "finding": "Transaction button has no text — critical Web3 actions must be clearly labeled to prevent user error",
+    "ice": { "impact": 9, "confidence": 9, "ease": 9 },
+    "target_selector": "button, [role='button']"
+  },
+  {
+    "id": "crypto-copy-cta-too-long",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["button", "[role='button']", "a.btn"],
+      "condition": "cta_too_long",
+      "threshold": 40
+    },
+    "finding": "DApp button text exceeds 40 characters — concise CTAs are clearer for transaction actions",
+    "ice": { "impact": 5, "confidence": 7, "ease": 9 },
+    "target_selector": "button, [role='button']"
+  },
+  {
+    "id": "crypto-copy-network-missing",
+    "category": "copy",
+    "check": {
+      "type": "text_content",
+      "selectors": ["[class*='swap'] button", "[class*='bridge'] button", "[class*='send'] button", "[class*='transfer'] button"],
+      "condition": "missing_pattern",
+      "patterns": ["on", "via", "network", "chain", "ethereum", "polygon", "arbitrum", "optimism", "base", "solana"]
+    },
+    "finding": "Transaction button doesn't mention target network — users should see which chain they are acting on",
+    "ice": { "impact": 7, "confidence": 5, "ease": 7 },
+    "target_selector": "[class*='swap'] button, [class*='bridge'] button"
   }
 ]
