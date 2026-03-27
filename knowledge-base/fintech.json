@@ -401,5 +401,163 @@
     "finding": "Confirmation screen lacks transaction summary — show amount, recipient, and fees before final action",
     "ice": { "impact": 9, "confidence": 5, "ease": 6 },
     "target_selector": "[class*='confirm'], [class*='summary']"
+  },
+  {
+    "id": "fintech-no-biometric-auth",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='biometric']", "[class*='face-id']", "[class*='fingerprint']", "[class*='touch-id']", "[class*='faceid']", "[class*='touchid']", "[aria-label*='biometric']", "[aria-label*='fingerprint']", "[aria-label*='face']"]
+    },
+    "finding": "No biometric/Face ID/fingerprint login option indicator detected — users expect biometric authentication on modern financial apps",
+    "ice": { "impact": 7, "confidence": 5, "ease": 5 },
+    "target_selector": "[class*='login'], [class*='auth'], form"
+  },
+  {
+    "id": "fintech-no-transaction-search",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='transaction'] input[type='search']", "[class*='transaction'] [class*='search']", "[class*='transaction'] [class*='filter']", "[class*='history'] input[type='search']", "[class*='history'] [class*='filter']", "input[placeholder*='search transaction']", "[class*='search-transaction']", "[class*='transaction-filter']"]
+    },
+    "finding": "No search or filter in transaction list — users cannot quickly locate specific transactions",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='transaction'], [class*='history'], table"
+  },
+  {
+    "id": "fintech-no-account-switcher",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='account-switch']", "[class*='account-selector']", "[class*='account-picker']", "[class*='switch-account']", "select[class*='account']", "[role='listbox'][class*='account']", "[class*='account-dropdown']", "[class*='account-toggle']"]
+    },
+    "finding": "No account switching UI for multi-account users — users cannot easily navigate between accounts",
+    "ice": { "impact": 7, "confidence": 5, "ease": 6 },
+    "target_selector": "header, nav, [class*='dashboard']"
+  },
+  {
+    "id": "fintech-no-statement-download",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='statement']", "[class*='export']", "[class*='download-statement']", "a[href*='statement']", "a[download]", "[class*='download'] [class*='pdf']", "button[class*='export']", "[aria-label*='download statement']", "[aria-label*='export']"]
+    },
+    "finding": "No export or download statement option found — users need to access and save account statements",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='transaction'], [class*='history'], [class*='account']"
+  },
+  {
+    "id": "fintech-no-spending-categories",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='spending']", "[class*='category']", "[class*='insight']", "[class*='breakdown']", "[class*='spending-chart']", "[class*='expense-category']", "[class*='analytics']", "[class*='spending-insight']"]
+    },
+    "finding": "No spending categories or insights visualization detected — users lack visibility into spending patterns",
+    "ice": { "impact": 7, "confidence": 5, "ease": 5 },
+    "target_selector": "main, [class*='dashboard'], [class*='overview']"
+  },
+  {
+    "id": "fintech-no-budget-alerts",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='budget']", "[class*='limit']", "[class*='alert-budget']", "[class*='spending-limit']", "[class*='budget-alert']", "[class*='threshold']", "[class*='budget-warning']", "[class*='over-budget']"]
+    },
+    "finding": "No budget or limit alert indicators found — users cannot set or monitor spending thresholds",
+    "ice": { "impact": 6, "confidence": 5, "ease": 5 },
+    "target_selector": "main, [class*='dashboard'], [class*='budget']"
+  },
+  {
+    "id": "fintech-no-recurring-management",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='recurring']", "[class*='scheduled']", "[class*='subscription']", "[class*='autopay']", "[class*='standing-order']", "[class*='recurring-payment']", "[class*='scheduled-payment']", "a[href*='recurring']", "a[href*='scheduled']"]
+    },
+    "finding": "No recurring or scheduled payment management UI — users cannot view or manage automatic payments",
+    "ice": { "impact": 7, "confidence": 5, "ease": 6 },
+    "target_selector": "main, nav, [class*='payments']"
+  },
+  {
+    "id": "fintech-no-fee-transparency",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='fee']", "[class*='charge']", "[class*='cost-breakdown']", "[class*='fee-breakdown']", "[class*='service-charge']", "[class*='transaction-fee']", "[class*='commission']", "[class*='pricing-detail']"]
+    },
+    "finding": "No fee breakdown before transaction confirmation — users may be surprised by hidden charges",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='confirm'], [class*='review'], [class*='checkout'], form"
+  },
+  {
+    "id": "fintech-no-multi-currency",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='currency-select']", "[class*='currency-switch']", "[class*='multi-currency']", "[class*='currency-picker']", "select[class*='currency']", "[class*='exchange-rate']", "[class*='forex']", "[class*='currency-toggle']"]
+    },
+    "finding": "No multi-currency display or selector found — users dealing in multiple currencies lack conversion visibility",
+    "ice": { "impact": 6, "confidence": 5, "ease": 5 },
+    "target_selector": "[class*='balance'], [class*='transfer'], [class*='payment']"
+  },
+  {
+    "id": "fintech-no-amount-aria",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["[class*='amount']", "[class*='balance']", "[class*='total']", "[class*='price']", "[class*='value']", "[class*='currency']"],
+      "condition": "missing",
+      "attribute": "aria-label"
+    },
+    "finding": "Financial amounts missing aria-label for screen readers — visually formatted values may not be read correctly",
+    "ice": { "impact": 8, "confidence": 7, "ease": 8 },
+    "target_selector": "[class*='amount'], [class*='balance'], [class*='total']"
+  },
+  {
+    "id": "fintech-no-progress-indicator-multistep",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".progress", "[role='progressbar']", ".stepper", ".step-indicator", "[class*='progress']", "[class*='stepper']", "[class*='steps']", "[class*='wizard']", "[class*='stage']", "[aria-valuenow]"]
+    },
+    "finding": "Multi-step financial flow without progress indicator — users cannot gauge completion or remaining steps",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "form, main, [class*='wizard'], [class*='onboarding']"
+  },
+  {
+    "id": "fintech-no-transaction-receipt",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='receipt']", "[class*='download-receipt']", "[class*='confirmation-download']", "a[href*='receipt']", "button[class*='receipt']", "[aria-label*='receipt']", "[class*='print-receipt']", "[class*='save-receipt']"]
+    },
+    "finding": "No receipt or confirmation download option — users cannot save proof of completed transactions",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='confirmation'], [class*='success'], [class*='complete']"
+  },
+  {
+    "id": "fintech-no-beneficiary-management",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='beneficiary']", "[class*='payee']", "[class*='saved-recipient']", "[class*='contact-list']", "[class*='saved-account']", "a[href*='beneficiary']", "a[href*='payee']", "[class*='recipient-list']"]
+    },
+    "finding": "No saved beneficiary or payee management UI — users must re-enter recipient details for every transaction",
+    "ice": { "impact": 7, "confidence": 5, "ease": 6 },
+    "target_selector": "[class*='transfer'], [class*='payment'], [class*='send']"
+  },
+  {
+    "id": "fintech-input-no-inputmode",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[class*='amount']", "input[class*='price']", "input[class*='payment']", "input[class*='balance']", "input[class*='currency']", "input[class*='money']", "input[class*='total']"],
+      "condition": "missing",
+      "attribute": "inputmode"
+    },
+    "finding": "Financial inputs missing inputmode=\"decimal\" — mobile users get the wrong keyboard for entering monetary amounts",
+    "ice": { "impact": 7, "confidence": 8, "ease": 9 },
+    "target_selector": "input[class*='amount'], input[class*='price'], input[class*='payment']"
   }
 ]

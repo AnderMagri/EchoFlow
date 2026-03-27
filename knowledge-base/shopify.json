@@ -436,5 +436,150 @@
     "finding": "Ecommerce copy contains excessive exclamation marks — undermines brand credibility",
     "ice": { "impact": 4, "confidence": 8, "ease": 9 },
     "target_selector": "h1, h2, p, button"
+  },
+  {
+    "id": "shopify-no-cart-drawer",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["cart-drawer", ".cart-drawer", "[data-cart-drawer]", "#cart-drawer", ".mini-cart", ".cart-slide", "[class*='cart-drawer']", "[class*='slide-cart']", "[class*='cart-sidebar']", ".ajax-cart", "[data-section-type='cart-drawer']", ".cart__drawer", "[class*='minicart']", "aside[class*='cart']"]
+    },
+    "finding": "No cart drawer or slide-out cart detected — customers are redirected away from shopping when adding items, increasing abandonment",
+    "ice": { "impact": 8, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-no-shipping-estimator",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='shipping-calculator']", "[class*='shipping-estimator']", "[data-shipping-calculator]", "#shipping-calculator", ".cart__shipping", "[class*='estimate-shipping']", "[class*='shipping-rates']", "form[action*='shipping']", "[class*='delivery-estimator']", "[class*='shipping-estimate']"]
+    },
+    "finding": "No shipping calculator in cart — customers cannot estimate delivery costs before checkout, leading to surprise fees and cart abandonment",
+    "ice": { "impact": 7, "confidence": 7, "ease": 5 },
+    "target_selector": "form[action*='/cart'], .cart, [class*='cart']"
+  },
+  {
+    "id": "shopify-no-product-reviews",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".spr-container", ".jdgm-widget", "[class*='yotpo']", "[class*='okendo']", "[class*='stamped']", "[class*='loox']", "[class*='review']", "[data-reviews]", ".product-reviews", "#product-reviews", "[class*='star-rating']", "[class*='rating']", ".review-widget", "[class*='reviews-widget']", "[data-rating]"]
+    },
+    "finding": "No reviews or ratings widget found on product page — social proof is a top conversion driver and its absence reduces buyer confidence",
+    "ice": { "impact": 9, "confidence": 7, "ease": 4 },
+    "target_selector": "main, #MainContent, [class*='product']"
+  },
+  {
+    "id": "shopify-no-size-guide",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='size-guide']", "[class*='size-chart']", "a[href*='size-guide']", "a[href*='size-chart']", "[data-size-guide]", "[class*='sizing']", "a[href*='sizing']", "[class*='fit-guide']", "a[href*='fit-guide']", ".size-guide-link", "[class*='sizeguide']"]
+    },
+    "finding": "No size guide link found on product page — apparel without sizing information sees higher return rates and lower conversion",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": ".product-form, form[action*='/cart/add'], [class*='variant']"
+  },
+  {
+    "id": "shopify-no-wishlist",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='wishlist']", "[class*='save-for-later']", "[data-wishlist]", "button[class*='wishlist']", "a[class*='wishlist']", "[class*='favorites']", "[class*='favourite']", ".wishlist-btn", "[class*='heart-icon']", "button[aria-label*='wishlist']", "button[aria-label*='save']", "[class*='swym']"]
+    },
+    "finding": "No wishlist or save-for-later functionality — customers cannot bookmark products for future purchase, reducing return visits",
+    "ice": { "impact": 6, "confidence": 7, "ease": 4 },
+    "target_selector": ".product-form, [class*='product'], main"
+  },
+  {
+    "id": "shopify-no-recently-viewed",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='recently-viewed']", "[data-recently-viewed]", "[class*='recent-products']", "#recently-viewed", "[data-section-type='recently-viewed']", "[class*='recently_viewed']", "[class*='viewed-products']", "[class*='history']"]
+    },
+    "finding": "No recently viewed products section — customers cannot easily return to previously browsed items, reducing re-engagement and conversion",
+    "ice": { "impact": 5, "confidence": 7, "ease": 5 },
+    "target_selector": "main, #MainContent, footer"
+  },
+  {
+    "id": "shopify-no-predictive-search-v2",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["predictive-search", "[data-predictive-search]", ".predictive-search", "[class*='predictive-search']", "[class*='autocomplete']", "[class*='search-results-dropdown']", "[class*='search-dropdown']", "[class*='instant-search']", "[class*='search-suggest']", "search-modal", "[data-search-results]"]
+    },
+    "finding": "No predictive or autocomplete search — customers must submit queries to see results, slowing product discovery and increasing exit rate",
+    "ice": { "impact": 7, "confidence": 7, "ease": 4 },
+    "target_selector": "form[action*='/search'], .search-form, [class*='search']"
+  },
+  {
+    "id": "shopify-pdp-no-sticky-atc",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='sticky-atc']", "[class*='sticky-add-to-cart']", "[class*='sticky-cart']", "[class*='fixed-add-to-cart']", "[class*='sticky-buy']", "[class*='sticky_add']", "[class*='mobile-sticky']", "[class*='sticky-bar']", ".product-sticky-form", "[data-sticky-add-to-cart]", "[class*='sticky-form']"]
+    },
+    "finding": "No sticky add-to-cart bar on mobile scroll — customers must scroll back up to add items, causing friction on long product pages",
+    "ice": { "impact": 7, "confidence": 6, "ease": 5 },
+    "target_selector": "form[action*='/cart/add'], .product-form"
+  },
+  {
+    "id": "shopify-no-product-image-alt",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": [".product__media img", ".product-single__media img", "[class*='product'] img", ".product-image img", ".product__photo img", "[class*='product-gallery'] img", "[class*='product-image'] img", ".product__media-item img", "img[src*='cdn.shopify.com/s/files']"],
+      "attribute": "alt",
+      "condition": "missing"
+    },
+    "finding": "Product images are missing alt text — hurts SEO rankings and makes the store inaccessible to screen reader users",
+    "ice": { "impact": 7, "confidence": 9, "ease": 8 },
+    "target_selector": ".product__media img, [class*='product'] img"
+  },
+  {
+    "id": "shopify-no-breadcrumbs",
+    "category": "structure",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='breadcrumb']", "nav[aria-label='breadcrumb']", "nav[aria-label='Breadcrumb']", ".breadcrumbs", "#breadcrumb", "[class*='breadcrumbs']", "ol[class*='breadcrumb']", "nav.breadcrumb", "[data-breadcrumb]", "[itemtype*='BreadcrumbList']"]
+    },
+    "finding": "No breadcrumb navigation found — customers cannot see their location in the site hierarchy, reducing orientation and internal linking for SEO",
+    "ice": { "impact": 6, "confidence": 8, "ease": 7 },
+    "target_selector": "main, #MainContent, [class*='product']"
+  },
+  {
+    "id": "shopify-no-trust-badges-cart",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".cart [class*='trust']", ".cart [class*='badge']", "[class*='cart'] [class*='trust']", "[class*='cart'] [class*='secure']", "[class*='cart'] [class*='guarantee']", "[class*='cart'] .payment-icons", "form[action*='/cart'] [class*='trust']", "[class*='checkout'] [class*='trust']", "[class*='cart'] [class*='payment-icon']", ".cart [class*='ssl']", "[class*='cart'] [class*='safe']"]
+    },
+    "finding": "No trust badges in the cart or checkout area — customers lack reassurance about payment security at the point of purchase decision",
+    "ice": { "impact": 8, "confidence": 6, "ease": 8 },
+    "target_selector": "form[action*='/cart'], .cart, [class*='cart']"
+  },
+  {
+    "id": "shopify-no-quantity-selector",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='quantity']", "input[name='quantity']", "[data-quantity]", ".quantity-selector", ".product-form__quantity", "quantity-input", "[class*='qty']", ".quantity__input", "input[type='number'][name='quantity']", "[class*='quantity-wrapper']"]
+    },
+    "finding": "No quantity selector on product page — customers cannot easily order multiple units, reducing average order value",
+    "ice": { "impact": 6, "confidence": 8, "ease": 8 },
+    "target_selector": "form[action*='/cart/add'], .product-form"
+  },
+  {
+    "id": "shopify-no-compare-at-price",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='compare-at']", "[class*='compare-price']", "[class*='was-price']", "[class*='original-price']", "s .price-item", ".price--on-sale", "[class*='sale-price']", "[class*='price--compare']", "del .price-item", ".price s", "[class*='regular-price'] s", "[data-compare-price]", ".price--sale"]
+    },
+    "finding": "No compare-at or original price shown for discounted products — customers cannot see the savings, reducing the urgency and perceived value of the discount",
+    "ice": { "impact": 8, "confidence": 7, "ease": 8 },
+    "target_selector": ".price, [class*='price'], .product-form"
   }
 ]

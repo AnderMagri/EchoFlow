@@ -35,6 +35,19 @@ function parsePx(value) {
   return match ? parseFloat(match[1]) : null;
 }
 
+// ── Position Helper ──
+// Stores both viewport-relative and absolute (page-relative) coordinates.
+// results.js picks the right one based on capture mode.
+
+function buildPos(bounds) {
+  return {
+    x: bounds.left, y: bounds.top,
+    absoluteX: bounds.absoluteLeft ?? bounds.left,
+    absoluteY: bounds.absoluteTop ?? bounds.top,
+    width: bounds.width, height: bounds.height
+  };
+}
+
 // ── Element Matching ──
 
 function findMatchingElements(data, selectors) {
@@ -64,7 +77,7 @@ function findFirstMatchPosition(data, selectors) {
   const matched = findMatchingElements(data, selectors);
   if (matched.length > 0) {
     const b = matched[0].bounds;
-    return { x: b.absoluteLeft || b.left, y: b.absoluteTop || b.top, width: b.width, height: b.height };
+    return buildPos(b);
   }
   return { x: 0, y: 0, width: 100, height: 30 };
 }
@@ -77,7 +90,7 @@ function checkElementExists(check, data) {
   if (check.condition === 'count_gt') {
     if (matched.length > (check.threshold || 1)) {
       return matched.map(el => ({
-        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: buildPos(el.bounds),
         selector: el.selector
       }));
     }
@@ -87,7 +100,7 @@ function checkElementExists(check, data) {
   // Default: finding fires if element exists
   if (matched.length > 0) {
     return matched.map(el => ({
-      position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+      position: buildPos(el.bounds),
       selector: el.selector
     }));
   }
@@ -119,7 +132,7 @@ function checkElementPosition(check, data) {
     }
     if (fires) {
       results.push({
-        position: { x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height },
+        position: buildPos(bounds),
         selector: el.selector
       });
     }
@@ -202,7 +215,7 @@ function checkComputedStyle(check, data) {
 
     if (fires) {
       results.push({
-        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: buildPos(el.bounds),
         selector: el.selector
       });
     }
@@ -233,7 +246,7 @@ function checkContrastRatio(check, data) {
 
     if (ratio !== null && ratio < check.threshold) {
       results.push({
-        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: buildPos(el.bounds),
         selector: el.selector,
         detail: 'Contrast ratio: ' + ratio.toFixed(2) + ':1 (required: ' + check.threshold + ':1)'
       });
@@ -271,7 +284,7 @@ function checkAttributeCheck(check, data) {
 
     if (fires) {
       results.push({
-        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: buildPos(el.bounds),
         selector: el.selector
       });
     }
@@ -291,12 +304,7 @@ function checkHeadingHierarchy(check, data) {
     if (levels[i] > levels[i - 1] + 1) {
       // Skip detected: e.g. h1 → h3
       results.push({
-        position: {
-          x: data.headings[i].bounds.left,
-          y: data.headings[i].bounds.top,
-          width: data.headings[i].bounds.width,
-          height: data.headings[i].bounds.height
-        },
+        position: buildPos(data.headings[i].bounds),
         selector: data.headings[i].selector,
         detail: 'Jumps from h' + levels[i - 1] + ' to h' + levels[i]
       });
@@ -378,7 +386,7 @@ function checkTextContent(check, data) {
         // Check if it also lacks aria-label
         if (!el.attributes?.['aria-label'] && !el.attributes?.['aria-labelledby']) {
           results.push({
-            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: buildPos(el.bounds),
             selector: el.selector,
             detail: 'Empty text content'
           });
@@ -391,7 +399,7 @@ function checkTextContent(check, data) {
       for (const pat of placeholderPatterns) {
         if (pat.test(text)) {
           results.push({
-            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: buildPos(el.bounds),
             selector: el.selector,
             detail: 'Contains placeholder text: "' + text.substring(0, 40) + '..."'
           });
@@ -404,7 +412,7 @@ function checkTextContent(check, data) {
       for (const issue of grammarIssues) {
         if (issue.pattern.test(text)) {
           results.push({
-            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: buildPos(el.bounds),
             selector: el.selector,
             detail: '"' + text.substring(0, 30) + '" — ' + issue.desc
           });
@@ -422,7 +430,7 @@ function checkTextContent(check, data) {
         for (const p of (check.patterns || [])) {
           if (lower.includes(p.toLowerCase())) {
             results.push({
-              position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+              position: buildPos(el.bounds),
               selector: el.selector,
               detail: '"' + text.substring(0, 30) + '" — contains "' + p + '"'
             });
@@ -437,7 +445,7 @@ function checkTextContent(check, data) {
       const hasAny = (check.patterns || []).some(p => lower.includes(p.toLowerCase()));
       if (!hasAny) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text.substring(0, 30) + '" — lacks expected keywords'
         });
@@ -449,7 +457,7 @@ function checkTextContent(check, data) {
       for (const p of (check.patterns || [])) {
         if (lower === p || lower.startsWith(p + ' ') || lower.endsWith(' ' + p)) {
           results.push({
-            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: buildPos(el.bounds),
             selector: el.selector,
             detail: '"' + text.substring(0, 30) + '" — weak/generic CTA verb'
           });
@@ -463,7 +471,7 @@ function checkTextContent(check, data) {
       for (const p of (check.patterns || [])) {
         if (lower === p || lower.startsWith(p + ' ') || lower.endsWith(' ' + p)) {
           results.push({
-            position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+            position: buildPos(el.bounds),
             selector: el.selector,
             detail: '"' + text.substring(0, 30) + '" — vague link text'
           });
@@ -475,7 +483,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'cta_too_short') {
       if (text.length <= (check.threshold || 2)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text + '" — CTA text is only ' + text.length + ' characters'
         });
@@ -485,7 +493,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'cta_too_long') {
       if (text.length > (check.threshold || 50)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text.substring(0, 40) + '..." — ' + text.length + ' characters'
         });
@@ -495,7 +503,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'heading_too_long') {
       if (text.length > (check.threshold || 80)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text.substring(0, 40) + '..." — ' + text.length + ' characters'
         });
@@ -505,7 +513,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'heading_too_short') {
       if (text.split(/\s+/).length <= (check.threshold || 1)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text + '" — heading is too short/vague'
         });
@@ -515,7 +523,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'text_length_lt') {
       if (text.length < (check.threshold || 10)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text + '" — only ' + text.length + ' characters (min: ' + (check.threshold || 10) + ')'
         });
@@ -525,7 +533,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'text_length_gt') {
       if (text.length > (check.threshold || 160)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text.substring(0, 40) + '..." — ' + text.length + ' characters (max: ' + (check.threshold || 160) + ')'
         });
@@ -535,7 +543,7 @@ function checkTextContent(check, data) {
     if (check.condition === 'all_caps_text') {
       if (text.length > 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text.substring(0, 30) + '" — ALL CAPS in source'
         });
@@ -546,7 +554,7 @@ function checkTextContent(check, data) {
       const count = (text.match(/!/g) || []).length;
       if (count >= (check.threshold || 2)) {
         results.push({
-          position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+          position: buildPos(el.bounds),
           selector: el.selector,
           detail: '"' + text.substring(0, 30) + '" — ' + count + ' exclamation marks'
         });
@@ -569,7 +577,7 @@ function checkFocusVisible(check, data) {
     if (!styles) continue;
     if (styles.outlineStyle === 'none' && !styles.boxShadow) {
       results.push({
-        position: { x: el.bounds.absoluteLeft || el.bounds.left, y: el.bounds.absoluteTop || el.bounds.top, width: el.bounds.width, height: el.bounds.height },
+        position: buildPos(el.bounds),
         selector: el.selector
       });
     }

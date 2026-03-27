@@ -445,5 +445,159 @@
     "finding": "Transaction button doesn't mention target network — users should see which chain they are acting on",
     "ice": { "impact": 7, "confidence": 5, "ease": 7 },
     "target_selector": "[class*='swap'] button, [class*='bridge'] button"
+  },
+  {
+    "id": "crypto-no-slippage-selector",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='slippage-setting']", "[class*='slippage-selector']", "[class*='slippage-input']", "input[placeholder*='slippage']", "[class*='slippage-tolerance']", "[data-testid*='slippage']", "[class*='swap-settings'] input"]
+    },
+    "finding": "No slippage tolerance selector in swap/trade UI — users cannot control acceptable price deviation",
+    "ice": { "impact": 8, "confidence": 7, "ease": 7 },
+    "target_selector": "[class*='swap'], [class*='trade'], [class*='exchange']"
+  },
+  {
+    "id": "crypto-no-price-impact-warning",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='price-impact']", "[class*='priceImpact']", "[class*='impact-warning']", "[class*='high-impact']", "[class*='price-warning']", "[data-testid*='price-impact']"]
+    },
+    "finding": "No price impact warning on large trades — users risk significant value loss without awareness",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='swap'], [class*='trade'], [class*='order']"
+  },
+  {
+    "id": "crypto-no-token-verification",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='verified']", "[class*='token-badge']", "[class*='official']", "[class*='token-verified']", "img[alt*='verified']", "svg[class*='verified']", "[class*='checkmark']", "[data-verified]"]
+    },
+    "finding": "No verified/official token badge — users cannot distinguish legitimate tokens from scam copies",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='token'], [class*='asset'], [class*='coin']"
+  },
+  {
+    "id": "crypto-no-explorer-links",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='etherscan']", "a[href*='polygonscan']", "a[href*='arbiscan']", "a[href*='bscscan']", "a[href*='explorer']", "a[href*='solscan']", "a[href*='basescan']", "[class*='explorer-link']", "[class*='view-on-explorer']"]
+    },
+    "finding": "No blockchain explorer links for transactions — users cannot independently verify on-chain activity",
+    "ice": { "impact": 8, "confidence": 7, "ease": 9 },
+    "target_selector": "[class*='transaction'], [class*='tx'], [class*='history']"
+  },
+  {
+    "id": "crypto-no-portfolio-chart",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='portfolio-chart']", "[class*='portfolio-graph']", "[class*='performance-chart']", "[class*='balance-chart']", "[class*='value-graph']", "canvas[class*='portfolio']", "svg[class*='portfolio']"]
+    },
+    "finding": "No portfolio performance chart or graph — users lack visual insight into holdings over time",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": "[class*='portfolio'], [class*='dashboard'], main"
+  },
+  {
+    "id": "crypto-no-gas-selector",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='gas-selector']", "[class*='gas-option']", "[class*='gas-speed']", "[class*='fee-tier']", "[class*='gas-setting']", "button[class*='slow']", "button[class*='fast']", "[class*='priority-fee']", "[data-testid*='gas-option']"]
+    },
+    "finding": "No gas price selector (slow/normal/fast) — users cannot optimize transaction speed vs. cost",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='gas'], [class*='fee'], [class*='transaction-settings']"
+  },
+  {
+    "id": "crypto-no-multi-chain-display",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='multi-chain']", "[class*='chain-filter']", "[class*='network-filter']", "[class*='chain-list']", "[class*='all-networks']", "[class*='cross-chain']", "select[class*='chain']", "[class*='chain-toggle']"]
+    },
+    "finding": "No multi-chain asset display or chain filter — users with assets on multiple networks cannot see unified balances",
+    "ice": { "impact": 7, "confidence": 5, "ease": 5 },
+    "target_selector": "[class*='portfolio'], [class*='assets'], [class*='wallet']"
+  },
+  {
+    "id": "crypto-no-nft-metadata",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='nft-metadata']", "[class*='nft-details']", "[class*='nft-properties']", "[class*='nft-traits']", "[class*='token-attributes']", "[class*='nft-info']", "[class*='trait']", "[class*='property-list']"]
+    },
+    "finding": "NFT pages missing metadata display — buyers cannot evaluate traits, rarity, or provenance",
+    "ice": { "impact": 7, "confidence": 6, "ease": 6 },
+    "target_selector": "[class*='nft'], [class*='collectible'], [class*='token-detail']"
+  },
+  {
+    "id": "crypto-no-governance-voting",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='governance']", "[class*='voting']", "[class*='proposal']", "[class*='dao-vote']", "[class*='vote-button']", "a[href*='governance']", "a[href*='vote']", "a[href*='snapshot']", "[class*='delegate']"]
+    },
+    "finding": "No governance/DAO voting UI — token holders cannot participate in protocol decision-making",
+    "ice": { "impact": 5, "confidence": 5, "ease": 4 },
+    "target_selector": "[class*='dao'], [class*='governance'], nav"
+  },
+  {
+    "id": "crypto-no-bridge-warning",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='bridge-warning']", "[class*='bridge-risk']", "[class*='bridge-caution']", "[class*='cross-chain-warning']", "[class*='bridge'] [class*='warning']", "[class*='bridge'] [role='alert']"]
+    },
+    "finding": "No cross-chain bridge safety warning — users are not informed of bridge risks, delays, or potential fund loss",
+    "ice": { "impact": 9, "confidence": 6, "ease": 8 },
+    "target_selector": "[class*='bridge'], [class*='cross-chain'], [class*='transfer']"
+  },
+  {
+    "id": "crypto-no-token-allowance",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='allowance']", "[class*='approval-manager']", "[class*='token-approvals']", "[class*='revoke']", "a[href*='revoke']", "[class*='spending-cap']", "[class*='approved-tokens']", "[class*='permissions']"]
+    },
+    "finding": "No token allowance/approval management UI — users cannot review or revoke contract permissions",
+    "ice": { "impact": 8, "confidence": 5, "ease": 6 },
+    "target_selector": "[class*='settings'], [class*='security'], [class*='wallet']"
+  },
+  {
+    "id": "crypto-no-transaction-simulation",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='simulation']", "[class*='tx-preview']", "[class*='transaction-preview']", "[class*='simulate']", "[class*='dry-run']", "[class*='tx-simulation']", "[class*='preview-result']", "[data-testid*='simulation']"]
+    },
+    "finding": "No transaction simulation/preview before signing — users cannot verify expected outcomes before committing funds",
+    "ice": { "impact": 9, "confidence": 5, "ease": 5 },
+    "target_selector": "[class*='confirm'], [class*='sign'], [class*='transaction']"
+  },
+  {
+    "id": "crypto-no-address-validation",
+    "category": "security",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='address-valid']", "[class*='address-error']", "[class*='address-check']", "[class*='invalid-address']", "[class*='address-feedback']", "input[class*='address'] ~ [class*='error']", "input[class*='address'] ~ [class*='valid']"]
+    },
+    "finding": "No address format validation feedback — users may send funds to invalid or wrong-chain addresses",
+    "ice": { "impact": 10, "confidence": 6, "ease": 7 },
+    "target_selector": "input[class*='address'], input[placeholder*='0x'], input[placeholder*='address']"
+  },
+  {
+    "id": "crypto-no-activity-log",
+    "category": "usability",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='activity-log']", "[class*='activity-list']", "[class*='wallet-history']", "[class*='tx-log']", "[class*='recent-activity']", "[class*='transaction-list']", "[class*='history-list']", "a[href*='activity']"]
+    },
+    "finding": "No wallet activity/history log — users cannot track past transactions, approvals, or interactions",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 },
+    "target_selector": "[class*='wallet'], [class*='account'], [class*='dashboard']"
   }
 ]

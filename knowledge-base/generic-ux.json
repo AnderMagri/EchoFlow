@@ -812,5 +812,192 @@
     "finding": "Link opens in new tab but text doesn't indicate this — add '(opens in new tab)' or an icon for accessibility",
     "ice": { "impact": 5, "confidence": 6, "ease": 8 },
     "target_selector": "a[target='_blank']"
+  },
+
+  {
+    "id": "ux-modal-no-close",
+    "category": "accessibility",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["[role='dialog']:not(:has(.close, .dismiss, [aria-label='Close'], [aria-label='Dismiss'], button.close, .modal-close))"],
+      "condition": "exists"
+    },
+    "finding": "Modal or dialog is missing a close/dismiss button — users may feel trapped with no way to exit",
+    "ice": { "impact": 9, "confidence": 7, "ease": 8 },
+    "target_selector": "[role='dialog'], .modal, dialog"
+  },
+  {
+    "id": "ux-multiple-h1",
+    "category": "structure",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["h1"],
+      "condition": "count_gt",
+      "threshold": 1
+    },
+    "finding": "Page contains multiple H1 tags — there should be exactly one H1 for proper document structure and SEO",
+    "ice": { "impact": 6, "confidence": 10, "ease": 9 },
+    "target_selector": "h1"
+  },
+  {
+    "id": "ux-no-back-to-top",
+    "category": "navigation",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href='#top']", "a[href='#']", ".back-to-top", ".scroll-to-top", "[class*='back-to-top']", "[class*='scroll-top']", "[id*='back-to-top']", "a[title='Back to top']"]
+    },
+    "finding": "No back-to-top link found — users on long pages must manually scroll to return to the top",
+    "ice": { "impact": 4, "confidence": 6, "ease": 8 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-touch-target-too-small",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a", "button", "[role='button']", "input[type='submit']", "input[type='checkbox']", "input[type='radio']", "select"],
+      "property": "minDimension",
+      "condition": "lt",
+      "threshold": 44
+    },
+    "finding": "Interactive element is smaller than the recommended 44x44px minimum touch target size",
+    "ice": { "impact": 7, "confidence": 8, "ease": 7 },
+    "target_selector": "a, button, [role='button'], input, select"
+  },
+  {
+    "id": "ux-no-loading-indicator",
+    "category": "visual",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".spinner", ".loader", ".loading", ".skeleton", "[class*='spinner']", "[class*='loader']", "[class*='loading']", "[class*='skeleton']", "[role='progressbar']", "[aria-busy='true']"]
+    },
+    "finding": "No loading indicator, spinner, or skeleton screen detected — users may perceive lag without visual feedback",
+    "ice": { "impact": 5, "confidence": 5, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-no-error-page-content",
+    "category": "navigation",
+    "check": {
+      "type": "text_content",
+      "selectors": [".error-page", ".error-content", "[class*='error-page']", "[class*='not-found']", "#error", ".http-error"],
+      "condition": "empty_text"
+    },
+    "finding": "Error page lacks helpful content — provide a clear message, links to popular pages, or a search bar",
+    "ice": { "impact": 6, "confidence": 6, "ease": 7 },
+    "target_selector": ".error-page, [class*='not-found']"
+  },
+  {
+    "id": "ux-image-no-lazy-load",
+    "category": "performance",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["img:not([loading='lazy']):not([loading='eager'])"],
+      "attribute": "loading",
+      "condition": "missing"
+    },
+    "finding": "Images below the fold are missing loading=\"lazy\" attribute — causes unnecessary bandwidth usage and slower page load",
+    "ice": { "impact": 7, "confidence": 8, "ease": 9 },
+    "target_selector": "img"
+  },
+  {
+    "id": "ux-no-skip-nav",
+    "category": "accessibility",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href='#content']", "a[href='#main']", "a[href='#main-content']", ".skip-link", ".skip-nav", "[class*='skip-to']", "a.skip-to-content", "a[class*='skip']"]
+    },
+    "finding": "No skip navigation link found — keyboard and screen reader users must tab through every navigation item",
+    "ice": { "impact": 7, "confidence": 8, "ease": 9 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-form-no-autocomplete",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[type='text']", "input[type='email']", "input[type='tel']", "input[type='url']", "input[name*='name']", "input[name*='email']", "input[name*='phone']", "input[name*='address']"],
+      "attribute": "autocomplete",
+      "condition": "missing"
+    },
+    "finding": "Form inputs are missing the autocomplete attribute — browsers cannot autofill, increasing friction for users",
+    "ice": { "impact": 6, "confidence": 7, "ease": 8 },
+    "target_selector": "input[type='text'], input[type='email'], input[type='tel']"
+  },
+  {
+    "id": "ux-link-no-underline-or-color",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a"],
+      "property": "textDecoration",
+      "condition": "link_not_distinguishable"
+    },
+    "finding": "Links are not visually distinguishable from surrounding text — no underline or distinct colour makes them hard to identify",
+    "ice": { "impact": 6, "confidence": 6, "ease": 8 },
+    "target_selector": "a"
+  },
+  {
+    "id": "ux-no-language-attr",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["html"],
+      "attribute": "lang",
+      "condition": "missing"
+    },
+    "finding": "HTML element is missing the lang attribute — screen readers cannot determine the page language for proper pronunciation",
+    "ice": { "impact": 7, "confidence": 10, "ease": 10 },
+    "target_selector": "html"
+  },
+  {
+    "id": "ux-iframe-no-title",
+    "category": "accessibility",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["iframe"],
+      "attribute": "title",
+      "condition": "missing"
+    },
+    "finding": "Iframe is missing a title attribute — screen reader users cannot understand the purpose of the embedded content",
+    "ice": { "impact": 6, "confidence": 9, "ease": 9 },
+    "target_selector": "iframe"
+  },
+  {
+    "id": "ux-no-404-search",
+    "category": "navigation",
+    "check": {
+      "type": "element_missing",
+      "selectors": [".error-page input[type='search']", ".error-page [role='search']", "[class*='not-found'] input[type='search']", "[class*='404'] input[type='search']", "[class*='error'] form[action*='search']"]
+    },
+    "finding": "404 or error page has no search functionality — users who land on a broken link have no way to find what they need",
+    "ice": { "impact": 5, "confidence": 6, "ease": 6 },
+    "target_selector": ".error-page, [class*='not-found']"
+  },
+  {
+    "id": "ux-excessive-dom-depth",
+    "category": "performance",
+    "check": {
+      "type": "script_detection",
+      "selectors": ["body"],
+      "condition": "dom_depth_gt",
+      "threshold": 15
+    },
+    "finding": "DOM nesting exceeds 15 levels deep — excessive depth degrades rendering performance and increases style recalculation cost",
+    "ice": { "impact": 6, "confidence": 7, "ease": 3 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-no-focus-management",
+    "category": "accessibility",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a", "button", "input", "select", "textarea", "[tabindex]"],
+      "property": "outlineStyle",
+      "condition": "focus_not_visible"
+    },
+    "finding": "Interactive elements lack visible focus indicators — keyboard users cannot see which element is currently focused",
+    "ice": { "impact": 8, "confidence": 7, "ease": 7 },
+    "target_selector": "a, button, input, select, textarea, [tabindex]"
   }
 ]
