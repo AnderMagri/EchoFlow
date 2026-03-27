@@ -96,13 +96,18 @@
     const scaleY = img.clientHeight / sourceHeight;
 
     findings.forEach((finding) => {
+      const pos = finding.position || { x: 0, y: 0 };
+      const hasRealPosition = (pos.x !== 0 || pos.y !== 0) || (pos.width > 100 || pos.height > 30);
+
+      // Only show markers for findings that point to a real element on the page
+      if (!hasRealPosition) return;
+
       const marker = document.createElement('div');
       marker.className = 'marker';
       marker.dataset.number = finding.number;
       marker.textContent = finding.number;
       marker.style.backgroundColor = getMarkerColor(finding.number - 1);
 
-      const pos = finding.position || { x: 0, y: 0 };
       const px = isFullPage ? (pos.absoluteX ?? pos.x) : pos.x;
       const py = isFullPage ? (pos.absoluteY ?? pos.y) : pos.y;
       const cx = (px + (pos.width || 0) / 2) * scaleX;
@@ -142,10 +147,10 @@
         <div class="finding-body">
           <div class="finding-description" data-number="${finding.number}">${escapeHtml(finding.description)}</div>
           <div class="finding-meta">
-            <span class="ice-badge ${getICELevel(finding.ice.impact)}">I:${finding.ice.impact}</span>
-            <span class="ice-badge ${getICELevel(finding.ice.confidence)}">C:${finding.ice.confidence}</span>
-            <span class="ice-badge ${getICELevel(finding.ice.ease)}">E:${finding.ice.ease}</span>
-            <span class="ice-total">${iceAvg}</span>
+            <span class="ice-badge ${getICELevel(finding.ice.impact)}">I:${finding.ice.impact}/10</span>
+            <span class="ice-badge ${getICELevel(finding.ice.confidence)}">C:${finding.ice.confidence}/10</span>
+            <span class="ice-badge ${getICELevel(finding.ice.ease)}">E:${finding.ice.ease}/10</span>
+            <span class="ice-total">${iceAvg}/10</span>
             <span class="category-tag">${finding.category}</span>
           </div>
           <div class="finding-actions">
@@ -176,6 +181,49 @@
     list.querySelectorAll('.finding-action-btn.delete').forEach(btn => {
       btn.addEventListener('click', () => deleteFinding(parseInt(btn.dataset.number)));
     });
+
+    // ── Overall Score Summary ──
+    renderScoreSummary(list);
+  }
+
+  function renderScoreSummary(list) {
+    if (!findings.length) return;
+
+    const totalIssues = findings.length;
+    const avgIce = (findings.reduce((sum, f) => sum + parseFloat(iceAverage(f.ice)), 0) / totalIssues).toFixed(1);
+
+    // Page score: start at 10, deduct based on findings severity
+    // High severity (ICE >= 7) deducts 0.8, medium (5-7) deducts 0.4, low (<5) deducts 0.2
+    let deductions = 0;
+    findings.forEach(f => {
+      const avg = parseFloat(iceAverage(f.ice));
+      if (avg >= 7) deductions += 0.8;
+      else if (avg >= 5) deductions += 0.4;
+      else deductions += 0.2;
+    });
+    const currentScore = Math.max(1, 10 - deductions).toFixed(1);
+    const potentialScore = Math.min(10, parseFloat(currentScore) + deductions * 0.8).toFixed(1);
+
+    const scoreColor = currentScore >= 7 ? '#22c55e' : currentScore >= 5 ? '#f59e0b' : '#ef4444';
+    const potentialColor = potentialScore >= 7 ? '#22c55e' : potentialScore >= 5 ? '#f59e0b' : '#ef4444';
+
+    const summary = document.createElement('div');
+    summary.className = 'score-summary';
+    summary.innerHTML = `
+      <div class="score-summary-title">Overall UX Score</div>
+      <div class="score-cards">
+        <div class="score-card">
+          <div class="score-value" style="color:${scoreColor}">${currentScore}<span class="score-max">/10</span></div>
+          <div class="score-label">Current Score</div>
+        </div>
+        <div class="score-card">
+          <div class="score-value" style="color:${potentialColor}">${potentialScore}<span class="score-max">/10</span></div>
+          <div class="score-label">Potential Score</div>
+        </div>
+      </div>
+      <div class="score-detail">${totalIssues} findings detected — avg severity ${avgIce}/10</div>
+    `;
+    list.appendChild(summary);
   }
 
   // ── Active Finding Highlight ──
