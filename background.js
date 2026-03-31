@@ -337,7 +337,8 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType) {
       imageCount: domData.images?.length || 0,
       linkCount: domData.links?.length || 0,
       elementCount: domData.elements?.length || 0
-    }
+    },
+    designInventory: domData.designInventory || null
   };
 
   // Step 10: Store results and open results page
@@ -416,6 +417,28 @@ Device: ${device} (${meta.viewport.width}x${meta.viewport.height})`;
     prompt += `\n\nAuditor notes:\n${auditContext}`;
   }
 
+  // Design inventory summary
+  const inv = auditData.designInventory;
+  let designSection = '';
+  if (inv) {
+    const topColors = (inv.colorPalette || []).slice(0, 10).map(c => c.value + ' (' + c.count + ')').join(', ');
+    const topFonts = (inv.fontFamilies || []).slice(0, 5).map(f => f.value + ' (' + f.count + ')').join(', ');
+    const sizes = (inv.fontSizes || []).map(s => s.value + 'px').join(', ');
+    const radii = (inv.borderRadii || []).map(r => r.value).join(', ');
+    const shadowCount = (inv.shadows || []).length;
+    const gridRatio = inv.spacingGridRatio || 0;
+
+    designSection = `
+
+Design inventory:
+- Fonts: ${topFonts || 'none detected'}
+- Font sizes: ${sizes || 'none'}
+- Color palette: ${topColors || 'none'}
+- Spacing: ${gridRatio}% on 4px grid, ${(inv.spacingValues || []).length} unique values
+- Border-radius: ${radii || 'none'}
+- Shadows: ${shadowCount} unique styles`;
+  }
+
   prompt += `
 
 Page sections:
@@ -424,13 +447,19 @@ ${sectionsList || 'No sections detected'}
 Rule-based findings:
 ${findingsText || 'No rule-based findings'}
 
-Raw stats: ${auditData.rawData.elementCount} elements, ${auditData.rawData.imageCount} images, ${auditData.rawData.linkCount} links, ${auditData.rawData.forms?.length || 0} forms
+Raw stats: ${auditData.rawData.elementCount} elements, ${auditData.rawData.imageCount} images, ${auditData.rawData.linkCount} links, ${auditData.rawData.forms?.length || 0} forms${designSection}
 
-Provide a concise UX analysis considering this is a ${device} experience${pageType ? ' for a ' + meta.pageType.replace(/-/g, ' ') + ' page' : ''}:
+Provide a concise analysis considering this is a ${device} experience${pageType ? ' for a ' + meta.pageType.replace(/-/g, ' ') + ' page' : ''}:
 1. Top 5 priority issues with specific, actionable fixes${device !== 'desktop' ? ' (consider touch targets, thumb zones, mobile patterns)' : ''}
 2. Quick wins (high ease, high impact)
 3. Any patterns or issues the rules may have missed${meta.pageType ? ' — consider ' + meta.vertical + ' ' + meta.pageType.replace(/-/g, ' ') + ' best practices' : ''}
 4. Overall UX score (1-10) with brief justification
+5. Visual design assessment:
+   - Color palette coherence (1-10)
+   - Typography system quality (1-10)
+   - Spacing consistency (1-10)
+   - The single biggest "taste" fix a designer would make first
+6. Overall Design score (1-10) separate from UX score
 
 Be direct and specific. Reference element positions and types.`;
 

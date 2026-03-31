@@ -999,5 +999,120 @@
     "finding": "Interactive elements lack visible focus indicators — keyboard users cannot see which element is currently focused",
     "ice": { "impact": 8, "confidence": 7, "ease": 7 },
     "target_selector": "a, button, input, select, textarea, [tabindex]"
+  },
+  {
+    "id": "ux-design-too-many-fonts",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "fontFamily",
+      "condition": "unique_count_gt",
+      "threshold": 3
+    },
+    "finding": "More than 3 font families used — creates visual noise and lacks typographic cohesion",
+    "ice": { "impact": 5, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-too-many-sizes",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "fontSize",
+      "condition": "unique_count_gt",
+      "threshold": 8
+    },
+    "finding": "More than 8 distinct font sizes — typography scale is scattered",
+    "ice": { "impact": 5, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-too-many-colors",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "color",
+      "condition": "unique_count_gt",
+      "threshold": 12
+    },
+    "finding": "More than 12 distinct colors — palette feels inconsistent",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-inconsistent-radius",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "borderRadius",
+      "condition": "unique_count_gt",
+      "threshold": 5
+    },
+    "finding": "More than 5 border-radius values — rounded corners are inconsistent",
+    "ice": { "impact": 5, "confidence": 7, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-too-many-shadows",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "boxShadow",
+      "condition": "unique_count_gt",
+      "threshold": 4
+    },
+    "finding": "More than 4 distinct box-shadow styles — depth system is not systematic",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-spacing-off-grid",
+    "category": "design",
+    "check": {
+      "type": "design_scale",
+      "property": "spacing",
+      "condition": "off_scale_ratio_gt",
+      "threshold": 0.3
+    },
+    "finding": "Spacing values don't follow a consistent 4px grid — margins and padding appear arbitrary",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-type-off-scale",
+    "category": "design",
+    "check": {
+      "type": "design_scale",
+      "property": "fontSize",
+      "condition": "off_scale_ratio_gt",
+      "threshold": 0.3
+    },
+    "finding": "Font sizes don't follow a standard type scale — visual hierarchy feels random",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-no-dominant-color",
+    "category": "design",
+    "check": {
+      "type": "color_harmony",
+      "condition": "no_dominant",
+      "threshold": 0.15
+    },
+    "finding": "No clear dominant color — page lacks a cohesive color identity",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "ux-design-too-many-hues",
+    "category": "design",
+    "check": {
+      "type": "color_harmony",
+      "condition": "too_many_hues",
+      "threshold": 6
+    },
+    "finding": "Color palette has too many distinct hue groups — lacks cohesion",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
   }
 ]

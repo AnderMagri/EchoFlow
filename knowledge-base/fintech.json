@@ -559,5 +559,57 @@
     "finding": "Financial inputs missing inputmode=\"decimal\" — mobile users get the wrong keyboard for entering monetary amounts",
     "ice": { "impact": 7, "confidence": 8, "ease": 9 },
     "target_selector": "input[class*='amount'], input[class*='price'], input[class*='payment']"
+  },
+  {
+    "id": "fintech-design-too-many-shadows",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "boxShadow",
+      "condition": "unique_count_gt",
+      "threshold": 3
+    },
+    "finding": "Fintech apps need consistent depth — more than 3 shadow styles undermines trust",
+    "ice": { "impact": 6, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "fintech-design-too-many-colors",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "color",
+      "condition": "unique_count_gt",
+      "threshold": 8
+    },
+    "finding": "Financial interfaces should feel restrained and professional — more than 8 distinct colors feels chaotic",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "fintech-design-inconsistent-radius",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "borderRadius",
+      "condition": "unique_count_gt",
+      "threshold": 4
+    },
+    "finding": "More than 4 border-radius values — inconsistent rounding undermines the polished feel expected in financial apps",
+    "ice": { "impact": 5, "confidence": 7, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "fintech-design-spacing-off-grid",
+    "category": "design",
+    "check": {
+      "type": "design_scale",
+      "property": "spacing",
+      "condition": "off_scale_ratio_gt",
+      "threshold": 0.25
+    },
+    "finding": "Spacing values don't follow a consistent grid — financial interfaces need precise, systematic spacing for trust",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
   }
 ]

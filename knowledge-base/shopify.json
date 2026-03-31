@@ -581,5 +581,70 @@
     "finding": "No compare-at or original price shown for discounted products — customers cannot see the savings, reducing the urgency and perceived value of the discount",
     "ice": { "impact": 8, "confidence": 7, "ease": 8 },
     "target_selector": ".price, [class*='price'], .product-form"
+  },
+  {
+    "id": "shopify-design-too-many-fonts",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "fontFamily",
+      "condition": "unique_count_gt",
+      "threshold": 2
+    },
+    "finding": "More than 2 font families used — polished Shopify stores stick to 1-2 typefaces for a clean, branded look",
+    "ice": { "impact": 6, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-design-too-many-sizes",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "fontSize",
+      "condition": "unique_count_gt",
+      "threshold": 6
+    },
+    "finding": "More than 6 distinct font sizes — typography scale should be tighter for a polished storefront",
+    "ice": { "impact": 5, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-design-too-many-colors",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "color",
+      "condition": "unique_count_gt",
+      "threshold": 8
+    },
+    "finding": "More than 8 distinct colors — a polished store should use a focused brand palette",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-design-inconsistent-radius",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "borderRadius",
+      "condition": "unique_count_gt",
+      "threshold": 4
+    },
+    "finding": "More than 4 border-radius values — rounded corners should be consistent across the store",
+    "ice": { "impact": 5, "confidence": 7, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "shopify-design-spacing-off-grid",
+    "category": "design",
+    "check": {
+      "type": "design_scale",
+      "property": "spacing",
+      "condition": "off_scale_ratio_gt",
+      "threshold": 0.25
+    },
+    "finding": "Spacing values don't follow a consistent grid — margins and padding appear arbitrary for a polished store",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
   }
 ]

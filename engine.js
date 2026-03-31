@@ -598,6 +598,146 @@ function checkApiEndpoint(check, data) {
   return [];
 }
 
+// ── Design Evaluation ──
+
+function rgbToHSL(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+function checkDesignConsistency(check, data) {
+  const inv = data.designInventory;
+  if (!inv) return [];
+
+  const propMap = {
+    fontFamily: inv.fontFamilies,
+    fontSize: inv.fontSizes,
+    color: inv.colorPalette,
+    borderRadius: inv.borderRadii,
+    boxShadow: inv.shadows,
+    spacing: inv.spacingValues,
+    textAlign: inv.textAlignments
+  };
+
+  const entries = propMap[check.property];
+  if (!entries) return [];
+
+  if (check.condition === 'unique_count_gt') {
+    if (entries.length > (check.threshold || 5)) {
+      return [{
+        position: { x: 0, y: 0, width: 100, height: 30 },
+        selector: null,
+        detail: entries.length + ' unique ' + check.property + ' values found (threshold: ' + check.threshold + ')'
+      }];
+    }
+  }
+
+  return [];
+}
+
+function checkColorHarmony(check, data) {
+  const inv = data.designInventory;
+  if (!inv || !inv.colorPalette || inv.colorPalette.length < 2) return [];
+
+  const palette = inv.colorPalette;
+  const totalCount = palette.reduce((s, c) => s + c.count, 0);
+
+  if (check.condition === 'no_dominant') {
+    const topRatio = palette[0].count / totalCount;
+    if (topRatio < (check.threshold || 0.15)) {
+      return [{
+        position: { x: 0, y: 0, width: 100, height: 30 },
+        selector: null,
+        detail: 'Most used color only accounts for ' + Math.round(topRatio * 100) + '% of usage — no dominant color identity'
+      }];
+    }
+  }
+
+  if (check.condition === 'too_many_hues') {
+    const hueGroups = new Set();
+    for (const c of palette.slice(0, 15)) {
+      const rgb = parseRGB(c.value.replace('#', 'rgb(').replace(/([0-9a-f]{2})/gi, (m) => parseInt(m, 16) + ',').slice(0, -1) + ')');
+      if (!rgb) {
+        // Try parsing hex directly
+        const hex = c.value;
+        if (hex && hex.startsWith('#') && hex.length === 7) {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          const hsl = rgbToHSL(r, g, b);
+          if (hsl.s > 10) hueGroups.add(Math.floor(hsl.h / 30)); // 30° buckets
+        }
+        continue;
+      }
+      const hsl = rgbToHSL(rgb.r, rgb.g, rgb.b);
+      if (hsl.s > 10) hueGroups.add(Math.floor(hsl.h / 30));
+    }
+    if (hueGroups.size > (check.threshold || 6)) {
+      return [{
+        position: { x: 0, y: 0, width: 100, height: 30 },
+        selector: null,
+        detail: hueGroups.size + ' distinct hue groups detected — palette lacks cohesion'
+      }];
+    }
+  }
+
+  return [];
+}
+
+function checkDesignScale(check, data) {
+  const inv = data.designInventory;
+  if (!inv) return [];
+
+  if (check.property === 'spacing') {
+    const ratio = inv.spacingGridRatio || 0;
+    if (check.condition === 'off_scale_ratio_gt' && (100 - ratio) > (check.threshold || 30) * 100) {
+      return [{
+        position: { x: 0, y: 0, width: 100, height: 30 },
+        selector: null,
+        detail: 'Only ' + ratio + '% of spacing values are on a 4px grid — spacing feels arbitrary'
+      }];
+    }
+  }
+
+  if (check.property === 'fontSize') {
+    const commonScales = [
+      [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 30, 32, 36, 40, 42, 48, 56, 60, 64, 72, 80, 96],
+    ];
+    const sizes = inv.fontSizes || [];
+    if (sizes.length < 3) return [];
+    let totalCount = 0, onScale = 0;
+    for (const s of sizes) {
+      const px = parseFloat(s.value);
+      totalCount += s.count;
+      for (const scale of commonScales) {
+        if (scale.some(v => Math.abs(v - px) <= 1)) { onScale += s.count; break; }
+      }
+    }
+    const offRatio = totalCount > 0 ? (totalCount - onScale) / totalCount : 0;
+    if (check.condition === 'off_scale_ratio_gt' && offRatio > (check.threshold || 0.3)) {
+      return [{
+        position: { x: 0, y: 0, width: 100, height: 30 },
+        selector: null,
+        detail: Math.round(offRatio * 100) + '% of font sizes are off standard type scales — visual hierarchy feels inconsistent'
+      }];
+    }
+  }
+
+  return [];
+}
+
 // ── Main Evaluation Function ──
 
 export function evaluateRules(rules, capturedData) {
@@ -640,6 +780,15 @@ export function evaluateRules(rules, capturedData) {
         break;
       case 'text_content':
         results = checkTextContent(rule.check, capturedData);
+        break;
+      case 'design_consistency':
+        results = checkDesignConsistency(rule.check, capturedData);
+        break;
+      case 'color_harmony':
+        results = checkColorHarmony(rule.check, capturedData);
+        break;
+      case 'design_scale':
+        results = checkDesignScale(rule.check, capturedData);
         break;
     }
 

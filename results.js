@@ -226,6 +226,129 @@
     list.appendChild(summary);
   }
 
+  // ── Design Tab ──
+
+  function renderDesignTab() {
+    const inv = auditData?.designInventory;
+    const container = document.getElementById('design-inventory');
+    const findingsList = document.getElementById('design-findings');
+    if (!container || !findingsList) return;
+
+    const designFindings = findings.filter(f => f.category === 'design');
+    document.getElementById('design-count').textContent = designFindings.length;
+
+    if (!inv) {
+      container.innerHTML = '<div class="empty-state"><p>No design data captured</p></div>';
+      return;
+    }
+
+    let html = '';
+
+    // Color palette
+    if (inv.colorPalette && inv.colorPalette.length > 0) {
+      html += '<div class="design-section"><h4 class="design-section-title">Color Palette <span class="design-count">' + inv.colorPalette.length + ' colors</span></h4><div class="design-swatches">';
+      for (const c of inv.colorPalette.slice(0, 20)) {
+        const isLight = isLightColor(c.value);
+        html += '<div class="design-swatch" title="' + c.value + ' (' + c.count + ' uses)">' +
+          '<div class="swatch-color" style="background:' + c.value + ';' + (isLight ? 'border:1px solid #ddd;' : '') + '"></div>' +
+          '<span class="swatch-label">' + c.value + '</span>' +
+          '<span class="swatch-count">' + c.count + '</span></div>';
+      }
+      html += '</div></div>';
+    }
+
+    // Typography
+    if (inv.fontFamilies && inv.fontFamilies.length > 0) {
+      html += '<div class="design-section"><h4 class="design-section-title">Typography <span class="design-count">' + inv.fontFamilies.length + ' families</span></h4><div class="design-type-list">';
+      for (const f of inv.fontFamilies.slice(0, 8)) {
+        html += '<div class="design-type-row"><span class="type-family" style="font-family:' + f.value + '">' + escapeHtml(f.value) + '</span><span class="type-count">' + f.count + ' uses</span></div>';
+      }
+      html += '</div>';
+      // Font sizes
+      if (inv.fontSizes && inv.fontSizes.length > 0) {
+        html += '<div class="design-sizes">';
+        for (const s of inv.fontSizes.sort((a, b) => parseFloat(a.value) - parseFloat(b.value))) {
+          const px = parseFloat(s.value);
+          html += '<span class="design-size-chip" style="font-size:' + Math.min(px, 24) + 'px">' + px + 'px</span>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+
+    // Spacing
+    if (inv.spacingValues && inv.spacingValues.length > 0) {
+      html += '<div class="design-section"><h4 class="design-section-title">Spacing <span class="design-count">' + inv.spacingGridRatio + '% on 4px grid</span></h4><div class="design-spacing-scale">';
+      const sortedSpacing = [...inv.spacingValues].sort((a, b) => parseFloat(a.value) - parseFloat(b.value)).slice(0, 20);
+      for (const s of sortedSpacing) {
+        const px = parseFloat(s.value);
+        const onGrid = px % 4 === 0;
+        html += '<span class="spacing-chip' + (onGrid ? ' on-grid' : ' off-grid') + '" title="' + s.count + ' uses">' + px + '</span>';
+      }
+      html += '</div></div>';
+    }
+
+    // Border radius
+    if (inv.borderRadii && inv.borderRadii.length > 0) {
+      html += '<div class="design-section"><h4 class="design-section-title">Border Radius <span class="design-count">' + inv.borderRadii.length + ' values</span></h4><div class="design-radii">';
+      for (const r of inv.borderRadii.slice(0, 10)) {
+        html += '<div class="radius-chip"><div class="radius-preview" style="border-radius:' + r.value + '"></div><span>' + r.value + '</span></div>';
+      }
+      html += '</div></div>';
+    }
+
+    // Shadows
+    if (inv.shadows && inv.shadows.length > 0) {
+      html += '<div class="design-section"><h4 class="design-section-title">Shadows <span class="design-count">' + inv.shadows.length + ' styles</span></h4><div class="design-shadows">';
+      for (const s of inv.shadows.slice(0, 6)) {
+        html += '<div class="shadow-chip"><div class="shadow-preview" style="box-shadow:' + s.value + '"></div><span class="swatch-count">' + s.count + '</span></div>';
+      }
+      html += '</div></div>';
+    }
+
+    container.innerHTML = html;
+
+    // Render design findings below the inventory
+    findingsList.innerHTML = '';
+    if (designFindings.length > 0) {
+      const title = document.createElement('h4');
+      title.className = 'design-section-title';
+      title.style.margin = '20px 0 12px';
+      title.textContent = 'Design Findings';
+      findingsList.appendChild(title);
+
+      designFindings.forEach(finding => {
+        const card = document.createElement('div');
+        card.className = 'finding-card';
+        card.dataset.number = finding.number;
+        const color = getMarkerColor(finding.number - 1);
+        const iceAvg = iceAverage(finding.ice);
+        card.innerHTML = `
+          <div class="finding-number" style="background:${color}">${finding.number}</div>
+          <div class="finding-body">
+            <div class="finding-description">${escapeHtml(finding.description)}</div>
+            <div class="finding-meta">
+              <span class="ice-badge ${getICELevel(finding.ice.impact)}">I:${finding.ice.impact}/10</span>
+              <span class="ice-badge ${getICELevel(finding.ice.confidence)}">C:${finding.ice.confidence}/10</span>
+              <span class="ice-badge ${getICELevel(finding.ice.ease)}">E:${finding.ice.ease}/10</span>
+              <span class="ice-total">${iceAvg}/10</span>
+              <span class="category-tag category-design">design</span>
+            </div>
+          </div>
+        `;
+        findingsList.appendChild(card);
+      });
+    }
+  }
+
+  function isLightColor(hex) {
+    if (!hex || !hex.startsWith('#') || hex.length < 7) return false;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 200;
+  }
+
   // ── Active Finding Highlight ──
 
   function setActiveFinding(number) {
@@ -974,6 +1097,7 @@
     renderToolbar();
     renderScreenshot();
     renderFindings();
+    renderDesignTab();
   }
 
   // ── Initialize ──

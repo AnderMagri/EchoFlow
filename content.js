@@ -49,6 +49,13 @@
     return 'rgb(255, 255, 255)';
   }
 
+  function rgbToHex(rgb) {
+    if (!rgb) return null;
+    const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m) return null;
+    return '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+  }
+
   function extractComputedStyles(el) {
     const cs = getComputedStyle(el);
     return {
@@ -66,7 +73,21 @@
       textDecoration: cs.textDecoration,
       textOverflow: cs.textOverflow,
       fontVariantNumeric: cs.fontVariantNumeric,
-      overflow: cs.overflow
+      overflow: cs.overflow,
+      marginTop: cs.marginTop,
+      marginRight: cs.marginRight,
+      marginBottom: cs.marginBottom,
+      marginLeft: cs.marginLeft,
+      paddingTop: cs.paddingTop,
+      paddingRight: cs.paddingRight,
+      paddingBottom: cs.paddingBottom,
+      paddingLeft: cs.paddingLeft,
+      borderRadius: cs.borderRadius,
+      boxShadow: cs.boxShadow,
+      letterSpacing: cs.letterSpacing,
+      textAlign: cs.textAlign,
+      gap: cs.gap,
+      borderColor: cs.borderColor
     };
   }
 
@@ -344,6 +365,91 @@
     });
   }
 
+  // ── Design Inventory ──
+
+  function captureDesignInventory() {
+    const allEls = document.body.querySelectorAll('*');
+    const colors = {};     // hex → count
+    const fonts = {};      // family → count
+    const fontSizes = {};  // px → count
+    const typoCombos = {}; // "family|size|weight" → { fontFamily, fontSize, fontWeight, lineHeight, count }
+    const spacings = {};   // px → count
+    const radii = {};      // value → count
+    const shadows = {};    // value → count
+    const aligns = {};     // value → count
+    let processed = 0;
+
+    for (const el of allEls) {
+      if (processed >= 1000) break;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      processed++;
+
+      // Colors
+      for (const prop of ['color', 'backgroundColor', 'borderColor']) {
+        const val = cs[prop];
+        if (!val || val === 'transparent' || val === 'rgba(0, 0, 0, 0)') continue;
+        const hex = rgbToHex(val);
+        if (hex) colors[hex] = (colors[hex] || 0) + 1;
+      }
+
+      // Typography
+      const family = cs.fontFamily.split(',')[0].trim().replace(/['"]/g, '');
+      if (family) fonts[family] = (fonts[family] || 0) + 1;
+      const sizePx = parseFloat(cs.fontSize);
+      if (sizePx) fontSizes[sizePx] = (fontSizes[sizePx] || 0) + 1;
+      const comboKey = family + '|' + sizePx + '|' + cs.fontWeight;
+      if (!typoCombos[comboKey]) {
+        typoCombos[comboKey] = { fontFamily: family, fontSize: sizePx, fontWeight: cs.fontWeight, lineHeight: cs.lineHeight, count: 0 };
+      }
+      typoCombos[comboKey].count++;
+
+      // Spacing
+      for (const prop of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) {
+        const px = parseFloat(cs[prop]);
+        if (px > 0) spacings[px] = (spacings[px] || 0) + 1;
+      }
+
+      // Border radius
+      const br = cs.borderRadius;
+      if (br && br !== '0px') radii[br] = (radii[br] || 0) + 1;
+
+      // Box shadow
+      const bs = cs.boxShadow;
+      if (bs && bs !== 'none') shadows[bs] = (shadows[bs] || 0) + 1;
+
+      // Text align
+      const ta = cs.textAlign;
+      if (ta) aligns[ta] = (aligns[ta] || 0) + 1;
+    }
+
+    const toSorted = obj => Object.entries(obj)
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Calculate spacing scale adherence (% on 4px grid)
+    const spacingEntries = Object.entries(spacings);
+    let onGrid = 0, totalSpacing = 0;
+    for (const [px, count] of spacingEntries) {
+      totalSpacing += count;
+      if (parseFloat(px) % 4 === 0) onGrid += count;
+    }
+
+    return {
+      colorPalette: toSorted(colors).slice(0, 30),
+      fontFamilies: toSorted(fonts),
+      fontSizes: toSorted(fontSizes),
+      typography: Object.values(typoCombos).sort((a, b) => b.count - a.count).slice(0, 20),
+      spacingValues: toSorted(spacings),
+      spacingGridRatio: totalSpacing > 0 ? Math.round((onGrid / totalSpacing) * 100) : 0,
+      borderRadii: toSorted(radii),
+      shadows: toSorted(shadows),
+      textAlignments: toSorted(aligns)
+    };
+  }
+
   // ── Main Capture Function ──
 
   async function captureDOMData(vertical, selectors, waitForShopify) {
@@ -367,7 +473,8 @@
       links: captureLinks(),
       headings: captureHeadings(),
       shopify: null,
-      apiResponses: {}
+      apiResponses: {},
+      designInventory: captureDesignInventory()
     };
 
     if (waitForShopify) {

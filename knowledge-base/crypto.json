@@ -599,5 +599,56 @@
     "finding": "No wallet activity/history log — users cannot track past transactions, approvals, or interactions",
     "ice": { "impact": 7, "confidence": 6, "ease": 7 },
     "target_selector": "[class*='wallet'], [class*='account'], [class*='dashboard']"
+  },
+  {
+    "id": "crypto-design-inconsistent-radius",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "borderRadius",
+      "condition": "unique_count_gt",
+      "threshold": 4
+    },
+    "finding": "More than 4 border-radius values — inconsistent rounding breaks the cohesive feel of a crypto interface",
+    "ice": { "impact": 5, "confidence": 7, "ease": 6 },
+    "target_selector": "body"
+  },
+  {
+    "id": "crypto-design-too-many-fonts",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "fontFamily",
+      "condition": "unique_count_gt",
+      "threshold": 3
+    },
+    "finding": "More than 3 font families used — crypto interfaces should feel clean and unified",
+    "ice": { "impact": 5, "confidence": 7, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "crypto-design-too-many-shadows",
+    "category": "design",
+    "check": {
+      "type": "design_consistency",
+      "property": "boxShadow",
+      "condition": "unique_count_gt",
+      "threshold": 4
+    },
+    "finding": "More than 4 distinct box-shadow styles — depth system lacks consistency across the crypto UI",
+    "ice": { "impact": 5, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
+  },
+  {
+    "id": "crypto-design-no-dominant-color",
+    "category": "design",
+    "check": {
+      "type": "color_harmony",
+      "condition": "no_dominant",
+      "threshold": 0.12
+    },
+    "finding": "No clear dominant color — crypto interface lacks a strong visual identity",
+    "ice": { "impact": 6, "confidence": 6, "ease": 5 },
+    "target_selector": "body"
   }
 ]

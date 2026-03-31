@@ -77,6 +77,9 @@
         <button class="tab-btn active" data-tab="rules">
           Rules <span id="findings-count" class="tab-count">0</span>
         </button>
+        <button class="tab-btn" data-tab="design">
+          Design <span id="design-count" class="tab-count">0</span>
+        </button>
         <button class="tab-btn" data-tab="ai">AI Analysis</button>
       </div>
 
@@ -91,6 +94,14 @@
           </select>
         </div>
         <div id="findings-list" class="findings-list"></div>
+      </div>
+
+      <!-- Design Tab -->
+      <div id="tab-design" class="tab-content">
+        <div class="design-container">
+          <div id="design-inventory" class="design-inventory"></div>
+          <div id="design-findings" class="findings-list"></div>
+        </div>
       </div>
 
       <!-- AI Tab -->
