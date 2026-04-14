@@ -1230,6 +1230,19 @@ select.settings-input {
 
 #adapt-results-panel {
   flex-direction: column;
+  overflow: hidden;
+}
+
+#adapt-results-panel .tab-content {
+  overflow: hidden;
+  min-height: 0;
+}
+
+#adapt-results-panel .tab-content.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .adapt-card {
@@ -1329,6 +1342,8 @@ select.settings-input {
 
 .adapt-migration {
   padding: 16px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .adapt-summary-card {
