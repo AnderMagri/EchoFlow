@@ -63,6 +63,18 @@
 
   <!-- Main Content -->
   <main class="main">
+    <!-- Project Sidebar (hidden by default) -->
+    <aside id="project-sidebar" class="project-sidebar" style="display:none;">
+      <div class="sidebar-header">
+        <h3 id="sidebar-project-name" class="sidebar-project-name"></h3>
+        <button id="btn-collapse-sidebar" class="sidebar-collapse" title="Collapse">&laquo;</button>
+      </div>
+      <div id="sidebar-summary-btn" class="sidebar-item sidebar-summary-item">
+        Cross-Page Summary
+      </div>
+      <div id="sidebar-audit-list" class="sidebar-audit-list"></div>
+    </aside>
+
     <!-- Left: Screenshot + Markers -->
     <div class="screenshot-panel">
       <div id="screenshot-container" class="screenshot-container">
@@ -71,7 +83,7 @@
       </div>
     </div>
 
-    <!-- Right: Tabs -->
+    <!-- Right: Tabs (audit mode) -->
     <div class="results-panel">
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="rules">
@@ -123,6 +135,36 @@
           <div id="ai-result" class="ai-result" style="display:none;"></div>
           <div id="ai-error" class="ai-error" style="display:none;"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Right: Shopify Adapt mode (hidden by default) -->
+    <div id="adapt-results-panel" class="results-panel" style="display:none;">
+      <div class="tab-bar">
+        <button class="adapt-tab-btn active" data-adapt-tab="structure">
+          Structure Map <span id="adapt-sections-count" class="tab-count">0</span>
+        </button>
+        <button class="adapt-tab-btn" data-adapt-tab="components">
+          Components <span id="adapt-components-count" class="tab-count">0</span>
+        </button>
+        <button class="adapt-tab-btn" data-adapt-tab="migration">
+          Migration Summary
+        </button>
+      </div>
+
+      <!-- Structure Map Tab -->
+      <div id="adapt-tab-structure" class="tab-content active">
+        <div id="adapt-structure-list" class="findings-list"></div>
+      </div>
+
+      <!-- Components Tab -->
+      <div id="adapt-tab-components" class="tab-content">
+        <div id="adapt-components-list" class="findings-list"></div>
+      </div>
+
+      <!-- Migration Summary Tab -->
+      <div id="adapt-tab-migration" class="tab-content">
+        <div id="adapt-migration-summary" class="adapt-migration"></div>
       </div>
     </div>
   </main>

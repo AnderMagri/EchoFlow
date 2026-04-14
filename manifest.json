@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "EchoFlow",
-  "version": "1.0.0",
-  "description": "UX audit tool for websites — Generic UX, Shopify, Fintech, and Crypto verticals with ICE scoring.",
+  "version": "1.1.0",
+  "description": "UX audit tool for websites — Generic UX, Shopify, Fintech, and Crypto verticals with ICE scoring, project management, and Shopify Adapt.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -25,7 +25,15 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["results.html", "offscreen.html"],
+      "resources": [
+        "results.html",
+        "offscreen.html",
+        "knowledge-base/shopify-adapt/themes.json",
+        "knowledge-base/shopify-adapt/sections.json",
+        "knowledge-base/shopify-adapt/components.json",
+        "knowledge-base/shopify-adapt/platform.json",
+        "knowledge-base/shopify-adapt/migration-patterns.json"
+      ],
       "matches": ["<all_urls>"]
     }
   ],

@@ -1,5 +1,6 @@
 // EchoFlow Popup Script
-// Handles vertical/mode selection, audit triggering, and file loading.
+// Handles 3-tab layout, vertical/mode selection, audit triggering,
+// project management, batch audits, and Shopify Adapt.
 
 document.addEventListener('DOMContentLoaded', () => {
   const capturePanel = document.getElementById('capture-panel');
@@ -13,7 +14,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedVertical = 'generic-ux';
 
-  // ── Page Type Options per Vertical ──
+  // ══════════════════════════════════════════════
+  //  Tab Switching
+  // ══════════════════════════════════════════════
+
+  document.querySelectorAll('.popup-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.popup-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.popup-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      const target = document.getElementById('tab-' + tab.dataset.popupTab);
+      if (target) target.classList.add('active');
+
+      // Load project list when switching to project tab
+      if (tab.dataset.popupTab === 'project-review') {
+        loadProjectList();
+      }
+    });
+  });
+
+  // ══════════════════════════════════════════════
+  //  Page Review Tab (existing functionality)
+  // ══════════════════════════════════════════════
 
   const PAGE_TYPES = {
     'shopify': [
@@ -63,8 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     section.style.display = 'block';
   }
 
-  // ── Vertical Selection ──
-
+  // Vertical Selection
   document.querySelectorAll('.vertical-card').forEach(card => {
     card.addEventListener('click', () => {
       document.querySelectorAll('.vertical-card').forEach(c => c.classList.remove('active'));
@@ -73,8 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
       updatePageTypeSelector(selectedVertical);
     });
   });
-
-  // ── Get Selected Mode ──
 
   function getSelectedMode() {
     const checked = document.querySelector('input[name="mode"]:checked');
@@ -86,8 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return checked ? checked.value : '100';
   }
 
-  // ── Run Audit ──
-
+  // Run Audit
   runBtn.addEventListener('click', async () => {
     runBtn.disabled = true;
     btnText.textContent = 'Analyzing...';
@@ -99,20 +117,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mode === 'region') {
       statusEl.textContent = 'Click an element on the page to select a region...';
-      // Close popup briefly so user can interact with the page
-      // The content script handles the picker; background handles the flow
     }
 
     try {
       const pageTypeSelect = document.getElementById('page-type-select');
       const pageType = PAGE_TYPES[selectedVertical] ? pageTypeSelect.value : null;
 
+      // Check if there's an active project to auto-save
+      const { activeProjectId } = await chrome.storage.local.get('activeProjectId');
+
       const result = await chrome.runtime.sendMessage({
         action: 'START_AUDIT',
         vertical: selectedVertical,
         pageType: pageType,
         mode: mode,
-        resolution: getSelectedResolution()
+        resolution: getSelectedResolution(),
+        projectId: activeProjectId || null
       });
 
       if (result?.success) {
@@ -132,8 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSpinner.style.display = 'none';
   });
 
-  // ── Load Saved Audit ──
-
+  // Load Saved Audit
   loadBtn.addEventListener('click', () => {
     fileInput.click();
   });
@@ -149,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const text = await file.text();
       const data = JSON.parse(text);
 
-      // Basic validation
       if (!data.version || !data.findings) {
         throw new Error('Invalid audit file format');
       }
@@ -169,8 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.value = '';
   });
 
-  // ── Retry Button ──
-
+  // Retry Button
   const retryBtn = document.getElementById('retry-btn');
   if (retryBtn) {
     retryBtn.addEventListener('click', () => {
@@ -178,4 +195,249 @@ document.addEventListener('DOMContentLoaded', () => {
       capturePanel.style.display = 'block';
     });
   }
+
+  // ══════════════════════════════════════════════
+  //  Project Review Tab
+  // ══════════════════════════════════════════════
+
+  const projectSelect = document.getElementById('project-select');
+  const newProjectRow = document.getElementById('new-project-row');
+  const newProjectName = document.getElementById('new-project-name');
+  const btnCreateProject = document.getElementById('btn-create-project');
+  const projectInfo = document.getElementById('project-info');
+  const projectInfoName = document.getElementById('project-info-name');
+  const projectInfoStats = document.getElementById('project-info-stats');
+  const projectStatus = document.getElementById('project-status');
+  const batchUrls = document.getElementById('batch-urls');
+  const batchVertical = document.getElementById('batch-vertical');
+  const btnBatchAudit = document.getElementById('btn-batch-audit');
+  const batchProgress = document.getElementById('batch-progress');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  const btnBatchStop = document.getElementById('btn-batch-stop');
+  const btnViewProject = document.getElementById('btn-view-project');
+  const btnDeleteProject = document.getElementById('btn-delete-project');
+
+  let batchRunning = false;
+
+  async function loadProjectList() {
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'LIST_PROJECTS' });
+      if (!result?.success) return;
+
+      const projects = result.projects || [];
+      const { activeProjectId } = await chrome.storage.local.get('activeProjectId');
+
+      // Rebuild select
+      projectSelect.innerHTML = '<option value="">Select a project...</option><option value="__new__">+ New Project</option>';
+      projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        projectSelect.appendChild(opt);
+      });
+
+      // Re-select active project
+      if (activeProjectId && projects.find(p => p.id === activeProjectId)) {
+        projectSelect.value = activeProjectId;
+        showProjectInfo(activeProjectId);
+      }
+    } catch (err) {
+      projectStatus.textContent = 'Failed to load projects';
+      projectStatus.className = 'status error';
+    }
+  }
+
+  projectSelect.addEventListener('change', async () => {
+    const val = projectSelect.value;
+    newProjectRow.style.display = 'none';
+    projectInfo.style.display = 'none';
+
+    if (val === '__new__') {
+      newProjectRow.style.display = 'flex';
+      newProjectName.focus();
+      await chrome.storage.local.remove('activeProjectId');
+    } else if (val) {
+      await chrome.storage.local.set({ activeProjectId: val });
+      showProjectInfo(val);
+    } else {
+      await chrome.storage.local.remove('activeProjectId');
+    }
+  });
+
+  btnCreateProject.addEventListener('click', async () => {
+    const name = newProjectName.value.trim();
+    if (!name) return;
+
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'CREATE_PROJECT', name });
+      if (result?.success) {
+        await chrome.storage.local.set({ activeProjectId: result.project.id });
+        newProjectName.value = '';
+        newProjectRow.style.display = 'none';
+        await loadProjectList();
+        projectSelect.value = result.project.id;
+        showProjectInfo(result.project.id);
+        projectStatus.textContent = 'Project created';
+        projectStatus.className = 'status success';
+      }
+    } catch (err) {
+      projectStatus.textContent = 'Failed to create project';
+      projectStatus.className = 'status error';
+    }
+  });
+
+  newProjectName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') btnCreateProject.click();
+  });
+
+  async function showProjectInfo(projectId) {
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'GET_PROJECT_AUDITS', projectId });
+      if (!result?.success) return;
+
+      const project = result.project;
+      const audits = result.audits || [];
+
+      projectInfoName.textContent = project.name;
+      projectInfoStats.textContent = `${audits.length} page${audits.length !== 1 ? 's' : ''} audited`;
+      projectInfo.style.display = 'block';
+    } catch (_) {}
+  }
+
+  // Batch Audit
+  btnBatchAudit.addEventListener('click', async () => {
+    const urlText = batchUrls.value.trim();
+    if (!urlText) return;
+
+    const urls = urlText.split('\n').map(u => u.trim()).filter(u => u && (u.startsWith('http://') || u.startsWith('https://')));
+    if (urls.length === 0) {
+      projectStatus.textContent = 'No valid URLs found. Each line should start with http:// or https://';
+      projectStatus.className = 'status error';
+      return;
+    }
+
+    const { activeProjectId } = await chrome.storage.local.get('activeProjectId');
+    if (!activeProjectId) {
+      projectStatus.textContent = 'Select or create a project first';
+      projectStatus.className = 'status error';
+      return;
+    }
+
+    batchRunning = true;
+    btnBatchAudit.disabled = true;
+    btnBatchAudit.querySelector('.btn-text').textContent = 'Running...';
+    btnBatchAudit.querySelector('.btn-spinner').style.display = 'inline-flex';
+    batchProgress.style.display = 'flex';
+    progressFill.style.width = '0%';
+    progressText.textContent = `Auditing 0 of ${urls.length}...`;
+    projectStatus.textContent = '';
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        action: 'BATCH_AUDIT',
+        urls,
+        vertical: batchVertical.value,
+        projectId: activeProjectId
+      });
+
+      if (result?.success) {
+        projectStatus.textContent = `Batch complete: ${result.completed} of ${urls.length} audited`;
+        projectStatus.className = 'status success';
+        showProjectInfo(activeProjectId);
+      } else {
+        projectStatus.textContent = result?.error || 'Batch audit failed';
+        projectStatus.className = 'status error';
+      }
+    } catch (err) {
+      projectStatus.textContent = err.message || 'Batch audit error';
+      projectStatus.className = 'status error';
+    }
+
+    batchRunning = false;
+    btnBatchAudit.disabled = false;
+    btnBatchAudit.querySelector('.btn-text').textContent = 'Batch Audit';
+    btnBatchAudit.querySelector('.btn-spinner').style.display = 'none';
+    batchProgress.style.display = 'none';
+  });
+
+  btnBatchStop.addEventListener('click', async () => {
+    if (batchRunning) {
+      await chrome.runtime.sendMessage({ action: 'BATCH_STOP' });
+      projectStatus.textContent = 'Batch stopped';
+      projectStatus.className = 'status error';
+    }
+  });
+
+  // Listen for batch progress updates
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === 'BATCH_PROGRESS') {
+      const { current, total } = message;
+      const pct = Math.round((current / total) * 100);
+      progressFill.style.width = pct + '%';
+      progressText.textContent = `Auditing ${current} of ${total}...`;
+    }
+  });
+
+  // View Project Results
+  btnViewProject.addEventListener('click', async () => {
+    const { activeProjectId } = await chrome.storage.local.get('activeProjectId');
+    if (!activeProjectId) return;
+
+    const resultsUrl = chrome.runtime.getURL('results.html') + '?projectId=' + activeProjectId;
+    chrome.tabs.create({ url: resultsUrl });
+  });
+
+  // Delete Project
+  btnDeleteProject.addEventListener('click', async () => {
+    const { activeProjectId } = await chrome.storage.local.get('activeProjectId');
+    if (!activeProjectId) return;
+
+    try {
+      await chrome.runtime.sendMessage({ action: 'DELETE_PROJECT', projectId: activeProjectId });
+      await chrome.storage.local.remove('activeProjectId');
+      projectSelect.value = '';
+      projectInfo.style.display = 'none';
+      projectStatus.textContent = 'Project deleted';
+      projectStatus.className = 'status success';
+      loadProjectList();
+    } catch (err) {
+      projectStatus.textContent = 'Failed to delete project';
+      projectStatus.className = 'status error';
+    }
+  });
+
+  // ══════════════════════════════════════════════
+  //  Shopify Adapt Tab
+  // ══════════════════════════════════════════════
+
+  const btnAdapt = document.getElementById('btn-adapt-analyze');
+  const adaptStatus = document.getElementById('adapt-status');
+
+  btnAdapt.addEventListener('click', async () => {
+    btnAdapt.disabled = true;
+    btnAdapt.querySelector('.btn-text').textContent = 'Analyzing...';
+    btnAdapt.querySelector('.btn-spinner').style.display = 'inline-flex';
+    adaptStatus.textContent = '';
+    adaptStatus.className = 'status';
+
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'RUN_SHOPIFY_ADAPT' });
+
+      if (result?.success) {
+        adaptStatus.textContent = `Analysis complete — ${result.componentCount} components detected`;
+        adaptStatus.className = 'status success';
+      } else {
+        adaptStatus.textContent = result?.error || 'Analysis failed';
+        adaptStatus.className = 'status error';
+      }
+    } catch (err) {
+      adaptStatus.textContent = err.message || 'Connection error';
+      adaptStatus.className = 'status error';
+    }
+
+    btnAdapt.disabled = false;
+    btnAdapt.querySelector('.btn-text').textContent = 'Analyze for Shopify';
+    btnAdapt.querySelector('.btn-spinner').style.display = 'none';
+  });
 });

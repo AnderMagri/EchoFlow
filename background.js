@@ -2,6 +2,10 @@
 // Orchestrates audit flow: content injection, API fetches, rule evaluation.
 
 import { evaluateRules, extractSelectors } from './engine.js';
+import {
+  createProject, getProject, listProjects, deleteProject,
+  saveAudit, getAuditsForProject
+} from './storage.js';
 
 // ── Rule Loading ──
 
@@ -345,14 +349,317 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType) {
   await chrome.storage.local.set({ echoflowResults: results });
   await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') });
 
-  return { success: true, findingCount: findings.length };
+  return { success: true, findingCount: findings.length, results };
 }
 
 // ── Message Handler ──
 
+// ── Silent Audit (for batch — doesn't open results page) ──
+
+async function runAuditSilent(tabId, tabUrl, vertical, mode, resolution, pageType) {
+  const origin = new URL(tabUrl).origin;
+  const rules = await loadRules(vertical);
+  const selectors = extractSelectors(rules);
+
+  await injectContentScript(tabId);
+  await sleep(200);
+
+  const isShopify = vertical === 'shopify';
+  if (isShopify) {
+    await injectShopifyMainWorld(tabId);
+    await sleep(200);
+  }
+
+  const captureResult = await chrome.tabs.sendMessage(tabId, {
+    action: 'CAPTURE_DOM',
+    vertical: vertical,
+    selectors: selectors,
+    waitForShopify: isShopify
+  });
+
+  if (!captureResult?.success) {
+    return { success: false, error: captureResult?.error || 'DOM capture failed' };
+  }
+
+  const domData = captureResult.data;
+  domData.apiResponses = await fetchApiEndpoints(origin, rules);
+
+  const screenshot = await captureScreenshot(tabId, resolution, mode);
+  const findings = evaluateRules(rules, domData);
+
+  const results = {
+    version: '1.0',
+    meta: {
+      url: domData.url,
+      title: domData.title,
+      vertical: vertical,
+      pageType: pageType || null,
+      device: domData.viewport.width <= 480 ? 'mobile' : domData.viewport.width <= 1024 ? 'tablet' : 'desktop',
+      captureMode: mode,
+      timestamp: Date.now(),
+      viewport: domData.viewport,
+      scrollHeight: domData.scrollHeight
+    },
+    shopify: domData.shopify,
+    sections: domData.sections,
+    catalog: domData.apiResponses,
+    screenshot: screenshot,
+    findings: findings,
+    regionBounds: null,
+    rawData: {
+      scripts: domData.scripts,
+      metaTags: domData.metaTags,
+      headings: domData.headings,
+      forms: domData.forms,
+      imageCount: domData.images?.length || 0,
+      linkCount: domData.links?.length || 0,
+      elementCount: domData.elements?.length || 0
+    },
+    designInventory: domData.designInventory || null
+  };
+
+  return { success: true, findingCount: findings.length, results };
+}
+
+// ── Shopify Adapt ──
+
+async function runShopifyAdapt(tabId, tabUrl) {
+  // Inject the shopify-adapt content script
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['shopify-adapt.js']
+  });
+  await sleep(300);
+
+  // Run analysis
+  const adaptResult = await chrome.tabs.sendMessage(tabId, { action: 'SHOPIFY_ADAPT_ANALYZE' });
+
+  if (!adaptResult?.success) {
+    return { success: false, error: adaptResult?.error || 'Shopify Adapt analysis failed' };
+  }
+
+  const adaptData = adaptResult.data;
+
+  // Load the Shopify Adapt knowledge base
+  const [sectionsData, componentsData, platformData, migrationData] = await Promise.all([
+    fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/sections.json')).then(r => r.json()),
+    fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/components.json')).then(r => r.json()),
+    fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/platform.json')).then(r => r.json()),
+    fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/migration-patterns.json')).then(r => r.json())
+  ]);
+
+  // Map detected regions to Shopify sections
+  const sectionMappings = mapRegionsToShopify(adaptData.regions, sectionsData.sections);
+
+  // Map detected components to Shopify support
+  const componentMappings = mapComponentsToShopify(adaptData.components, componentsData.components);
+
+  // Get migration info for detected platform
+  const platformMigration = migrationData.platforms[adaptData.platform] || migrationData.platforms['custom-ecommerce'];
+
+  // Capture screenshot for the results page
+  const screenshot = await captureViewport(tabId, '100');
+
+  // Assemble adapt results
+  const results = {
+    version: '1.0',
+    mode: 'shopify-adapt',
+    meta: {
+      url: adaptData.url,
+      title: adaptData.pageTitle,
+      pageType: adaptData.pageType,
+      platform: adaptData.platform,
+      timestamp: Date.now()
+    },
+    screenshot,
+    regions: adaptData.regions,
+    components: adaptData.components,
+    complexitySignals: adaptData.complexitySignals,
+    shopifyDetails: adaptData.shopifyDetails || null,
+    sectionMappings,
+    componentMappings,
+    platformMigration,
+    platformConstraints: platformData
+  };
+
+  // Store and open results
+  await chrome.storage.local.set({ echoflowResults: results });
+  await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') + '?mode=shopify-adapt' });
+
+  return {
+    success: true,
+    componentCount: adaptData.components.length + adaptData.regions.length
+  };
+}
+
+function mapRegionsToShopify(regions, shopifySections) {
+  const typeMap = {
+    'hero': 'image-banner',
+    'image-banner': 'image-banner',
+    'cta-banner': 'image-banner',
+    'product-grid': 'featured-collection',
+    'featured-product': 'featured-product',
+    'faq-accordion': 'collapsible-content',
+    'blog-posts': 'blog-posts',
+    'newsletter': 'newsletter',
+    'video': 'video',
+    'rich-text': 'rich-text',
+    'image-with-text': 'image-with-text',
+    'multicolumn': 'multicolumn',
+    'contact-form': 'contact-form',
+    'testimonials': 'multicolumn',
+    'logo-list': 'multicolumn',
+    'gallery': 'multicolumn',
+    'map': 'custom-liquid',
+    'tabs': 'collapsible-content',
+    'countdown': 'custom-liquid'
+  };
+
+  // Separate layout containers from content sections
+  const layoutTypes = ['header', 'navigation', 'footer', 'main-content', 'sidebar'];
+
+  return regions.map(region => {
+    const isLayout = layoutTypes.includes(region.type);
+
+    if (isLayout) {
+      // Layout containers — always present, not real "mappings"
+      let layoutNotes = '';
+      let layoutFeatures = [];
+
+      if (region.type === 'header' && region.children) {
+        if (region.children.hasMegaMenu) layoutFeatures.push('mega menu');
+        if (region.children.hasSearch) layoutFeatures.push('search');
+        if (region.children.hasCart) layoutFeatures.push('cart');
+        if (region.children.hasAccount) layoutFeatures.push('account');
+        if (region.children.hasAnnouncement) layoutFeatures.push('announcement bar');
+        if (region.children.hasLogo) layoutFeatures.push('logo');
+        layoutNotes = layoutFeatures.length
+          ? `Contains: ${layoutFeatures.join(', ')}`
+          : 'Standard header layout';
+      } else if (region.type === 'footer' && region.children) {
+        if (region.children.hasNewsletter) layoutFeatures.push('newsletter');
+        if (region.children.hasNavigation) layoutFeatures.push('navigation');
+        if (region.children.hasSocialLinks) layoutFeatures.push('social links');
+        if (region.children.hasPaymentIcons) layoutFeatures.push('payment icons');
+        if (region.children.columnCount > 1) layoutFeatures.push(`${region.children.columnCount} columns`);
+        layoutNotes = layoutFeatures.length
+          ? `Contains: ${layoutFeatures.join(', ')}`
+          : 'Standard footer layout';
+      } else if (region.type === 'navigation' && region.children) {
+        layoutNotes = `${region.children.linkCount || 0} links, ${region.children.dropdownCount || 0} dropdowns, depth ${region.children.depth || 1}`;
+      } else if (region.type === 'sidebar') {
+        layoutNotes = 'Shopify supports sidebar filters on collection pages. Custom sidebar for other pages.';
+      } else if (region.type === 'main-content') {
+        layoutNotes = 'Main content area — composed of Shopify sections';
+      }
+
+      return {
+        ...region,
+        isLayout: true,
+        shopifyMapping: {
+          sectionType: region.type,
+          sectionName: region.type.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          status: 'layout',
+          notes: layoutNotes,
+          features: layoutFeatures
+        }
+      };
+    }
+
+    // Content sections — these are the real mappings
+    const shopifyType = typeMap[region.type];
+    const shopifySection = shopifyType ? shopifySections[shopifyType] : null;
+
+    let status = 'red';
+    let notes = '';
+
+    if (shopifySection) {
+      status = 'green';
+      notes = `Maps to "${shopifySection.displayName}" section`;
+
+      // Check for capability mismatches
+      if (region.children) {
+        if (region.children.hasParallax && shopifySection.doesNotSupport?.includes('parallax')) {
+          status = 'yellow';
+          notes += '. Parallax effect not supported natively — needs custom CSS/JS.';
+        }
+        if (region.children.hasSlider && region.children.slideCount > (shopifySection.maxBlocks || 5)) {
+          status = 'yellow';
+          notes += `. Slider has ${region.children.slideCount} slides — max ${shopifySection.maxBlocks || 5} natively.`;
+        }
+        if (region.children.hasVideo && shopifySection.doesNotSupport?.includes('video-background')) {
+          status = 'yellow';
+          notes += '. Video background not supported in this section — use Video section instead.';
+        }
+      }
+    } else {
+      status = 'yellow';
+      notes = 'No direct Shopify section — use Custom Liquid section';
+    }
+
+    return {
+      ...region,
+      isLayout: false,
+      shopifyMapping: {
+        sectionType: shopifyType || 'custom-liquid',
+        sectionName: shopifySection?.displayName || 'Custom Liquid',
+        status,
+        notes
+      }
+    };
+  });
+}
+
+function mapComponentsToShopify(components, shopifyComponents) {
+  return components.map(comp => {
+    const shopifyComp = shopifyComponents[comp.type];
+
+    let status = 'red';
+    let notes = '';
+    let solution = '';
+    let effort = '';
+    let apps = [];
+
+    if (shopifyComp) {
+      if (shopifyComp.native) {
+        status = 'green';
+        notes = shopifyComp.sinceTheme ? `Native since ${shopifyComp.sinceTheme}` : 'Native in Shopify';
+        if (shopifyComp.limitations?.length) {
+          notes += '. Limitations: ' + shopifyComp.limitations.slice(0, 2).join('; ');
+        }
+      } else if (shopifyComp.nativePartial || shopifyComp.nativeWorkaround) {
+        status = 'yellow';
+        notes = shopifyComp.workaround || shopifyComp.notes || 'Partial native support';
+        solution = shopifyComp.customApproach || shopifyComp.solution || '';
+        effort = shopifyComp.effort || '';
+        apps = (shopifyComp.apps || []).map(a => typeof a === 'string' ? a : a.name);
+      } else {
+        status = shopifyComp.complexity === 'very-high' || shopifyComp.complexity === 'high' ? 'red' : 'yellow';
+        notes = shopifyComp.notes || 'Not natively supported';
+        solution = shopifyComp.customApproach || shopifyComp.solution || '';
+        effort = shopifyComp.effort || '';
+        apps = (shopifyComp.apps || []).map(a => typeof a === 'string' ? a : a.name);
+      }
+    } else {
+      status = 'yellow';
+      notes = 'Component not in Shopify knowledge base — likely needs custom development';
+    }
+
+    return {
+      ...comp,
+      shopifyMapping: { status, notes, solution, effort, apps }
+    };
+  });
+}
+
+let batchStopped = false;
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+  // ── Page Review ──
+
   if (message.action === 'START_AUDIT') {
-    const { vertical, pageType, mode, resolution } = message;
+    const { vertical, pageType, mode, resolution, projectId } = message;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs[0]) {
@@ -361,13 +668,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       try {
         const result = await runAudit(tabs[0].id, tabs[0].url, vertical, mode, resolution, pageType);
+
+        // Auto-save to project if one is active
+        if (projectId && result.success && result.results) {
+          try {
+            await saveAudit(projectId, {
+              url: result.results.meta.url,
+              pageType: result.results.meta.pageType,
+              vertical: result.results.meta.vertical,
+              device: result.results.meta.device,
+              results: result.results,
+              designInventory: result.results.designInventory,
+              screenshot: result.results.screenshot
+            });
+          } catch (_) {} // Don't fail the audit if save fails
+        }
+
         sendResponse(result);
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
     });
 
-    return true; // Keep channel open for async
+    return true;
   }
 
   if (message.action === 'LOAD_AUDIT_FILE') {
@@ -384,6 +707,153 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     analyzeFn(message.data, message.apiKey, message.auditContext)
       .then(result => sendResponse(result))
       .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // ── Project Management ──
+
+  if (message.action === 'CREATE_PROJECT') {
+    createProject(message.name)
+      .then(project => sendResponse({ success: true, project }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'LIST_PROJECTS') {
+    listProjects()
+      .then(projects => sendResponse({ success: true, projects }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'GET_PROJECT_AUDITS') {
+    (async () => {
+      try {
+        const project = await getProject(message.projectId);
+        const audits = await getAuditsForProject(message.projectId);
+        sendResponse({ success: true, project, audits });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.action === 'DELETE_PROJECT') {
+    deleteProject(message.projectId)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // ── Batch Audit ──
+
+  if (message.action === 'BATCH_AUDIT') {
+    const { urls, vertical, projectId } = message;
+    batchStopped = false;
+
+    (async () => {
+      let completed = 0;
+      const total = urls.length;
+
+      for (let i = 0; i < urls.length; i++) {
+        if (batchStopped) break;
+
+        const url = urls[i];
+        try {
+          // Navigate to URL
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!tab) break;
+
+          await chrome.tabs.update(tab.id, { url });
+
+          // Wait for page to load
+          await new Promise((resolve) => {
+            const listener = (tabId, changeInfo) => {
+              if (tabId === tab.id && changeInfo.status === 'complete') {
+                chrome.tabs.onUpdated.removeListener(listener);
+                resolve();
+              }
+            };
+            chrome.tabs.onUpdated.addListener(listener);
+            // Timeout after 30 seconds
+            setTimeout(() => {
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }, 30000);
+          });
+
+          await sleep(1500); // Let page fully render
+
+          // Run audit (don't open results page for batch)
+          const result = await runAuditSilent(tab.id, url, vertical, 'viewport', '100', null);
+
+          // Save to project
+          if (result.success && result.results) {
+            await saveAudit(projectId, {
+              url: result.results.meta.url,
+              pageType: result.results.meta.pageType,
+              vertical: result.results.meta.vertical,
+              device: result.results.meta.device,
+              results: result.results,
+              designInventory: result.results.designInventory,
+              screenshot: result.results.screenshot
+            });
+          }
+
+          completed++;
+
+          // Send progress to popup
+          chrome.runtime.sendMessage({
+            action: 'BATCH_PROGRESS',
+            current: completed,
+            total
+          }).catch(() => {}); // Popup may be closed
+
+        } catch (err) {
+          completed++;
+          // Continue to next URL on error
+        }
+
+        // Pause between audits
+        if (i < urls.length - 1 && !batchStopped) {
+          await sleep(3000);
+        }
+      }
+
+      // Open project results when done
+      if (!batchStopped && completed > 0) {
+        const resultsUrl = chrome.runtime.getURL('results.html') + '?projectId=' + projectId;
+        await chrome.tabs.create({ url: resultsUrl });
+      }
+
+      sendResponse({ success: true, completed });
+    })();
+
+    return true;
+  }
+
+  if (message.action === 'BATCH_STOP') {
+    batchStopped = true;
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // ── Shopify Adapt ──
+
+  if (message.action === 'RUN_SHOPIFY_ADAPT') {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (!tabs[0]) {
+        sendResponse({ success: false, error: 'No active tab' });
+        return;
+      }
+      try {
+        const result = await runShopifyAdapt(tabs[0].id, tabs[0].url);
+        sendResponse(result);
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    });
     return true;
   }
 });

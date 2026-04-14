@@ -1091,6 +1091,612 @@
     return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // ── Shopify Adapt Rendering ──
+
+  function renderAdaptMode() {
+    // Hide normal results panel, show adapt panel
+    document.querySelector('.results-panel:not(#adapt-results-panel)').style.display = 'none';
+    document.getElementById('adapt-results-panel').style.display = 'flex';
+
+    renderAdaptToolbar();
+    renderScreenshot();
+    renderAdaptStructure();
+    renderAdaptComponents();
+    renderAdaptMigration();
+
+    // Adapt tab switching
+    document.querySelectorAll('.adapt-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.adapt-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('#adapt-results-panel .tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById('adapt-tab-' + btn.dataset.adaptTab).classList.add('active');
+      });
+    });
+  }
+
+  function renderAdaptToolbar() {
+    const urlEl = document.getElementById('audit-url');
+    urlEl.textContent = auditData.meta.url;
+    urlEl.href = auditData.meta.url;
+
+    const isShopify = auditData.meta.platform === 'shopify';
+    document.getElementById('audit-badge').textContent = isShopify ? 'Shopify Audit' : 'Shopify Migration';
+    document.getElementById('audit-badge').style.background = isShopify ? '#22c55e' : '#8b5cf6';
+
+    const deviceBadge = document.getElementById('audit-device');
+    if (deviceBadge && auditData.meta.platform) {
+      deviceBadge.textContent = auditData.meta.platform.replace(/-/g, ' ');
+    }
+
+    const pageTypeBadge = document.getElementById('audit-page-type');
+    if (pageTypeBadge && auditData.meta.pageType) {
+      pageTypeBadge.textContent = auditData.meta.pageType;
+      pageTypeBadge.style.display = 'inline-block';
+    }
+
+    const date = new Date(auditData.meta.timestamp);
+    document.getElementById('audit-time').textContent = date.toLocaleString();
+  }
+
+  function renderAdaptStructure() {
+    const list = document.getElementById('adapt-structure-list');
+    const mappings = auditData.sectionMappings || [];
+    const isShopify = auditData.meta.platform === 'shopify';
+    const shopifyDetails = auditData.shopifyDetails || null;
+    list.innerHTML = '';
+
+    // Separate layout containers from content sections
+    const layoutItems = mappings.filter(m => m.isLayout);
+    const contentItems = mappings.filter(m => !m.isLayout);
+
+    // Count only content sections for the tab badge
+    document.getElementById('adapt-sections-count').textContent = contentItems.length;
+
+    if (mappings.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No page sections detected</p></div>';
+      return;
+    }
+
+    // ── Shopify Store Banner ──
+    if (isShopify && shopifyDetails) {
+      const banner = document.createElement('div');
+      banner.className = 'adapt-shopify-banner';
+      const themeName = shopifyDetails.theme?.name || 'Unknown theme';
+      const appCount = shopifyDetails.apps?.length || 0;
+      const sectionCount = shopifyDetails.sectionCount || 0;
+      const isOS2 = shopifyDetails.features?.os2;
+      banner.innerHTML = `
+        <div class="adapt-shopify-banner-icon">&#9432;</div>
+        <div class="adapt-shopify-banner-text">
+          <strong>This site is already on Shopify</strong>
+          <p>Theme: <strong>${escapeHtml(themeName)}</strong>${isOS2 ? ' (OS 2.0)' : ' (Legacy)'} &middot; ${sectionCount} sections on page &middot; ${appCount} apps detected</p>
+        </div>
+      `;
+      list.appendChild(banner);
+    }
+
+    // ── Content Sections (the real analysis) ──
+    if (contentItems.length > 0) {
+      const contentGreen = contentItems.filter(m => m.shopifyMapping.status === 'green').length;
+      const contentYellow = contentItems.filter(m => m.shopifyMapping.status === 'yellow').length;
+      const contentRed = contentItems.filter(m => m.shopifyMapping.status === 'red').length;
+      const allContentGreen = contentYellow === 0 && contentRed === 0;
+
+      if (allContentGreen) {
+        const banner = document.createElement('div');
+        banner.className = 'adapt-all-native';
+        banner.innerHTML = `
+          <div class="adapt-all-native-icon">&#10003;</div>
+          <div class="adapt-all-native-text">
+            <strong>${isShopify ? 'All sections have native equivalents' : 'All content sections map to native Shopify'}</strong>
+            <p>All ${contentItems.length} content sections detected have direct Shopify section equivalents.</p>
+          </div>
+        `;
+        list.appendChild(banner);
+      }
+
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'adapt-section-header';
+      sectionHeader.innerHTML = `<h4>Content Sections <span class="adapt-dev-count">${contentItems.length}</span></h4>
+        <div class="adapt-mini-stats">
+          <span class="adapt-mini-stat adapt-status-green">${contentGreen} native</span>
+          ${contentYellow ? '<span class="adapt-mini-stat adapt-status-yellow">' + contentYellow + ' app/custom</span>' : ''}
+          ${contentRed ? '<span class="adapt-mini-stat adapt-status-red">' + contentRed + ' custom dev</span>' : ''}
+        </div>`;
+      list.appendChild(sectionHeader);
+
+      contentItems.forEach(item => {
+        const m = item.shopifyMapping;
+        const statusClass = 'adapt-status-' + m.status;
+        const statusLabel = m.status === 'green' ? 'Native' : m.status === 'yellow' ? 'Custom/App' : 'Custom Dev';
+
+        const card = document.createElement('div');
+        card.className = 'finding-card adapt-card';
+        card.innerHTML = `
+          <div class="adapt-status-dot ${statusClass}"></div>
+          <div class="finding-body">
+            <div class="adapt-row">
+              <span class="adapt-source-type">${escapeHtml(item.type)}</span>
+              <span class="adapt-arrow">&rarr;</span>
+              <span class="adapt-shopify-type">${escapeHtml(m.sectionName)}</span>
+            </div>
+            <div class="adapt-notes">${escapeHtml(m.notes)}</div>
+            <div class="finding-meta">
+              <span class="adapt-badge ${statusClass}">${statusLabel}</span>
+              ${item.bounds ? '<span class="adapt-size">' + item.bounds.width + 'x' + item.bounds.height + 'px</span>' : ''}
+            </div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    } else {
+      const noContent = document.createElement('div');
+      noContent.className = 'adapt-section-header';
+      noContent.innerHTML = `<h4>Content Sections</h4><p class="adapt-dev-hint">No content sections detected (hero, product grid, FAQ, etc.). The page may be too simple or use non-standard markup.</p>`;
+      list.appendChild(noContent);
+    }
+
+    // ── Layout Summary (collapsed, less prominent) ──
+    if (layoutItems.length > 0) {
+      const layoutHeader = document.createElement('div');
+      layoutHeader.className = 'adapt-section-header adapt-layout-header';
+      layoutHeader.innerHTML = `<h4>Layout Structure <span class="adapt-dev-count">${layoutItems.length}</span></h4>
+        <p class="adapt-dev-hint">Standard page containers — these exist on all sites and are natively handled by Shopify themes.</p>`;
+      list.appendChild(layoutHeader);
+
+      layoutItems.forEach(item => {
+        const m = item.shopifyMapping;
+        const card = document.createElement('div');
+        card.className = 'adapt-layout-card';
+
+        let featuresHtml = '';
+        if (m.features && m.features.length > 0) {
+          featuresHtml = '<div class="adapt-layout-features">' + m.features.map(f => '<span class="adapt-layout-feature">' + escapeHtml(f) + '</span>').join('') + '</div>';
+        }
+
+        card.innerHTML = `
+          <div class="adapt-layout-name">${escapeHtml(item.type.replace(/-/g, ' '))}</div>
+          <div class="adapt-layout-notes">${escapeHtml(m.notes)}</div>
+          ${featuresHtml}
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    // ── Shopify Apps Detected (only for Shopify sites) ──
+    if (isShopify && shopifyDetails?.apps?.length > 0) {
+      const appsHeader = document.createElement('div');
+      appsHeader.className = 'adapt-section-header';
+      appsHeader.style.marginTop = '16px';
+      appsHeader.innerHTML = `<h4>Installed Apps <span class="adapt-dev-count">${shopifyDetails.apps.length}</span></h4>
+        <p class="adapt-dev-hint">Apps detected from script signatures on this page.</p>`;
+      list.appendChild(appsHeader);
+
+      shopifyDetails.apps.forEach(app => {
+        const tag = document.createElement('span');
+        tag.className = 'adapt-tech-tag adapt-tag-lib';
+        tag.textContent = app.name;
+        appsHeader.appendChild(tag);
+      });
+    }
+  }
+
+  function renderAdaptComponents() {
+    const list = document.getElementById('adapt-components-list');
+    const mappings = auditData.componentMappings || [];
+    list.innerHTML = '';
+
+    document.getElementById('adapt-components-count').textContent = mappings.length;
+
+    if (mappings.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No ecommerce components detected</p></div>';
+      return;
+    }
+
+    const allGreenComps = mappings.every(m => m.shopifyMapping.status === 'green');
+    if (allGreenComps) {
+      const banner = document.createElement('div');
+      banner.className = 'adapt-all-native';
+      banner.innerHTML = `
+        <div class="adapt-all-native-icon">&#10003;</div>
+        <div class="adapt-all-native-text">
+          <strong>All components natively supported</strong>
+          <p>Every detected component (${mappings.length}) has native Shopify support. No apps or custom code required.</p>
+        </div>
+      `;
+      list.appendChild(banner);
+    }
+
+    mappings.forEach((item) => {
+      const m = item.shopifyMapping;
+      const statusClass = 'adapt-status-' + m.status;
+      const statusLabel = m.status === 'green' ? 'Native' : m.status === 'yellow' ? 'App / Custom' : 'Custom Dev Required';
+
+      const card = document.createElement('div');
+      card.className = 'finding-card adapt-card';
+
+      let details = '';
+      if (m.apps && m.apps.length > 0) {
+        details += '<div class="adapt-apps"><strong>Apps:</strong> ' + m.apps.slice(0, 3).map(a => escapeHtml(a)).join(', ') + '</div>';
+      }
+      if (m.solution) {
+        details += '<div class="adapt-solution"><strong>Custom:</strong> ' + escapeHtml(m.solution) + '</div>';
+      }
+      if (m.effort) {
+        details += '<div class="adapt-effort"><strong>Effort:</strong> ' + escapeHtml(m.effort) + '</div>';
+      }
+
+      card.innerHTML = `
+        <div class="adapt-status-dot ${statusClass}"></div>
+        <div class="finding-body">
+          <div class="adapt-component-name">${escapeHtml(item.type.replace(/-/g, ' '))}</div>
+          <div class="adapt-notes">${escapeHtml(m.notes)}</div>
+          ${details}
+          <div class="finding-meta">
+            <span class="adapt-badge ${statusClass}">${statusLabel}</span>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function renderAdaptMigration() {
+    const container = document.getElementById('adapt-migration-summary');
+    const sections = auditData.sectionMappings || [];
+    const components = auditData.componentMappings || [];
+    const migration = auditData.platformMigration || {};
+    const complexity = auditData.complexitySignals || {};
+    const platform = auditData.meta.platform || 'unknown';
+    const isShopify = platform === 'shopify';
+    const shopifyDetails = auditData.shopifyDetails || null;
+
+    // Only count content sections (not layout containers) for viability
+    const contentSections = sections.filter(s => !s.isLayout);
+    const greenSections = contentSections.filter(s => s.shopifyMapping.status === 'green').length;
+    const yellowSections = contentSections.filter(s => s.shopifyMapping.status === 'yellow').length;
+    const redSections = contentSections.filter(s => s.shopifyMapping.status === 'red').length;
+
+    const greenComps = components.filter(c => c.shopifyMapping.status === 'green').length;
+    const yellowComps = components.filter(c => c.shopifyMapping.status === 'yellow').length;
+    const redComps = components.filter(c => c.shopifyMapping.status === 'red').length;
+
+    const totalItems = contentSections.length + components.length;
+    const greenTotal = greenSections + greenComps;
+    const yellowTotal = yellowSections + yellowComps;
+    const redTotal = redSections + redComps;
+
+    const viabilityPct = totalItems > 0 ? Math.round((greenTotal / totalItems) * 100) : 0;
+    const viabilityColor = viabilityPct >= 70 ? '#22c55e' : viabilityPct >= 40 ? '#f59e0b' : '#ef4444';
+
+    const summaryTitle = isShopify ? 'Shopify Store Audit' : 'Shopify Viability';
+    const summaryLabel = isShopify ? 'features using native Shopify' : 'native Shopify coverage';
+
+    let html = `
+      <div class="adapt-summary-card">
+        <div class="adapt-summary-title">${summaryTitle}</div>
+        <div class="adapt-viability" style="color:${viabilityColor}">${viabilityPct}%</div>
+        <div class="adapt-viability-label">${summaryLabel}</div>
+      </div>
+
+      <div class="adapt-stats-grid">
+        <div class="adapt-stat adapt-status-green"><span class="adapt-stat-value">${greenTotal}</span><span class="adapt-stat-label">Native</span></div>
+        <div class="adapt-stat adapt-status-yellow"><span class="adapt-stat-value">${yellowTotal}</span><span class="adapt-stat-label">App / Custom</span></div>
+        <div class="adapt-stat adapt-status-red"><span class="adapt-stat-value">${redTotal}</span><span class="adapt-stat-label">Custom Dev</span></div>
+      </div>
+    `;
+
+    // Shopify store info card
+    if (isShopify && shopifyDetails) {
+      const themeName = shopifyDetails.theme?.name || 'Unknown';
+      const isOS2 = shopifyDetails.features?.os2;
+      const appCount = shopifyDetails.apps?.length || 0;
+      const imgStats = shopifyDetails.imageStats || {};
+
+      html += `<div class="adapt-dev-card">
+        <h4>Store Details</h4>
+        <div class="adapt-dev-row"><span class="adapt-dev-label">Theme</span><span class="adapt-dev-value">${escapeHtml(themeName)}</span></div>
+        <div class="adapt-dev-row"><span class="adapt-dev-label">OS 2.0</span><span class="adapt-dev-value">${isOS2 ? 'Yes' : 'No (Legacy)'}</span></div>
+        <div class="adapt-dev-row"><span class="adapt-dev-label">Sections on Page</span><span class="adapt-dev-value">${shopifyDetails.sectionCount || 0}</span></div>
+        <div class="adapt-dev-row"><span class="adapt-dev-label">Apps Detected</span><span class="adapt-dev-value">${appCount}</span></div>
+        <div class="adapt-dev-row"><span class="adapt-dev-label">Uses App Blocks</span><span class="adapt-dev-value">${shopifyDetails.usesAppBlocks ? 'Yes' : 'No'}</span></div>
+        <div class="adapt-dev-row"><span class="adapt-dev-label">Metafields</span><span class="adapt-dev-value">${shopifyDetails.usesMetafields ? 'Detected' : 'Not detected'}</span></div>
+        ${imgStats.total ? '<div class="adapt-dev-row"><span class="adapt-dev-label">Images</span><span class="adapt-dev-value">' + imgStats.total + ' total' + (imgStats.possiblyUnoptimized > 0 ? ', ' + imgStats.possiblyUnoptimized + ' possibly unoptimized' : '') + '</span></div>' : ''}
+      </div>`;
+    }
+
+    // All native message
+    if (yellowTotal === 0 && redTotal === 0 && totalItems > 0) {
+      html += `<div class="adapt-all-native" style="margin-bottom:16px;">
+        <div class="adapt-all-native-icon">&#10003;</div>
+        <div class="adapt-all-native-text">
+          <strong>${isShopify ? 'All detected features are native' : 'Fully compatible with Shopify'}</strong>
+          <p>All ${totalItems} detected features (${contentSections.length} sections + ${components.length} components) are natively supported.${isShopify ? '' : ' No custom development required.'}</p>
+        </div>
+      </div>`;
+    } else if (totalItems === 0) {
+      html += `<div class="adapt-all-native" style="margin-bottom:16px;border-color:#f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+        <div class="adapt-all-native-icon" style="background:#f59e0b;">?</div>
+        <div class="adapt-all-native-text" style="color:#92400e;">
+          <strong>Limited detection</strong>
+          <p>No content sections or ecommerce components were detected. The page may use non-standard markup, be a simple static page, or require JavaScript rendering to show content.</p>
+        </div>
+      </div>`;
+    }
+
+    // ── Platform & Tech Stack ──
+    const tech = complexity.techStack || {};
+    const fmtTech = (arr) => (arr || []).map(t => t.meta ? `${t.name} (${t.meta})` : t.name);
+
+    const jsFrameworks = fmtTech(tech.jsFrameworks);
+    const cssFrameworks = fmtTech(tech.cssFrameworks);
+    const jsLibraries = fmtTech(tech.jsLibraries);
+    const buildTools = fmtTech(tech.buildTools);
+    const analyticsTools = fmtTech(tech.analytics);
+    const tagManagers = fmtTech(tech.tagManagers);
+    const payments = fmtTech(tech.payments);
+    const cmsTools = fmtTech(tech.cms);
+    const cdns = fmtTech(tech.cdns);
+
+    // Fallback to legacy flags if techStack not available
+    if (jsFrameworks.length === 0) {
+      if (complexity.hasReact) jsFrameworks.push('React');
+      if (complexity.hasVue) jsFrameworks.push('Vue.js');
+      if (complexity.hasAngular) jsFrameworks.push('Angular');
+      if (complexity.hasSvelte) jsFrameworks.push('Svelte');
+    }
+
+    html += `<div class="adapt-dev-card">
+      <h4>Tech Stack</h4>
+      <div class="adapt-dev-row"><span class="adapt-dev-label">Source Platform</span><span class="adapt-dev-value">${escapeHtml(migration.name || platform.replace(/-/g, ' '))}</span></div>
+      ${jsFrameworks.length ? '<div class="adapt-dev-row"><span class="adapt-dev-label">JS Framework</span><span class="adapt-dev-value">' + jsFrameworks.map(f => escapeHtml(f)).join(', ') + '</span></div>' : ''}
+      ${cssFrameworks.length ? '<div class="adapt-dev-row"><span class="adapt-dev-label">CSS Framework</span><span class="adapt-dev-value">' + cssFrameworks.map(f => escapeHtml(f)).join(', ') + '</span></div>' : ''}
+      ${buildTools.length ? '<div class="adapt-dev-row"><span class="adapt-dev-label">Build Tool</span><span class="adapt-dev-value">' + buildTools.map(f => escapeHtml(f)).join(', ') + '</span></div>' : ''}
+      <div class="adapt-dev-row"><span class="adapt-dev-label">Total Scripts</span><span class="adapt-dev-value">${complexity.scriptCount || 0} (${complexity.inlineScriptCount || 0} inline)</span></div>
+      <div class="adapt-dev-row"><span class="adapt-dev-label">CSS Animations</span><span class="adapt-dev-value">${complexity.cssAnimations || 0}</span></div>
+      <div class="adapt-dev-row"><span class="adapt-dev-label">Inline Styles</span><span class="adapt-dev-value">${(parseFloat(complexity.inlineStyleRatio || 0) * 100).toFixed(0)}% of elements (${complexity.inlineStyleCount || 0} total)</span></div>
+      <div class="adapt-dev-row"><span class="adapt-dev-label">Canvas Elements</span><span class="adapt-dev-value">${complexity.canvasElements || 0}${complexity.hasWebGL ? ' (WebGL detected)' : ''}</span></div>
+      <div class="adapt-dev-row"><span class="adapt-dev-label">Iframes</span><span class="adapt-dev-value">${complexity.iframeCount || 0}</span></div>
+    </div>`;
+
+    // ── JS Libraries ──
+    if (jsLibraries.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>JS Libraries <span class="adapt-dev-count">${jsLibraries.length}</span></h4>
+        <p class="adapt-dev-hint">Libraries detected on the page. Check which need Shopify equivalents or can be dropped.</p>
+        <div class="adapt-tag-list">${jsLibraries.map(lib => '<span class="adapt-tech-tag adapt-tag-lib">' + escapeHtml(lib) + '</span>').join('')}</div>
+      </div>`;
+    }
+
+    // ── Analytics & Tracking ──
+    const allTracking = [...analyticsTools, ...tagManagers];
+    if (allTracking.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>Analytics & Tracking <span class="adapt-dev-count">${allTracking.length}</span></h4>
+        <p class="adapt-dev-hint">Verify each tracking service is compatible with Shopify. Most work via GTM or Shopify pixels.</p>
+        <div class="adapt-tag-list">${allTracking.map(t => '<span class="adapt-tech-tag adapt-tag-analytics">' + escapeHtml(t) + '</span>').join('')}</div>
+      </div>`;
+    }
+
+    // ── Payment Providers ──
+    if (payments.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>Payment Providers <span class="adapt-dev-count">${payments.length}</span></h4>
+        <p class="adapt-dev-hint">Shopify Payments supports most providers. BNPL (Klarna, Afterpay) available as additional payment methods.</p>
+        <div class="adapt-tag-list">${payments.map(p => '<span class="adapt-tech-tag adapt-tag-payment">' + escapeHtml(p) + '</span>').join('')}</div>
+      </div>`;
+    }
+
+    // ── Headless CMS ──
+    if (cmsTools.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>Headless CMS <span class="adapt-dev-count">${cmsTools.length}</span></h4>
+        <p class="adapt-dev-hint">Headless CMS integrations may require Hydrogen (Shopify's headless framework) or custom storefront API setup.</p>
+        <div class="adapt-tag-list">${cmsTools.map(c => '<span class="adapt-tech-tag adapt-tag-cms">' + escapeHtml(c) + '</span>').join('')}</div>
+      </div>`;
+    }
+
+    // ── CDNs ──
+    if (cdns.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>CDNs <span class="adapt-dev-count">${cdns.length}</span></h4>
+        <p class="adapt-dev-hint">Shopify uses its own CDN globally. External CDNs for third-party assets may still be needed.</p>
+        <div class="adapt-tag-list">${cdns.map(c => '<span class="adapt-tech-tag adapt-tag-cdn">' + escapeHtml(c) + '</span>').join('')}</div>
+      </div>`;
+    }
+
+    // ── Third-Party Scripts (named + categorized) ──
+    const scripts = complexity.thirdPartyScripts || [];
+    const categories = complexity.thirdPartyCategories || {};
+    if (scripts.length > 0) {
+      const catLabels = { analytics: 'Analytics', social: 'Social', payment: 'Payment', monitoring: 'Monitoring', marketing: 'Marketing', cdn: 'CDN', platform: 'Platform', other: 'Other' };
+      const catColors = { analytics: '#6366f1', social: '#ec4899', payment: '#22c55e', monitoring: '#f59e0b', marketing: '#3b82f6', cdn: '#94a3b8', platform: '#8b5cf6', other: '#9ca3af' };
+      html += `<div class="adapt-dev-card">
+        <h4>Third-Party Scripts <span class="adapt-dev-count">${scripts.length}</span></h4>
+        <p class="adapt-dev-hint">Review each service — check if a Shopify app or native alternative exists.</p>
+        <div class="adapt-script-list">`;
+      scripts.forEach(domain => {
+        const cat = categories[domain] || 'other';
+        const label = catLabels[cat] || 'Other';
+        const color = catColors[cat] || '#9ca3af';
+        html += `<div class="adapt-script-item"><code>${escapeHtml(domain)}</code><span class="adapt-script-cat" style="background:${color}">${label}</span></div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // ── Iframe Sources ──
+    const iframes = complexity.iframeSources || [];
+    if (iframes.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>Embedded Iframes <span class="adapt-dev-count">${iframes.length}</span></h4>
+        <p class="adapt-dev-hint">Iframes may need Shopify app blocks or custom Liquid sections.</p>
+        <div class="adapt-script-list">`;
+      iframes.forEach(src => {
+        html += `<div class="adapt-script-item"><code>${escapeHtml(src)}</code></div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // ── Custom Dev Scope (yellow + red items as dev tickets) ──
+    const customWork = [...sections, ...components]
+      .filter(item => (item.shopifyMapping?.status === 'yellow' || item.shopifyMapping?.status === 'red'))
+      .sort((a, b) => (a.shopifyMapping.status === 'red' ? 0 : 1) - (b.shopifyMapping.status === 'red' ? 0 : 1));
+
+    if (customWork.length > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>Development Scope <span class="adapt-dev-count">${customWork.length} items</span></h4>
+        <p class="adapt-dev-hint">Features that need apps or custom Liquid/JS development.</p>`;
+      customWork.forEach(item => {
+        const m = item.shopifyMapping;
+        const statusClass = 'adapt-status-' + m.status;
+        const name = item.type.replace(/-/g, ' ');
+        const effort = m.effort ? `<span class="adapt-ticket-effort">${escapeHtml(m.effort)}</span>` : '';
+        const appsList = (m.apps && m.apps.length) ? `<div class="adapt-ticket-apps">Apps: ${m.apps.slice(0, 3).map(a => '<code>' + escapeHtml(a) + '</code>').join(', ')}</div>` : '';
+        const solution = m.solution ? `<div class="adapt-ticket-solution">${escapeHtml(m.solution)}</div>` : '';
+
+        html += `<div class="adapt-ticket ${statusClass}">
+          <div class="adapt-ticket-header">
+            <span class="adapt-ticket-name">${escapeHtml(name)}</span>
+            ${effort}
+          </div>
+          <div class="adapt-ticket-notes">${escapeHtml(m.notes)}</div>
+          ${solution}
+          ${appsList}
+        </div>`;
+      });
+      html += `</div>`;
+    } else if (totalItems > 0) {
+      html += `<div class="adapt-dev-card">
+        <h4>Development Scope</h4>
+        <p class="adapt-dev-hint" style="color:#22c55e;font-weight:600;">No custom development needed. All features are native to Shopify.</p>
+      </div>`;
+    }
+
+    container.innerHTML = html;
+  }
+
+  // ── Project Sidebar ──
+
+  async function loadProjectSidebar(projectId) {
+    const sidebar = document.getElementById('project-sidebar');
+    if (!projectId || !sidebar) return;
+
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'GET_PROJECT_AUDITS', projectId });
+      if (!result?.success) return;
+
+      sidebar.style.display = 'flex';
+      document.querySelector('.main').classList.add('has-sidebar');
+      document.getElementById('sidebar-project-name').textContent = result.project.name;
+
+      const listEl = document.getElementById('sidebar-audit-list');
+      listEl.innerHTML = '';
+
+      const audits = result.audits || [];
+      audits.forEach(audit => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-item';
+        item.dataset.auditId = audit.id;
+
+        const urlShort = audit.url.replace(/^https?:\/\/(www\.)?/, '').substring(0, 35);
+        const pageType = audit.pageType ? `<span class="sidebar-page-type">${audit.pageType}</span>` : '';
+
+        item.innerHTML = `
+          <div class="sidebar-url">${escapeHtml(urlShort)}</div>
+          <div class="sidebar-meta">${pageType}<span class="sidebar-vertical">${audit.vertical}</span></div>
+        `;
+
+        item.addEventListener('click', () => switchToAudit(audit, listEl));
+        listEl.appendChild(item);
+      });
+
+      // Collapse button
+      document.getElementById('btn-collapse-sidebar').addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+      });
+
+      // Cross-page summary
+      document.getElementById('sidebar-summary-btn').addEventListener('click', () => {
+        renderCrossPageSummary(audits);
+      });
+
+    } catch (_) {}
+  }
+
+  function switchToAudit(audit, listEl) {
+    // Highlight active
+    listEl.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+    const activeItem = listEl.querySelector(`[data-audit-id="${audit.id}"]`);
+    if (activeItem) activeItem.classList.add('active');
+
+    // Load audit data
+    if (audit.results) {
+      auditData = audit.results;
+      findings = auditData.findings || [];
+      renderAll();
+    }
+  }
+
+  function renderCrossPageSummary(audits) {
+    const list = document.getElementById('findings-list');
+    list.innerHTML = '';
+
+    const totalFindings = audits.reduce((sum, a) => sum + (a.results?.findings?.length || 0), 0);
+    const avgFindings = audits.length > 0 ? (totalFindings / audits.length).toFixed(0) : 0;
+
+    // Find repeated rules across pages
+    const ruleCounts = {};
+    audits.forEach(a => {
+      const seen = new Set();
+      (a.results?.findings || []).forEach(f => {
+        const key = f.description.substring(0, 60);
+        if (!seen.has(key)) {
+          ruleCounts[key] = (ruleCounts[key] || 0) + 1;
+          seen.add(key);
+        }
+      });
+    });
+
+    const repeated = Object.entries(ruleCounts)
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1]);
+
+    let html = `
+      <div class="score-summary">
+        <div class="score-summary-title">Cross-Page Summary</div>
+        <div class="score-cards">
+          <div class="score-card">
+            <div class="score-value" style="color:#00C9A7">${audits.length}</div>
+            <div class="score-label">Pages Audited</div>
+          </div>
+          <div class="score-card">
+            <div class="score-value" style="color:#f59e0b">${totalFindings}</div>
+            <div class="score-label">Total Findings</div>
+          </div>
+          <div class="score-card">
+            <div class="score-value" style="color:#8b5cf6">${avgFindings}</div>
+            <div class="score-label">Avg per Page</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (repeated.length > 0) {
+      html += '<h4 style="margin:20px 0 12px;color:#1a1a2e;">Repeated Issues (appear on 2+ pages)</h4>';
+      repeated.slice(0, 15).forEach(([desc, count]) => {
+        html += `<div class="finding-card" style="padding:12px;">
+          <div class="finding-body">
+            <div class="finding-description">${escapeHtml(desc)}...</div>
+            <div class="finding-meta"><span class="ice-badge high">${count} pages</span></div>
+          </div>
+        </div>`;
+      });
+    }
+
+    list.innerHTML = html;
+  }
+
   // ── Render All ──
 
   function renderAll() {
@@ -1103,6 +1709,10 @@
   // ── Initialize ──
 
   document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    const projectId = urlParams.get('projectId');
+
     // Load data
     const stored = await chrome.storage.local.get('echoflowResults');
     auditData = stored.echoflowResults;
@@ -1113,8 +1723,18 @@
       return;
     }
 
-    findings = auditData.findings || [];
-    renderAll();
+    // Shopify Adapt mode
+    if (mode === 'shopify-adapt' || auditData.mode === 'shopify-adapt') {
+      renderAdaptMode();
+    } else {
+      findings = auditData.findings || [];
+      renderAll();
+    }
+
+    // Load project sidebar if project context
+    if (projectId) {
+      loadProjectSidebar(projectId);
+    }
 
     // Resize observer for marker repositioning
     const img = document.getElementById('screenshot-img');

@@ -43,6 +43,48 @@ body {
   opacity: 0.5;
 }
 
+/* ── Popup Tabs ── */
+.popup-tabs {
+  display: flex;
+  background: #1a1a2e;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.popup-tab {
+  flex: 1;
+  padding: 14px 6px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 3px solid transparent;
+  text-align: center;
+  letter-spacing: -0.2px;
+}
+
+.popup-tab:hover {
+  color: #aaa;
+}
+
+.popup-tab.active {
+  color: #00C9A7;
+  border-bottom-color: #00C9A7;
+}
+
+/* Tab Content */
+.popup-tab-content {
+  display: none;
+}
+
+.popup-tab-content.active {
+  display: block;
+}
+
 /* Sections */
 .section {
   padding: 12px 16px 0;
@@ -176,10 +218,22 @@ body {
   cursor: not-allowed;
 }
 
+.btn-batch {
+  width: auto;
+  flex: 1;
+  margin: 0;
+  padding: 9px 14px;
+  font-size: 12px;
+}
+
+.btn-adapt {
+  margin-bottom: 4px;
+}
+
 .btn-secondary {
   display: block;
   width: calc(100% - 32px);
-  margin: 0 16px 16px;
+  margin: 0 16px 8px;
   padding: 10px;
   background: transparent;
   color: #666;
@@ -195,6 +249,56 @@ body {
 .btn-secondary:hover {
   border-color: #b0b0b0;
   color: #333;
+}
+
+.btn-sm-primary {
+  padding: 7px 14px;
+  background: #00C9A7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.btn-sm-primary:hover {
+  background: #00b396;
+}
+
+.btn-sm-secondary {
+  padding: 5px 10px;
+  background: transparent;
+  color: #888;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-danger-sm {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 16px;
+  padding: 8px;
+  background: transparent;
+  color: #e53935;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.btn-danger-sm:hover {
+  background: #fff5f5;
+  border-color: #e53935;
 }
 
 /* Spinner */
@@ -255,6 +359,134 @@ body {
   outline: none;
   border-color: #00C9A7;
   box-shadow: 0 0 0 1px #00C9A7;
+}
+
+/* Text Input */
+.text-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #1a1a2e;
+  transition: border-color 0.15s ease;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #00C9A7;
+  box-shadow: 0 0 0 1px #00C9A7;
+}
+
+/* ── Project Tab ── */
+
+.new-project-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.project-info-card {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.project-info-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+
+.project-info-stats {
+  font-size: 11px;
+  color: #888;
+}
+
+/* Batch Audit */
+.batch-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #1a1a2e;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.15s ease;
+}
+
+.batch-textarea:focus {
+  outline: none;
+  border-color: #00C9A7;
+  box-shadow: 0 0 0 1px #00C9A7;
+}
+
+.batch-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 16px;
+}
+
+.batch-vertical-select {
+  width: auto;
+  flex: 0 0 120px;
+}
+
+.batch-progress {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #00C9A7;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.progress-text {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* ── Shopify Adapt Tab ── */
+
+.adapt-intro {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+
+.adapt-intro svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.adapt-desc {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
 }
 
 /* Error Panel */
