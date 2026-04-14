@@ -1513,6 +1513,19 @@ select.settings-input {
   border-bottom-color: #8b5cf6;
 }
 
+.adapt-kb-ref {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 10px;
+  color: #9ca3af;
+  line-height: 1.6;
+}
+
+.adapt-kb-ref strong {
+  color: #6b7280;
+}
+
 .adapt-tab-btn:hover {
   color: #666;
 }

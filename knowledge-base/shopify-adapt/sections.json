@@ -1,5 +1,7 @@
 {
   "_description": "Comprehensive Shopify section type reference — every section available in OS 2.0 themes with blocks, settings, capabilities, and limitations",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify OS 2.0, Dawn 15.0, Sections Everywhere GA",
   "sections": {
     "announcement-bar": {
       "displayName": "Announcement bar",

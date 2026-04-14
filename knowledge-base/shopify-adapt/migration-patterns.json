@@ -1,5 +1,7 @@
 {
   "_description": "Common migration scenarios — maps platform-specific patterns and features to Shopify equivalents",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify Admin API 2026-01, Matrixify v5, LitExtension 2026",
   "platforms": {
     "wordpress-woocommerce": {
       "name": "WordPress + WooCommerce",

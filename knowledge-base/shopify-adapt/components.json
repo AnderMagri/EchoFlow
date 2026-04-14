@@ -1,5 +1,7 @@
 {
   "_description": "Component support matrix — for every common ecommerce UI component, defines native Shopify support, app alternatives, and custom development paths",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify Editions Winter 2026, Dawn 15.0, App Store pricing Q1 2026",
   "components": {
     "mega-menu": {
       "native": true,

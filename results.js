@@ -1618,6 +1618,16 @@
       </div>`;
     }
 
+    // ── Knowledge Base Reference ──
+    const kbRef = auditData.platformConstraints?._lastUpdated || null;
+    const kbSource = auditData.platformConstraints?._shopifyReference || null;
+    if (kbRef) {
+      html += `<div class="adapt-kb-ref">
+        <span>Knowledge base last updated: <strong>${escapeHtml(kbRef)}</strong></span>
+        ${kbSource ? '<span> &middot; ' + escapeHtml(kbSource) + '</span>' : ''}
+      </div>`;
+    }
+
     container.innerHTML = html;
   }
 
