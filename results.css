@@ -1502,6 +1502,55 @@ select.settings-input {
   color: #666;
 }
 
+/* ── Adapt: Not Ecommerce Warning ── */
+
+.adapt-not-ecommerce {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border: 1.5px solid #fca5a5;
+  border-radius: 10px;
+  margin: 12px 16px 4px;
+}
+
+.adapt-not-ecommerce-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 50%;
+}
+
+.adapt-not-ecommerce-text {
+  font-size: 13px;
+  color: #991b1b;
+  line-height: 1.5;
+}
+
+.adapt-not-ecommerce-text strong {
+  color: #7f1d1d;
+}
+
+.adapt-not-ecommerce-text p {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.adapt-not-ecommerce-detail {
+  margin-top: 6px;
+  font-size: 11px !important;
+  color: #b91c1c !important;
+  opacity: 0.8;
+}
+
 /* ── Adapt: Shopify Store Banner ── */
 
 .adapt-shopify-banner {

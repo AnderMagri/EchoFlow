@@ -1100,6 +1100,7 @@
 
     renderAdaptToolbar();
     renderScreenshot();
+    renderAdaptNotEcommerce(); // Show warning if not an ecommerce site
     renderAdaptStructure();
     renderAdaptComponents();
     renderAdaptMigration();
@@ -1137,6 +1138,50 @@
 
     const date = new Date(auditData.meta.timestamp);
     document.getElementById('audit-time').textContent = date.toLocaleString();
+  }
+
+  function renderAdaptNotEcommerce() {
+    const components = auditData.componentMappings || [];
+    const sections = auditData.sectionMappings || [];
+    const contentSections = sections.filter(s => !s.isLayout);
+    const platform = auditData.meta.platform || 'unknown';
+    const pageType = auditData.meta.pageType || 'other';
+    const isShopify = platform === 'shopify';
+
+    // Determine if this looks like an ecommerce site
+    const ecommercePageTypes = ['product', 'collection', 'cart', 'checkout', 'homepage'];
+    const hasEcommerceComponents = components.length > 0;
+    const hasEcommercePageType = ecommercePageTypes.includes(pageType);
+    const isKnownPlatform = platform !== 'custom-ecommerce' && platform !== 'unknown';
+    const hasEcommerceSections = contentSections.some(s =>
+      ['product-grid', 'featured-product', 'newsletter', 'blog-posts'].includes(s.type)
+    );
+
+    const looksLikeEcommerce = hasEcommerceComponents || hasEcommercePageType || isKnownPlatform || hasEcommerceSections || isShopify;
+
+    // Insert warning banner at the top of the adapt panel content area
+    const panel = document.getElementById('adapt-results-panel');
+    const existingWarning = document.getElementById('adapt-not-ecommerce-warning');
+    if (existingWarning) existingWarning.remove();
+
+    if (!looksLikeEcommerce) {
+      const warning = document.createElement('div');
+      warning.id = 'adapt-not-ecommerce-warning';
+      warning.className = 'adapt-not-ecommerce';
+      warning.innerHTML = `
+        <div class="adapt-not-ecommerce-icon">!</div>
+        <div class="adapt-not-ecommerce-text">
+          <strong>This doesn't appear to be an ecommerce site</strong>
+          <p>No ecommerce components, product pages, or known platform detected. The Shopify Migration analysis is designed for online stores — results on non-ecommerce pages will be limited and may not be useful.</p>
+          <p class="adapt-not-ecommerce-detail">Detected: <strong>${escapeHtml(platform.replace(/-/g, ' '))}</strong> &middot; Page type: <strong>${escapeHtml(pageType)}</strong> &middot; Components found: <strong>${components.length}</strong></p>
+        </div>
+      `;
+      // Insert before the first tab content
+      const firstTab = panel.querySelector('.tab-content');
+      if (firstTab) {
+        firstTab.parentElement.insertBefore(warning, firstTab);
+      }
+    }
   }
 
   function renderAdaptStructure() {
