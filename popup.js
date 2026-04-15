@@ -312,8 +312,109 @@ document.addEventListener('DOMContentLoaded', () => {
   const discoverProgressText = document.getElementById('discover-progress-text');
   const btnDiscoverStop = document.getElementById('btn-discover-stop');
 
+  let discoveredGroups = {}; // Store grouped results
+
+  // URL → page type classification
+  function classifyUrl(url) {
+    let path;
+    try { path = new URL(url).pathname.toLowerCase(); } catch { return { type: 'other', label: 'Other' }; }
+
+    if (path === '/' || path === '' || path === '/index.html' || path === '/home') return { type: 'homepage', label: 'Homepage' };
+
+    // Shopify patterns
+    if (path.match(/^\/products\/[^/]+$/)) return { type: 'product', label: 'Product Pages' };
+    if (path.match(/^\/collections\/[^/]+$/)) return { type: 'collection', label: 'Collection Pages' };
+    if (path.match(/^\/collections\/.+\/products\//)) return { type: 'product', label: 'Product Pages' };
+    if (path === '/collections' || path === '/collections/all') return { type: 'collection-index', label: 'All Collections' };
+
+    // WooCommerce / general ecommerce
+    if (path.match(/^\/(product|item|shop\/[^/]+|p)\//)) return { type: 'product', label: 'Product Pages' };
+    if (path.match(/^\/(product-category|category|catalog|shop)\//)) return { type: 'collection', label: 'Collection / Category Pages' };
+
+    // Blog
+    if (path.match(/^\/(blog|blogs|articles?|news|journal)\b/)) return { type: 'blog', label: 'Blog / Articles' };
+    if (path.match(/^\/(posts?)\//)) return { type: 'blog', label: 'Blog / Articles' };
+
+    // Account
+    if (path.match(/^\/(account|my-account|login|register|sign-in|sign-up|profile|dashboard)\b/)) return { type: 'account', label: 'Account / Auth' };
+
+    // Cart & Checkout
+    if (path.match(/^\/(cart|basket)\b/)) return { type: 'cart', label: 'Cart' };
+    if (path.match(/^\/(checkout|pay)\b/)) return { type: 'checkout', label: 'Checkout' };
+
+    // Policy / Legal
+    if (path.match(/^\/(policies|policy|terms|privacy|refund|shipping-policy|legal|disclaimer|cookie)/)) return { type: 'policy', label: 'Policy / Legal' };
+
+    // Search
+    if (path.match(/^\/(search|find)\b/)) return { type: 'search', label: 'Search' };
+
+    // Contact / Support
+    if (path.match(/^\/(contact|support|help|faq|get-in-touch)\b/)) return { type: 'contact', label: 'Contact / Support' };
+
+    // About
+    if (path.match(/^\/(about|our-story|team|careers|jobs)\b/)) return { type: 'about', label: 'About / Company' };
+
+    // Pages (generic)
+    if (path.match(/^\/(pages?)\//)) return { type: 'page', label: 'Static Pages' };
+
+    // Sitemap / feeds
+    if (path.match(/\.(xml|rss|atom|json)$/)) return { type: 'feed', label: 'Feeds / Sitemap' };
+
+    // Assets (shouldn't be here but just in case)
+    if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|pdf)$/)) return { type: 'asset', label: 'Assets' };
+
+    return { type: 'other', label: 'Other Pages' };
+  }
+
+  function groupDiscoveredUrls(urls) {
+    const groups = {};
+    urls.forEach(url => {
+      const { type, label } = classifyUrl(url);
+      if (!groups[type]) {
+        groups[type] = { label, urls: [], sample: url };
+      }
+      groups[type].urls.push(url);
+    });
+
+    // Sort by count descending
+    const sorted = Object.entries(groups).sort((a, b) => b[1].urls.length - a[1].urls.length);
+    return Object.fromEntries(sorted);
+  }
+
+  function renderDiscoverSummary(groups, totalCount) {
+    const summary = document.getElementById('discover-summary');
+    const totalEl = document.getElementById('discover-total');
+    const groupsEl = document.getElementById('discover-groups');
+
+    totalEl.textContent = `${totalCount.toLocaleString()} pages found`;
+    groupsEl.innerHTML = '';
+
+    // Priority order for display
+    const typeOrder = ['homepage', 'product', 'collection', 'collection-index', 'blog', 'page', 'about', 'contact', 'account', 'cart', 'checkout', 'search', 'policy', 'other', 'feed', 'asset'];
+    const sortedEntries = Object.entries(groups).sort((a, b) => {
+      const ai = typeOrder.indexOf(a[0]);
+      const bi = typeOrder.indexOf(b[0]);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    for (const [type, group] of sortedEntries) {
+      if (type === 'feed' || type === 'asset') continue; // Skip non-page types
+
+      const row = document.createElement('label');
+      row.className = 'discover-group-row';
+      const checked = ['homepage', 'product', 'collection', 'collection-index', 'blog', 'page', 'about', 'contact', 'account', 'search', 'policy'].includes(type);
+      row.innerHTML = `
+        <input type="checkbox" class="discover-group-check" data-type="${type}" ${checked ? 'checked' : ''}>
+        <span class="discover-group-label">${group.label}</span>
+        <span class="discover-group-count">${group.urls.length.toLocaleString()}</span>
+      `;
+      groupsEl.appendChild(row);
+    }
+
+    summary.style.display = 'block';
+  }
+
   async function runDiscover(method) {
-    // Get the current tab's URL to determine the domain
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url) {
       projectStatus.textContent = 'No active tab';
@@ -322,9 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let origin;
-    try {
-      origin = new URL(tab.url).origin;
-    } catch {
+    try { origin = new URL(tab.url).origin; } catch {
       projectStatus.textContent = 'Cannot determine site URL';
       projectStatus.className = 'status error';
       return;
@@ -335,6 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
     discoverProgress.style.display = 'flex';
     discoverProgressText.textContent = method === 'sitemap' ? 'Fetching sitemap...' : 'Crawling links...';
     projectStatus.textContent = '';
+    document.getElementById('discover-summary').style.display = 'none';
 
     try {
       const result = await chrome.runtime.sendMessage({
@@ -344,23 +444,17 @@ document.addEventListener('DOMContentLoaded', () => {
         startUrl: tab.url
       });
 
-      const discoverResults = document.getElementById('discover-results');
       if (result?.success && result.urls?.length > 0) {
-        // Show results in the discover textarea
-        discoverResults.value = result.urls.join('\n');
-        discoverResults.style.display = 'block';
-        // Also populate batch textarea if project is active
-        if (batchUrls) batchUrls.value = result.urls.join('\n');
-        projectStatus.textContent = `Found ${result.urls.length} pages via ${method}`;
+        discoveredGroups = groupDiscoveredUrls(result.urls);
+        renderDiscoverSummary(discoveredGroups, result.urls.length);
+        projectStatus.textContent = `Found ${result.urls.length.toLocaleString()} pages via ${method}`;
         projectStatus.className = 'status success';
       } else if (result?.success && result.urls?.length === 0) {
-        discoverResults.style.display = 'none';
         projectStatus.textContent = method === 'sitemap'
           ? 'No sitemap found. Try "Crawl Links" instead.'
           : 'No links discovered on this page.';
         projectStatus.className = 'status error';
       } else {
-        discoverResults.style.display = 'none';
         projectStatus.textContent = result?.error || 'Discovery failed';
         projectStatus.className = 'status error';
       }
@@ -384,6 +478,25 @@ document.addEventListener('DOMContentLoaded', () => {
     discoverProgress.style.display = 'none';
     projectStatus.textContent = 'Discovery stopped';
     projectStatus.className = 'status error';
+  });
+
+  // "Use Selected for Batch" — picks 1 sample URL per checked type
+  document.getElementById('btn-discover-use').addEventListener('click', () => {
+    const checks = document.querySelectorAll('.discover-group-check:checked');
+    const selectedUrls = [];
+    checks.forEach(chk => {
+      const type = chk.dataset.type;
+      if (discoveredGroups[type]) {
+        // Pick first URL (homepage) or a sample from the group
+        selectedUrls.push(discoveredGroups[type].sample);
+      }
+    });
+
+    if (selectedUrls.length > 0 && batchUrls) {
+      batchUrls.value = selectedUrls.join('\n');
+      projectStatus.textContent = `${selectedUrls.length} sample URLs added to batch (1 per type)`;
+      projectStatus.className = 'status success';
+    }
   });
 
   // Listen for discover progress updates
