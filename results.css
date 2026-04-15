@@ -1245,6 +1245,22 @@ select.settings-input {
   min-height: 0;
 }
 
+/* Override rounded corners — squared cards throughout adapt */
+#adapt-results-panel .finding-card,
+#adapt-results-panel .adapt-card,
+.adapt-all-native,
+.adapt-shopify-banner,
+.adapt-not-ecommerce,
+.adapt-dev-card,
+.adapt-summary-card,
+.adapt-ticket,
+.adapt-layout-card,
+.adapt-script-item,
+.adapt-platform-card,
+.adapt-complexity-card {
+  border-radius: 0;
+}
+
 .adapt-card {
   display: flex;
   gap: 12px;
@@ -1385,7 +1401,7 @@ select.settings-input {
 .adapt-stat {
   text-align: center;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: 0;
   color: #fff;
 }
 
