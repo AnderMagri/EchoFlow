@@ -1,6 +1,6 @@
 // EchoFlow Popup Script
 // Handles 3-tab layout, vertical/mode selection, audit triggering,
-// project management, batch audits, and Shopify Adapt.
+// project management, batch audits, and Shopify Migration.
 
 document.addEventListener('DOMContentLoaded', () => {
   const capturePanel = document.getElementById('capture-panel');
@@ -344,17 +344,23 @@ document.addEventListener('DOMContentLoaded', () => {
         startUrl: tab.url
       });
 
+      const discoverResults = document.getElementById('discover-results');
       if (result?.success && result.urls?.length > 0) {
-        // Populate the batch textarea with discovered URLs
-        batchUrls.value = result.urls.join('\n');
+        // Show results in the discover textarea
+        discoverResults.value = result.urls.join('\n');
+        discoverResults.style.display = 'block';
+        // Also populate batch textarea if project is active
+        if (batchUrls) batchUrls.value = result.urls.join('\n');
         projectStatus.textContent = `Found ${result.urls.length} pages via ${method}`;
         projectStatus.className = 'status success';
       } else if (result?.success && result.urls?.length === 0) {
+        discoverResults.style.display = 'none';
         projectStatus.textContent = method === 'sitemap'
           ? 'No sitemap found. Try "Crawl Links" instead.'
           : 'No links discovered on this page.';
         projectStatus.className = 'status error';
       } else {
+        discoverResults.style.display = 'none';
         projectStatus.textContent = result?.error || 'Discovery failed';
         projectStatus.className = 'status error';
       }
@@ -490,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ══════════════════════════════════════════════
-  //  Shopify Adapt Tab
+  //  Shopify Migration Tab
   // ══════════════════════════════════════════════
 
   const btnAdapt = document.getElementById('btn-adapt-analyze');

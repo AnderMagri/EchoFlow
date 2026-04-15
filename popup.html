@@ -23,7 +23,7 @@
     <nav class="popup-tabs">
       <button class="popup-tab active" data-popup-tab="page-review">Page Review</button>
       <button class="popup-tab" data-popup-tab="project-review">Project</button>
-      <button class="popup-tab" data-popup-tab="shopify-adapt">Shopify Adapt</button>
+      <button class="popup-tab" data-popup-tab="shopify-adapt">Shopify Migration</button>
     </nav>
 
     <!-- ═══ Page Review Tab ═══ -->
@@ -125,15 +125,10 @@
         </div>
       </div>
 
-      <!-- Active project info -->
-      <div id="project-info" class="section" style="display:none;">
-        <div class="project-info-card">
-          <div class="project-info-name" id="project-info-name"></div>
-          <div class="project-info-stats" id="project-info-stats"></div>
-        </div>
-
-        <!-- Discover Pages -->
-        <label class="section-label" style="margin-top:12px;">Discover Pages</label>
+      <!-- Discover Pages (always visible) -->
+      <div class="section">
+        <label class="section-label">Discover Pages</label>
+        <p class="section-hint">List all pages from the current site via sitemap or link crawling.</p>
         <div class="discover-controls">
           <button id="btn-discover-sitemap" class="btn-sm-secondary btn-discover">Sitemap</button>
           <button id="btn-discover-crawl" class="btn-sm-secondary btn-discover">Crawl Links</button>
@@ -141,6 +136,15 @@
         <div id="discover-progress" class="discover-progress" style="display:none;">
           <span id="discover-progress-text" class="progress-text">Discovering pages...</span>
           <button id="btn-discover-stop" class="btn-sm-secondary" style="padding:2px 8px;font-size:10px;">Stop</button>
+        </div>
+        <textarea id="discover-results" class="batch-textarea" rows="5" placeholder="Discovered URLs will appear here..." style="display:none;margin-top:8px;"></textarea>
+      </div>
+
+      <!-- Active project info -->
+      <div id="project-info" class="section" style="display:none;">
+        <div class="project-info-card">
+          <div class="project-info-name" id="project-info-name"></div>
+          <div class="project-info-stats" id="project-info-stats"></div>
         </div>
 
         <!-- Batch Audit -->
@@ -179,7 +183,7 @@
       <div id="project-status" class="status"></div>
     </div>
 
-    <!-- ═══ Shopify Adapt Tab ═══ -->
+    <!-- ═══ Shopify Migration Tab ═══ -->
     <div id="tab-shopify-adapt" class="popup-tab-content">
       <div class="section">
         <div class="adapt-intro">
