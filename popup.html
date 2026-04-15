@@ -132,6 +132,17 @@
           <div class="project-info-stats" id="project-info-stats"></div>
         </div>
 
+        <!-- Discover Pages -->
+        <label class="section-label" style="margin-top:12px;">Discover Pages</label>
+        <div class="discover-controls">
+          <button id="btn-discover-sitemap" class="btn-sm-secondary btn-discover">Sitemap</button>
+          <button id="btn-discover-crawl" class="btn-sm-secondary btn-discover">Crawl Links</button>
+        </div>
+        <div id="discover-progress" class="discover-progress" style="display:none;">
+          <span id="discover-progress-text" class="progress-text">Discovering pages...</span>
+          <button id="btn-discover-stop" class="btn-sm-secondary" style="padding:2px 8px;font-size:10px;">Stop</button>
+        </div>
+
         <!-- Batch Audit -->
         <label class="section-label" style="margin-top:12px;">Batch Audit URLs</label>
         <textarea id="batch-urls" class="batch-textarea" rows="4" placeholder="Paste URLs, one per line..."></textarea>

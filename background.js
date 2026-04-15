@@ -653,6 +653,173 @@ function mapComponentsToShopify(components, shopifyComponents) {
 }
 
 let batchStopped = false;
+let discoverStopped = false;
+
+// ── Page Discovery ──
+
+async function discoverViaSitemap(origin) {
+  const urls = [];
+  const sitemapUrls = [];
+
+  // Try common sitemap locations
+  const candidates = [
+    origin + '/sitemap.xml',
+    origin + '/sitemap_index.xml',
+    origin + '/sitemap-index.xml',
+    origin + '/wp-sitemap.xml',       // WordPress
+    origin + '/sitemap_products_1.xml' // Shopify
+  ];
+
+  // Also check robots.txt for sitemap references
+  try {
+    sendDiscoverProgress('Checking robots.txt...');
+    const robotsResp = await fetch(origin + '/robots.txt', { signal: AbortSignal.timeout(5000) });
+    if (robotsResp.ok) {
+      const robotsText = await robotsResp.text();
+      const matches = robotsText.match(/Sitemap:\s*(\S+)/gi);
+      if (matches) {
+        matches.forEach(m => {
+          const url = m.replace(/Sitemap:\s*/i, '').trim();
+          if (!candidates.includes(url)) candidates.unshift(url);
+        });
+      }
+    }
+  } catch (_) {}
+
+  // Try each candidate
+  for (const candidate of candidates) {
+    if (discoverStopped) break;
+    try {
+      sendDiscoverProgress(`Fetching ${new URL(candidate).pathname}...`);
+      const resp = await fetch(candidate, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) continue;
+
+      const text = await resp.text();
+      if (!text.includes('<urlset') && !text.includes('<sitemapindex')) continue;
+
+      // Check if it's a sitemap index (contains other sitemaps)
+      if (text.includes('<sitemapindex')) {
+        const locMatches = text.match(/<loc>\s*(.*?)\s*<\/loc>/gi);
+        if (locMatches) {
+          locMatches.forEach(m => {
+            const loc = m.replace(/<\/?loc>/gi, '').trim();
+            if (loc.includes('.xml')) sitemapUrls.push(loc);
+          });
+        }
+      } else {
+        // Regular sitemap — extract URLs
+        const locMatches = text.match(/<loc>\s*(.*?)\s*<\/loc>/gi);
+        if (locMatches) {
+          locMatches.forEach(m => {
+            const loc = m.replace(/<\/?loc>/gi, '').trim();
+            if (!loc.includes('.xml')) urls.push(loc);
+          });
+        }
+      }
+
+      if (urls.length > 0) break; // Found URLs, no need to try other candidates
+    } catch (_) {
+      continue;
+    }
+  }
+
+  // If we found sitemap index entries, fetch those too
+  for (const sitemapUrl of sitemapUrls.slice(0, 10)) { // Limit to 10 sub-sitemaps
+    if (discoverStopped) break;
+    try {
+      sendDiscoverProgress(`Fetching sub-sitemap (${urls.length} found)...`);
+      const resp = await fetch(sitemapUrl, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      const locMatches = text.match(/<loc>\s*(.*?)\s*<\/loc>/gi);
+      if (locMatches) {
+        locMatches.forEach(m => {
+          const loc = m.replace(/<\/?loc>/gi, '').trim();
+          if (!loc.includes('.xml')) urls.push(loc);
+        });
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+
+  // Deduplicate and sort
+  const unique = [...new Set(urls)].sort();
+  sendDiscoverProgress(`Done: ${unique.length} pages found`);
+  return unique;
+}
+
+async function discoverViaCrawl(origin, startUrl) {
+  const visited = new Set();
+  const found = new Set();
+  const queue = [startUrl];
+  const maxPages = 200;  // Safety limit
+  const maxDepth = 3;    // Don't go too deep
+  const depthMap = new Map();
+  depthMap.set(startUrl, 0);
+
+  while (queue.length > 0 && found.size < maxPages) {
+    if (discoverStopped) break;
+
+    const url = queue.shift();
+    if (visited.has(url)) continue;
+    visited.add(url);
+
+    const depth = depthMap.get(url) || 0;
+    if (depth > maxDepth) continue;
+
+    try {
+      sendDiscoverProgress(`Crawling (${found.size} found, ${queue.length} queued)...`);
+      const resp = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'Accept': 'text/html' }
+      });
+      if (!resp.ok) continue;
+
+      const contentType = resp.headers.get('content-type') || '';
+      if (!contentType.includes('text/html')) continue;
+
+      const html = await resp.text();
+      found.add(url);
+
+      // Extract all links from the page
+      const linkRegex = /href\s*=\s*["']([^"'#]+)["']/gi;
+      let match;
+      while ((match = linkRegex.exec(html)) !== null) {
+        let href = match[1].trim();
+
+        // Skip non-page resources
+        if (href.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|pdf|zip|mp4|mp3|webp|avif)(\?|$)/i)) continue;
+        if (href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) continue;
+
+        // Resolve relative URLs
+        try {
+          const resolved = new URL(href, url);
+          // Only follow same-origin links
+          if (resolved.origin !== origin) continue;
+
+          const clean = resolved.origin + resolved.pathname;
+          if (!visited.has(clean) && !found.has(clean)) {
+            queue.push(clean);
+            if (!depthMap.has(clean)) depthMap.set(clean, depth + 1);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+
+  const unique = [...found].sort();
+  sendDiscoverProgress(`Done: ${unique.length} pages found`);
+  return unique;
+}
+
+function sendDiscoverProgress(text) {
+  try {
+    chrome.runtime.sendMessage({ action: 'DISCOVER_PROGRESS', text, count: 0 });
+  } catch (_) {} // Popup may be closed
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
@@ -835,6 +1002,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'BATCH_STOP') {
     batchStopped = true;
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // ── Page Discovery ──
+
+  if (message.action === 'DISCOVER_PAGES') {
+    const { method, origin, startUrl } = message;
+    discoverStopped = false;
+
+    (async () => {
+      try {
+        let urls = [];
+        if (method === 'sitemap') {
+          urls = await discoverViaSitemap(origin);
+        } else if (method === 'crawl') {
+          urls = await discoverViaCrawl(origin, startUrl);
+        }
+        sendResponse({ success: true, urls });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (message.action === 'DISCOVER_STOP') {
+    discoverStopped = true;
     sendResponse({ success: true });
     return true;
   }

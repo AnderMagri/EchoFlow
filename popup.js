@@ -305,6 +305,88 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {}
   }
 
+  // ── Discover Pages ──
+  const btnDiscoverSitemap = document.getElementById('btn-discover-sitemap');
+  const btnDiscoverCrawl = document.getElementById('btn-discover-crawl');
+  const discoverProgress = document.getElementById('discover-progress');
+  const discoverProgressText = document.getElementById('discover-progress-text');
+  const btnDiscoverStop = document.getElementById('btn-discover-stop');
+
+  async function runDiscover(method) {
+    // Get the current tab's URL to determine the domain
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url) {
+      projectStatus.textContent = 'No active tab';
+      projectStatus.className = 'status error';
+      return;
+    }
+
+    let origin;
+    try {
+      origin = new URL(tab.url).origin;
+    } catch {
+      projectStatus.textContent = 'Cannot determine site URL';
+      projectStatus.className = 'status error';
+      return;
+    }
+
+    btnDiscoverSitemap.disabled = true;
+    btnDiscoverCrawl.disabled = true;
+    discoverProgress.style.display = 'flex';
+    discoverProgressText.textContent = method === 'sitemap' ? 'Fetching sitemap...' : 'Crawling links...';
+    projectStatus.textContent = '';
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        action: 'DISCOVER_PAGES',
+        method,
+        origin,
+        startUrl: tab.url
+      });
+
+      if (result?.success && result.urls?.length > 0) {
+        // Populate the batch textarea with discovered URLs
+        batchUrls.value = result.urls.join('\n');
+        projectStatus.textContent = `Found ${result.urls.length} pages via ${method}`;
+        projectStatus.className = 'status success';
+      } else if (result?.success && result.urls?.length === 0) {
+        projectStatus.textContent = method === 'sitemap'
+          ? 'No sitemap found. Try "Crawl Links" instead.'
+          : 'No links discovered on this page.';
+        projectStatus.className = 'status error';
+      } else {
+        projectStatus.textContent = result?.error || 'Discovery failed';
+        projectStatus.className = 'status error';
+      }
+    } catch (err) {
+      projectStatus.textContent = err.message || 'Discovery failed';
+      projectStatus.className = 'status error';
+    }
+
+    btnDiscoverSitemap.disabled = false;
+    btnDiscoverCrawl.disabled = false;
+    discoverProgress.style.display = 'none';
+  }
+
+  btnDiscoverSitemap.addEventListener('click', () => runDiscover('sitemap'));
+  btnDiscoverCrawl.addEventListener('click', () => runDiscover('crawl'));
+
+  btnDiscoverStop.addEventListener('click', async () => {
+    await chrome.runtime.sendMessage({ action: 'DISCOVER_STOP' });
+    btnDiscoverSitemap.disabled = false;
+    btnDiscoverCrawl.disabled = false;
+    discoverProgress.style.display = 'none';
+    projectStatus.textContent = 'Discovery stopped';
+    projectStatus.className = 'status error';
+  });
+
+  // Listen for discover progress updates
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === 'DISCOVER_PROGRESS') {
+      discoverProgressText.textContent = message.text || `Found ${message.count} pages...`;
+    }
+  });
+
   // Batch Audit
   btnBatchAudit.addEventListener('click', async () => {
     const urlText = batchUrls.value.trim();
