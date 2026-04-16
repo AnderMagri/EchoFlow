@@ -508,11 +508,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const count = group.urls.length;
       const checked = type !== 'feed' && type !== 'asset';
 
-      // For shared templates: show "Product Pages" + count badge
-      // For unique pages: show page name + link icon (count is usually 1)
-      const countBadge = isShared
-        ? `<span class="discover-group-count">${count.toLocaleString()}</span>`
-        : (count > 1 ? `<span class="discover-group-count">${count}</span>` : '');
+      // For shared templates: show count badge. When the backend sampled
+      // (e.g. kept 5 of 8,400 products), show "5 / 8,400" so the user sees
+      // both what was kept and the real size of the template.
+      let countBadge = '';
+      if (isShared) {
+        if (group.totalDetected && group.totalDetected > count) {
+          countBadge = `<span class="discover-group-count" title="${group.sampledCount || count} samples kept of ${group.totalDetected.toLocaleString()} detected">${count} / ${group.totalDetected.toLocaleString()}</span>`;
+        } else {
+          countBadge = `<span class="discover-group-count">${count.toLocaleString()}</span>`;
+        }
+      } else if (count > 1) {
+        countBadge = `<span class="discover-group-count">${count}</span>`;
+      }
 
       const templateTag = isShared
         ? '<span class="discover-template-tag">shared</span>'
@@ -567,8 +575,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (result?.success && result.urls?.length > 0) {
         discoveredGroups = groupDiscoveredUrls(result.urls);
-        renderDiscoverSummary(discoveredGroups, result.urls.length);
-        projectStatus.textContent = `Found ${result.urls.length.toLocaleString()} pages via ${method}`;
+        // Annotate shared-template groups with the real backend-detected totals.
+        // Without this, a "Product Pages" group would show 5 even though the
+        // site has 8,400 products — the 5 is our sample cap, not reality.
+        const stats = result.sampleStats || {};
+        for (const [key, stat] of Object.entries(stats)) {
+          if (discoveredGroups[key]) {
+            discoveredGroups[key].totalDetected = stat.total;
+            discoveredGroups[key].sampledCount = stat.kept;
+            discoveredGroups[key].skippedCount = stat.skipped;
+          }
+        }
+        const totalDetected = result.totalDetected || result.urls.length;
+        renderDiscoverSummary(discoveredGroups, totalDetected);
+        const collapsed = totalDetected - result.urls.length;
+        projectStatus.textContent = collapsed > 0
+          ? `Found ${totalDetected.toLocaleString()} pages (${collapsed.toLocaleString()} collapsed into samples) via ${method}`
+          : `Found ${result.urls.length.toLocaleString()} pages via ${method}`;
         projectStatus.className = 'status success';
       } else if (result?.success && result.urls?.length === 0) {
         projectStatus.textContent = method === 'sitemap'

@@ -657,9 +657,82 @@ let discoverStopped = false;
 
 // ── Page Discovery ──
 
+// Shared-template sampling: sites with 100k+ products produce 100k+ URLs that all
+// map to the same Shopify template. For IA/migration work we only need a handful
+// of samples per template to confirm it exists — the rest are redundant and clog
+// the UI (and waste the crawler's budget). This classifier identifies which URL
+// patterns are "shared templates" worth sampling; unique pages (policies,
+// /pages/*, account, etc.) are always kept.
+function getSharedTemplateKey(url) {
+  let path;
+  try { path = new URL(url).pathname.toLowerCase(); } catch { return null; }
+
+  // Shopify
+  if (path.match(/^\/products\/[^/]+$/)) return 'product';
+  if (path.match(/^\/collections\/.+\/products\//)) return 'product';
+  if (path.match(/^\/collections\/[^/]+$/)) return 'collection';
+
+  // WooCommerce / generic ecommerce
+  if (path.match(/^\/(product|item|p)\/[^/]/)) return 'product';
+  if (path.match(/^\/shop\/[^/]+\//)) return 'product';
+  if (path.match(/^\/(product-category|category|catalog)\//)) return 'collection';
+
+  // Blog / articles
+  if (path.match(/^\/(blog|blogs|articles?|news|journal)\/.+/)) return 'blog-post';
+  if (path.match(/^\/posts?\/.+/)) return 'blog-post';
+
+  // Help / support articles
+  if (path.match(/^\/(help|support)\/.+/)) return 'help-article';
+
+  // Store / location detail pages
+  if (path.match(/^\/(stores?|locations?)\/.+/)) return 'store-detail';
+
+  return null; // Not a shared template — always keep
+}
+
+const SHARED_TEMPLATE_CAP = 5;
+
+function createSharedSampler(cap = SHARED_TEMPLATE_CAP) {
+  const kept = new Map();    // key -> count kept
+  const skipped = new Map(); // key -> count dropped
+  return {
+    // Returns true if the URL should be kept, false if it's a shared-template
+    // URL that has already hit its sample cap.
+    shouldKeep(url) {
+      const key = getSharedTemplateKey(url);
+      if (!key) return true;
+      const current = kept.get(key) || 0;
+      if (current < cap) {
+        kept.set(key, current + 1);
+        return true;
+      }
+      skipped.set(key, (skipped.get(key) || 0) + 1);
+      return false;
+    },
+    // Returns { product: { kept: 5, skipped: 8400, total: 8405 }, ... }
+    stats() {
+      const out = {};
+      const keys = new Set([...kept.keys(), ...skipped.keys()]);
+      for (const k of keys) {
+        const keptCount = kept.get(k) || 0;
+        const skippedCount = skipped.get(k) || 0;
+        out[k] = { kept: keptCount, skipped: skippedCount, total: keptCount + skippedCount };
+      }
+      return out;
+    },
+    // Total URLs dropped across all shared-template types
+    totalSkipped() {
+      let sum = 0;
+      for (const n of skipped.values()) sum += n;
+      return sum;
+    }
+  };
+}
+
 async function discoverViaSitemap(origin) {
   const urls = [];
   const sitemapUrls = [];
+  const sampler = createSharedSampler();
 
   // Try common sitemap locations
   const candidates = [
@@ -712,12 +785,14 @@ async function discoverViaSitemap(origin) {
         if (locMatches) {
           locMatches.forEach(m => {
             const loc = m.replace(/<\/?loc>/gi, '').trim();
-            if (!loc.includes('.xml')) urls.push(loc);
+            if (loc.includes('.xml')) return;
+            if (!sampler.shouldKeep(loc)) return; // Sample cap hit for this template
+            urls.push(loc);
           });
         }
       }
 
-      if (urls.length > 0) break; // Found URLs, no need to try other candidates
+      if (urls.length > 0 || sampler.totalSkipped() > 0) break; // Found URLs (or hit cap), no need to try other candidates
     } catch (_) {
       continue;
     }
@@ -727,7 +802,7 @@ async function discoverViaSitemap(origin) {
   for (const sitemapUrl of sitemapUrls.slice(0, 10)) { // Limit to 10 sub-sitemaps
     if (discoverStopped) break;
     try {
-      sendDiscoverProgress(`Fetching sub-sitemap (${urls.length} found)...`);
+      sendDiscoverProgress(`Fetching sub-sitemap (${urls.length} kept, ${sampler.totalSkipped().toLocaleString()} collapsed)...`);
       const resp = await fetch(sitemapUrl, { signal: AbortSignal.timeout(10000) });
       if (!resp.ok) continue;
       const text = await resp.text();
@@ -735,7 +810,9 @@ async function discoverViaSitemap(origin) {
       if (locMatches) {
         locMatches.forEach(m => {
           const loc = m.replace(/<\/?loc>/gi, '').trim();
-          if (!loc.includes('.xml')) urls.push(loc);
+          if (loc.includes('.xml')) return;
+          if (!sampler.shouldKeep(loc)) return;
+          urls.push(loc);
         });
       }
     } catch (_) {
@@ -745,8 +822,11 @@ async function discoverViaSitemap(origin) {
 
   // Deduplicate and sort
   const unique = [...new Set(urls)].sort();
-  sendDiscoverProgress(`Done: ${unique.length} pages found`);
-  return unique;
+  const sampleStats = sampler.stats();
+  const totalSkipped = sampler.totalSkipped();
+  const totalDetected = unique.length + totalSkipped;
+  sendDiscoverProgress(`Done: ${unique.length} kept (${totalDetected.toLocaleString()} detected, ${totalSkipped.toLocaleString()} collapsed into samples)`);
+  return { urls: unique, sampleStats, totalDetected };
 }
 
 async function discoverViaCrawl(origin, startUrl) {
@@ -757,6 +837,10 @@ async function discoverViaCrawl(origin, startUrl) {
   const maxDepth = 3;    // Don't go too deep
   const depthMap = new Map();
   depthMap.set(startUrl, 0);
+  const sampler = createSharedSampler();
+
+  // Always keep the startUrl (it's the entry point the user clicked from)
+  sampler.shouldKeep(startUrl);
 
   while (queue.length > 0 && found.size < maxPages) {
     if (discoverStopped) break;
@@ -769,7 +853,7 @@ async function discoverViaCrawl(origin, startUrl) {
     if (depth > maxDepth) continue;
 
     try {
-      sendDiscoverProgress(`Crawling (${found.size} found, ${queue.length} queued)...`);
+      sendDiscoverProgress(`Crawling (${found.size} kept, ${sampler.totalSkipped().toLocaleString()} collapsed, ${queue.length} queued)...`);
       const resp = await fetch(url, {
         signal: AbortSignal.timeout(8000),
         headers: { 'Accept': 'text/html' }
@@ -799,10 +883,16 @@ async function discoverViaCrawl(origin, startUrl) {
           if (resolved.origin !== origin) continue;
 
           const clean = resolved.origin + resolved.pathname;
-          if (!visited.has(clean) && !found.has(clean)) {
-            queue.push(clean);
-            if (!depthMap.has(clean)) depthMap.set(clean, depth + 1);
-          }
+          if (visited.has(clean) || found.has(clean)) continue;
+
+          // Sample cap: if this is a shared-template URL and we already have
+          // enough samples, don't enqueue it. Saves network budget for actually
+          // different templates (policies, account, etc.) instead of wasting
+          // all 200 fetches on product pages.
+          if (!sampler.shouldKeep(clean)) continue;
+
+          queue.push(clean);
+          if (!depthMap.has(clean)) depthMap.set(clean, depth + 1);
         } catch (_) {}
       }
     } catch (_) {
@@ -811,8 +901,11 @@ async function discoverViaCrawl(origin, startUrl) {
   }
 
   const unique = [...found].sort();
-  sendDiscoverProgress(`Done: ${unique.length} pages found`);
-  return unique;
+  const sampleStats = sampler.stats();
+  const totalSkipped = sampler.totalSkipped();
+  const totalDetected = unique.length + totalSkipped;
+  sendDiscoverProgress(`Done: ${unique.length} kept (${totalDetected.toLocaleString()} detected, ${totalSkipped.toLocaleString()} collapsed into samples)`);
+  return { urls: unique, sampleStats, totalDetected };
 }
 
 function sendDiscoverProgress(text) {
@@ -1014,13 +1107,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     (async () => {
       try {
-        let urls = [];
+        let result = { urls: [], sampleStats: {}, totalDetected: 0 };
         if (method === 'sitemap') {
-          urls = await discoverViaSitemap(origin);
+          result = await discoverViaSitemap(origin);
         } else if (method === 'crawl') {
-          urls = await discoverViaCrawl(origin, startUrl);
+          result = await discoverViaCrawl(origin, startUrl);
         }
-        sendResponse({ success: true, urls });
+        sendResponse({
+          success: true,
+          urls: result.urls,
+          sampleStats: result.sampleStats || {},
+          totalDetected: result.totalDetected || result.urls.length
+        });
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
