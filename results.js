@@ -794,6 +794,121 @@
     return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
   }
 
+  // ── Export JSON for Claude ──
+  // Builds a structured envelope that Claude can read and reason over.
+  // Pattern: EchoFlow → clipboard → paste into Claude chat → Claude writes Run It JS → paste into FigJam.
+  // Schema version lets us evolve safely later.
+  function buildClaudeEnvelope() {
+    const meta = auditData.meta || {};
+    const isAdapt = auditData.mode === 'shopify-adapt';
+
+    // Strip screenshot from envelope — too large for chat paste, not needed by Claude for analysis.
+    // Claude can ask for it explicitly if required later.
+    const envelope = {
+      echoflow: {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        mode: isAdapt ? 'shopify-migration' : 'page-audit',
+        note: 'Paste this JSON into a Claude chat. Claude can summarize findings, compare sites, or generate Run It JS for Figma/FigJam.'
+      },
+      site: {
+        url: meta.url || auditData.url || null,
+        title: meta.title || auditData.pageTitle || null,
+        vertical: meta.vertical || null,
+        device: meta.device || 'desktop',
+        pageType: meta.pageType || auditData.pageType || null,
+        platform: meta.platform || auditData.platform || null,
+        timestamp: meta.timestamp || auditData.timestamp || Date.now()
+      }
+    };
+
+    // ── Page audit branch ──
+    if (!isAdapt) {
+      const allFindings = (auditData.findings || []).map(f => ({
+        number: f.number,
+        category: f.category,
+        description: f.description,
+        ice: f.ice,
+        iceAverage: parseFloat(iceAverage(f.ice)),
+        severity: parseFloat(iceAverage(f.ice)) >= 7 ? 'high' : parseFloat(iceAverage(f.ice)) >= 5 ? 'medium' : 'low',
+        selector: f.selector || null,
+        ruleId: f.ruleId || null
+      }));
+
+      const avgScore = allFindings.length
+        ? (allFindings.reduce((s, f) => s + f.iceAverage, 0) / allFindings.length).toFixed(2)
+        : null;
+
+      const categoryCounts = allFindings.reduce((acc, f) => {
+        acc[f.category] = (acc[f.category] || 0) + 1;
+        return acc;
+      }, {});
+
+      envelope.audit = {
+        findingCount: allFindings.length,
+        averageICE: avgScore ? parseFloat(avgScore) : null,
+        categoryCounts,
+        findings: allFindings,
+        designInventory: auditData.designInventory || null,
+        aiAnalysis: auditData.aiAnalysis || null
+      };
+    }
+
+    // ── Shopify Migration branch ──
+    if (isAdapt) {
+      envelope.shopifyMigration = {
+        viability: auditData.viability || null,
+        regions: auditData.regions || [],
+        components: auditData.components || [],
+        complexitySignals: auditData.complexitySignals || null,
+        techStack: auditData.complexitySignals?.techStack || null,
+        thirdPartyScripts: auditData.complexitySignals?.thirdPartyScripts || [],
+        thirdPartyCategories: auditData.complexitySignals?.thirdPartyCategories || null,
+        shopifyDetails: auditData.shopifyDetails || null,
+        mappings: {
+          sections: auditData.sectionMappings || [],
+          components: auditData.componentMappings || []
+        },
+        platformMigration: auditData.platformMigration || null,
+        aiAnalysis: auditData.aiAnalysis || null
+      };
+    }
+
+    return envelope;
+  }
+
+  async function exportJSONForClaude() {
+    if (!auditData) {
+      showToast('No audit data to export');
+      return;
+    }
+
+    try {
+      const envelope = buildClaudeEnvelope();
+      const json = JSON.stringify(envelope, null, 2);
+      await navigator.clipboard.writeText(json);
+      const sizeKB = (json.length / 1024).toFixed(1);
+      showToast(`JSON copied for Claude (${sizeKB} KB)`);
+    } catch (err) {
+      // Fallback: download as file if clipboard blocked (some extension contexts restrict it)
+      try {
+        const envelope = buildClaudeEnvelope();
+        const json = JSON.stringify(envelope, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.href = dlUrl;
+        a.download = `echoflow-claude-${dateStr}.json`;
+        a.click();
+        URL.revokeObjectURL(dlUrl);
+        showToast('Clipboard blocked — JSON downloaded instead');
+      } catch (err2) {
+        showToast('Export failed: ' + (err.message || 'unknown'));
+      }
+    }
+  }
+
   // ── Copy All ──
 
   function copyAllFindings() {
@@ -1820,6 +1935,10 @@
 
     document.getElementById('btn-export-figma').addEventListener('click', () => { exportMenu.classList.remove('open'); exportToFigma(); });
     document.getElementById('btn-export-pdf').addEventListener('click', () => { exportMenu.classList.remove('open'); exportPDF(); });
+    const btnExportClaude = document.getElementById('btn-export-claude');
+    if (btnExportClaude) {
+      btnExportClaude.addEventListener('click', () => { exportMenu.classList.remove('open'); exportJSONForClaude(); });
+    }
 
     const importInput = document.getElementById('import-input');
     document.getElementById('btn-import').addEventListener('click', () => importInput.click());
