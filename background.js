@@ -909,9 +909,13 @@ async function discoverViaCrawl(origin, startUrl) {
 }
 
 function sendDiscoverProgress(text) {
+  // chrome.runtime.sendMessage returns a Promise in MV3. When the popup is
+  // closed (user clicked away during a long discover), the Promise rejects
+  // asynchronously — a sync try/catch can't catch it. Always attach .catch().
   try {
-    chrome.runtime.sendMessage({ action: 'DISCOVER_PROGRESS', text, count: 0 });
-  } catch (_) {} // Popup may be closed
+    const p = chrome.runtime.sendMessage({ action: 'DISCOVER_PROGRESS', text, count: 0 });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (_) {}
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
