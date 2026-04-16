@@ -315,70 +315,117 @@ document.addEventListener('DOMContentLoaded', () => {
   let discoveredGroups = {}; // Store grouped results
 
   // URL → page type classification
+  // Returns { type, label, template } where template indicates if pages share a layout
+  //   template: 'shared' = high-volume, same layout (product, collection, blog post)
+  //   template: 'unique' = each page likely has its own layout/content
   function classifyUrl(url) {
-    let path;
-    try { path = new URL(url).pathname.toLowerCase(); } catch { return { type: 'other', label: 'Other' }; }
+    let path, parsed;
+    try { parsed = new URL(url); path = parsed.pathname.toLowerCase(); } catch { return { type: 'other', label: 'Other', template: 'unique' }; }
 
-    if (path === '/' || path === '' || path === '/index.html' || path === '/home') return { type: 'homepage', label: 'Homepage' };
+    if (path === '/' || path === '' || path === '/index.html' || path === '/home') return { type: 'homepage', label: 'Homepage', template: 'unique' };
 
-    // Shopify patterns
-    if (path.match(/^\/products\/[^/]+$/)) return { type: 'product', label: 'Product Pages' };
-    if (path.match(/^\/collections\/[^/]+$/)) return { type: 'collection', label: 'Collection Pages' };
-    if (path.match(/^\/collections\/.+\/products\//)) return { type: 'product', label: 'Product Pages' };
-    if (path === '/collections' || path === '/collections/all') return { type: 'collection-index', label: 'All Collections' };
+    // Shopify product pages — all share the product template
+    if (path.match(/^\/products\/[^/]+$/)) return { type: 'product', label: 'Product Pages', template: 'shared' };
+    if (path.match(/^\/collections\/.+\/products\//)) return { type: 'product', label: 'Product Pages', template: 'shared' };
+
+    // Shopify collections — shared template
+    if (path.match(/^\/collections\/[^/]+$/)) return { type: 'collection', label: 'Collection Pages', template: 'shared' };
+    if (path === '/collections' || path === '/collections/all') return { type: 'collection-index', label: 'All Collections Index', template: 'unique' };
 
     // WooCommerce / general ecommerce
-    if (path.match(/^\/(product|item|shop\/[^/]+|p)\//)) return { type: 'product', label: 'Product Pages' };
-    if (path.match(/^\/(product-category|category|catalog|shop)\//)) return { type: 'collection', label: 'Collection / Category Pages' };
+    if (path.match(/^\/(product|item|shop\/[^/]+|p)\//)) return { type: 'product', label: 'Product Pages', template: 'shared' };
+    if (path.match(/^\/(product-category|category|catalog)\//)) return { type: 'collection', label: 'Collection / Category Pages', template: 'shared' };
+    if (path.match(/^\/shop\/?$/) || path.match(/^\/store\/?$/)) return { type: 'shop-index', label: 'Shop Index', template: 'unique' };
 
-    // Blog
-    if (path.match(/^\/(blog|blogs|articles?|news|journal)\b/)) return { type: 'blog', label: 'Blog / Articles' };
-    if (path.match(/^\/(posts?)\//)) return { type: 'blog', label: 'Blog / Articles' };
+    // Blog — individual posts share a template, but index/tag pages are unique
+    if (path.match(/^\/(blog|blogs|news|journal)\/?$/) || path.match(/^\/(blog|blogs)\/(tagged|category|tag)\//)) return { type: 'blog-index', label: 'Blog Index / Tags', template: 'unique' };
+    if (path.match(/^\/(blog|blogs|articles?|news|journal)\/.+/)) return { type: 'blog-post', label: 'Blog Posts', template: 'shared' };
+    if (path.match(/^\/(posts?)\/.+/)) return { type: 'blog-post', label: 'Blog Posts', template: 'shared' };
 
-    // Account
-    if (path.match(/^\/(account|my-account|login|register|sign-in|sign-up|profile|dashboard)\b/)) return { type: 'account', label: 'Account / Auth' };
+    // Account — each sub-page may differ
+    if (path.match(/^\/(login|sign-in|signin)\b/)) return { type: 'login', label: 'Login', template: 'unique' };
+    if (path.match(/^\/(register|sign-up|signup|create-account)\b/)) return { type: 'register', label: 'Register', template: 'unique' };
+    if (path.match(/^\/(account|my-account|profile|dashboard)\b/)) return { type: 'account', label: 'Account Dashboard', template: 'unique' };
+    if (path.match(/^\/(account\/orders|order-history|my-orders)\b/)) return { type: 'account-orders', label: 'Order History', template: 'unique' };
+    if (path.match(/^\/(wishlist|favorites|saved)\b/)) return { type: 'wishlist', label: 'Wishlist', template: 'unique' };
 
     // Cart & Checkout
-    if (path.match(/^\/(cart|basket)\b/)) return { type: 'cart', label: 'Cart' };
-    if (path.match(/^\/(checkout|pay)\b/)) return { type: 'checkout', label: 'Checkout' };
+    if (path.match(/^\/(cart|basket)\b/)) return { type: 'cart', label: 'Cart', template: 'unique' };
+    if (path.match(/^\/(checkout|pay)\b/)) return { type: 'checkout', label: 'Checkout', template: 'unique' };
 
-    // Policy / Legal
-    if (path.match(/^\/(policies|policy|terms|privacy|refund|shipping-policy|legal|disclaimer|cookie)/)) return { type: 'policy', label: 'Policy / Legal' };
+    // Policy / Legal — each policy page is different content
+    if (path.match(/\/(privacy|privacy-policy)\b/)) return { type: 'policy-privacy', label: 'Privacy Policy', template: 'unique' };
+    if (path.match(/\/(terms|terms-of-service|terms-and-conditions|tos)\b/)) return { type: 'policy-terms', label: 'Terms of Service', template: 'unique' };
+    if (path.match(/\/(refund|refund-policy|returns|return-policy)\b/)) return { type: 'policy-refund', label: 'Refund / Return Policy', template: 'unique' };
+    if (path.match(/\/(shipping-policy|delivery-policy)\b/)) return { type: 'policy-shipping', label: 'Shipping Policy', template: 'unique' };
+    if (path.match(/\/(cookie|cookie-policy)\b/)) return { type: 'policy-cookie', label: 'Cookie Policy', template: 'unique' };
+    if (path.match(/^\/(policies|policy|legal|disclaimer)\//)) return { type: 'policy-other', label: 'Other Legal', template: 'unique' };
 
     // Search
-    if (path.match(/^\/(search|find)\b/)) return { type: 'search', label: 'Search' };
+    if (path.match(/^\/(search|find)\b/)) return { type: 'search', label: 'Search Results', template: 'unique' };
 
-    // Contact / Support
-    if (path.match(/^\/(contact|support|help|faq|get-in-touch)\b/)) return { type: 'contact', label: 'Contact / Support' };
+    // Contact / Support — FAQ may have many pages
+    if (path.match(/^\/(contact|get-in-touch)\b/)) return { type: 'contact', label: 'Contact', template: 'unique' };
+    if (path.match(/^\/(help|support)\/?$/)) return { type: 'help-center', label: 'Help Center', template: 'unique' };
+    if (path.match(/^\/(help|support)\/.+/)) return { type: 'help-article', label: 'Help Articles', template: 'shared' };
+    if (path.match(/^\/(faq)\b/)) return { type: 'faq', label: 'FAQ', template: 'unique' };
 
-    // About
-    if (path.match(/^\/(about|our-story|team|careers|jobs)\b/)) return { type: 'about', label: 'About / Company' };
+    // About / Company — each is a unique page
+    if (path.match(/^\/(about|about-us)\b/)) return { type: 'about', label: 'About', template: 'unique' };
+    if (path.match(/^\/(our-story|story)\b/)) return { type: 'our-story', label: 'Our Story', template: 'unique' };
+    if (path.match(/^\/(team|our-team|people)\b/)) return { type: 'team', label: 'Team', template: 'unique' };
+    if (path.match(/^\/(careers|jobs|work-with-us)\b/)) return { type: 'careers', label: 'Careers', template: 'unique' };
+    if (path.match(/^\/(press|media|newsroom)\b/)) return { type: 'press', label: 'Press / Media', template: 'unique' };
 
-    // Pages (generic)
-    if (path.match(/^\/(pages?)\//)) return { type: 'page', label: 'Static Pages' };
+    // Shopify /pages/* — each is a different static page (unique layout)
+    if (path.match(/^\/(pages?)\/.+/)) {
+      const pageName = path.replace(/^\/(pages?)\//, '').replace(/-/g, ' ').replace(/\//g, ' — ');
+      const prettyName = pageName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return { type: 'page:' + path, label: prettyName, template: 'unique' };
+    }
+
+    // Stores/locations
+    if (path.match(/^\/(stores?|locations?)\/?$/)) return { type: 'store-locator', label: 'Store Locator', template: 'unique' };
+    if (path.match(/^\/(stores?|locations?)\/.+/)) return { type: 'store-detail', label: 'Store Detail Pages', template: 'shared' };
+
+    // Gift cards
+    if (path.match(/^\/(gift[-_]?cards?)\b/)) return { type: 'gift-card', label: 'Gift Card', template: 'unique' };
+
+    // Loyalty / rewards
+    if (path.match(/^\/(rewards?|loyalty|points)\b/)) return { type: 'loyalty', label: 'Loyalty / Rewards', template: 'unique' };
 
     // Sitemap / feeds
-    if (path.match(/\.(xml|rss|atom|json)$/)) return { type: 'feed', label: 'Feeds / Sitemap' };
+    if (path.match(/\.(xml|rss|atom|json)$/)) return { type: 'feed', label: 'Feeds / Sitemap', template: 'skip' };
 
-    // Assets (shouldn't be here but just in case)
-    if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|pdf)$/)) return { type: 'asset', label: 'Assets' };
+    // Assets
+    if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|pdf)$/)) return { type: 'asset', label: 'Assets', template: 'skip' };
 
-    return { type: 'other', label: 'Other Pages' };
+    // 404 / error
+    if (path.match(/^\/(404|error|not-found)\b/)) return { type: '404', label: '404 Page', template: 'unique' };
+
+    // Catch-all: if it's a single-segment path, treat as unique page
+    const segments = path.replace(/^\/|\/$/g, '').split('/');
+    if (segments.length === 1 && segments[0]) {
+      const pageName = segments[0].replace(/-/g, ' ');
+      const prettyName = pageName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return { type: 'page:' + path, label: prettyName, template: 'unique' };
+    }
+
+    return { type: 'other', label: 'Other Pages', template: 'unique' };
   }
 
+  // Group URLs into template groups vs unique pages
   function groupDiscoveredUrls(urls) {
     const groups = {};
     urls.forEach(url => {
-      const { type, label } = classifyUrl(url);
+      const { type, label, template } = classifyUrl(url);
+      if (template === 'skip') return; // Skip feeds/assets
       if (!groups[type]) {
-        groups[type] = { label, urls: [], sample: url };
+        groups[type] = { label, urls: [], sample: url, template };
       }
       groups[type].urls.push(url);
     });
-
-    // Sort by count descending
-    const sorted = Object.entries(groups).sort((a, b) => b[1].urls.length - a[1].urls.length);
-    return Object.fromEntries(sorted);
+    return groups;
   }
 
   function renderDiscoverSummary(groups, totalCount) {
@@ -386,27 +433,101 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalEl = document.getElementById('discover-total');
     const groupsEl = document.getElementById('discover-groups');
 
-    totalEl.textContent = `${totalCount.toLocaleString()} pages found`;
+    // Each group is one "page template" — maps 1:1 to a black rectangle in the Figma IA diagram
+    const templateCount = Object.keys(groups).length;
+
+    totalEl.innerHTML = `
+      <span>${totalCount.toLocaleString()} pages found</span>
+      <span class="discover-templates">${templateCount} page templates</span>
+    `;
     groupsEl.innerHTML = '';
 
-    // Priority order for display
-    const typeOrder = ['homepage', 'product', 'collection', 'collection-index', 'blog', 'page', 'about', 'contact', 'account', 'cart', 'checkout', 'search', 'policy', 'other', 'feed', 'asset'];
-    const sortedEntries = Object.entries(groups).sort((a, b) => {
+    // Display order: unique pages first (each is a template), then shared-template groups
+    const typeOrder = ['homepage', 'collection-index', 'shop-index', 'product', 'collection', 'blog-index', 'blog-post',
+      'login', 'register', 'account', 'account-orders', 'wishlist',
+      'cart', 'checkout', 'search', 'contact', 'help-center', 'help-article', 'faq',
+      'about', 'our-story', 'team', 'careers', 'press',
+      'store-locator', 'store-detail', 'gift-card', 'loyalty',
+      'policy-privacy', 'policy-terms', 'policy-refund', 'policy-shipping', 'policy-cookie', 'policy-other',
+      '404', 'other'];
+
+    const entries = Object.entries(groups);
+    entries.sort((a, b) => {
       const ai = typeOrder.indexOf(a[0]);
       const bi = typeOrder.indexOf(b[0]);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      // page:xxx entries go between known unique pages and 'other'
+      const aIdx = ai >= 0 ? ai : (a[0].startsWith('page:') ? 90 : 99);
+      const bIdx = bi >= 0 ? bi : (b[0].startsWith('page:') ? 90 : 99);
+      return aIdx - bIdx;
     });
 
-    for (const [type, group] of sortedEntries) {
-      if (type === 'feed' || type === 'asset') continue; // Skip non-page types
+    // Overflow cap: if we have >30 unique-template rows, collapse the tail so the list stays scannable.
+    // Shared-template rows (product, collection, blog posts) never get capped — they're always just 1 row each.
+    const UNIQUE_CAP = 30;
+    const sharedEntries = entries.filter(([_, g]) => g.template === 'shared');
+    const uniqueEntries = entries.filter(([_, g]) => g.template !== 'shared');
 
+    let capTriggered = false;
+    let collapsedCount = 0;
+    let collapsedUrlCount = 0;
+    let visibleUnique = uniqueEntries;
+
+    if (uniqueEntries.length > UNIQUE_CAP) {
+      capTriggered = true;
+      visibleUnique = uniqueEntries.slice(0, UNIQUE_CAP);
+      const tail = uniqueEntries.slice(UNIQUE_CAP);
+      collapsedCount = tail.length;
+      collapsedUrlCount = tail.reduce((sum, [_, g]) => sum + g.urls.length, 0);
+      // Stash collapsed group entries under a synthetic key so "Copy for FigJam" / batch still see a sample
+      const collapsedSample = tail[0]?.[1]?.sample || '';
+      groups['__collapsed__'] = {
+        label: `Other Pages (${collapsedCount} more)`,
+        urls: tail.flatMap(([_, g]) => g.urls),
+        sample: collapsedSample,
+        template: 'unique'
+      };
+    }
+
+    // Show a warning banner above the list when the cap fired
+    if (capTriggered) {
+      const warn = document.createElement('div');
+      warn.className = 'discover-warning';
+      warn.textContent = `${collapsedUrlCount.toLocaleString()} URLs collapsed into "Other Pages" — site may use a non-standard URL structure.`;
+      groupsEl.appendChild(warn);
+    }
+
+    // Render order: visible unique entries (sorted), then shared entries, then the synthetic collapsed row
+    const renderList = [...visibleUnique, ...sharedEntries];
+    if (capTriggered) renderList.push(['__collapsed__', groups['__collapsed__']]);
+
+    for (const [type, group] of renderList) {
       const row = document.createElement('label');
       row.className = 'discover-group-row';
-      const checked = ['homepage', 'product', 'collection', 'collection-index', 'blog', 'page', 'about', 'contact', 'account', 'search', 'policy'].includes(type);
+
+      const isShared = group.template === 'shared';
+      const count = group.urls.length;
+      const checked = type !== 'feed' && type !== 'asset';
+
+      // For shared templates: show "Product Pages" + count badge
+      // For unique pages: show page name + link icon (count is usually 1)
+      const countBadge = isShared
+        ? `<span class="discover-group-count">${count.toLocaleString()}</span>`
+        : (count > 1 ? `<span class="discover-group-count">${count}</span>` : '');
+
+      const templateTag = isShared
+        ? '<span class="discover-template-tag">shared</span>'
+        : '<span class="discover-template-tag unique">unique</span>';
+
+      const sampleLink = group.sample
+        ? `<a href="${group.sample}" target="_blank" class="discover-sample-link" title="${group.sample}">↗</a>`
+        : '';
+
       row.innerHTML = `
         <input type="checkbox" class="discover-group-check" data-type="${type}" ${checked ? 'checked' : ''}>
         <span class="discover-group-label">${group.label}</span>
-        <span class="discover-group-count">${group.urls.length.toLocaleString()}</span>
+        ${templateTag}
+        ${countBadge}
+        ${sampleLink}
       `;
       groupsEl.appendChild(row);
     }
@@ -480,24 +601,58 @@ document.addEventListener('DOMContentLoaded', () => {
     projectStatus.className = 'status error';
   });
 
-  // "Use Selected for Batch" — picks 1 sample URL per checked type
+  // "Use Selected for Batch" — one URL per checked row.
+  // Shared groups (product, collection) contribute their sample; unique groups contribute their single URL.
+  // This maps 1:1 to what each row represents in the Figma IA diagram.
   document.getElementById('btn-discover-use').addEventListener('click', () => {
     const checks = document.querySelectorAll('.discover-group-check:checked');
     const selectedUrls = [];
     checks.forEach(chk => {
       const type = chk.dataset.type;
       if (discoveredGroups[type]) {
-        // Pick first URL (homepage) or a sample from the group
         selectedUrls.push(discoveredGroups[type].sample);
       }
     });
 
     if (selectedUrls.length > 0 && batchUrls) {
       batchUrls.value = selectedUrls.join('\n');
-      projectStatus.textContent = `${selectedUrls.length} sample URLs added to batch (1 per type)`;
+      projectStatus.textContent = `${selectedUrls.length} sample URLs added to batch (1 per template)`;
       projectStatus.className = 'status success';
     }
   });
+
+  // "Copy for FigJam" — puts one tab-separated `Label<TAB>URL` row per checked template on the clipboard.
+  // Format is compatible with FigJam sitemap plugins (Sitemap, Autoflow, Sitemapping for FigJam) which
+  // accept either plain URL lists or delimited text. One row = one black rectangle in the IA diagram.
+  const btnDiscoverFigjam = document.getElementById('btn-discover-figjam');
+  if (btnDiscoverFigjam) {
+    btnDiscoverFigjam.addEventListener('click', async () => {
+      const checks = document.querySelectorAll('.discover-group-check:checked');
+      const lines = [];
+      checks.forEach(chk => {
+        const type = chk.dataset.type;
+        const group = discoveredGroups[type];
+        if (group && group.sample) {
+          lines.push(`${group.label}\t${group.sample}`);
+        }
+      });
+
+      if (lines.length === 0) {
+        projectStatus.textContent = 'No templates selected';
+        projectStatus.className = 'status error';
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(lines.join('\n'));
+        projectStatus.textContent = `Copied ${lines.length} templates for FigJam`;
+        projectStatus.className = 'status success';
+      } catch (err) {
+        projectStatus.textContent = 'Clipboard copy failed — check browser permissions';
+        projectStatus.className = 'status error';
+      }
+    });
+  }
 
   // Listen for discover progress updates
   chrome.runtime.onMessage.addListener((message) => {

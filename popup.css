@@ -464,6 +464,58 @@ body {
   font-weight: 700;
   color: #1a1a2e;
   margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.discover-templates {
+  font-size: 11px;
+  font-weight: 600;
+  color: #00816c;
+  background: rgba(0, 201, 167, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.discover-template-tag {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #e8f5f3;
+  color: #00816c;
+  flex-shrink: 0;
+}
+
+.discover-template-tag.unique {
+  background: #fff4e5;
+  color: #b36b00;
+}
+
+.discover-sample-link {
+  text-decoration: none;
+  font-size: 14px;
+  color: #888;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.discover-sample-link:hover {
+  color: #00C9A7;
+}
+
+.discover-warning {
+  font-size: 11px;
+  color: #b36b00;
+  background: #fff4e5;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 0 0 6px 0;
+  line-height: 1.4;
 }
 
 .discover-groups {
@@ -514,6 +566,12 @@ body {
 
 .discover-actions {
   margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.discover-actions > button {
+  flex: 1;
 }
 
 .batch-controls {
