@@ -313,6 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDiscoverStop = document.getElementById('btn-discover-stop');
 
   let discoveredGroups = {}; // Store grouped results
+  let discoveredTree = null;  // { parentOf, childrenOf, depthOf, roots }
+  let lastTotalCount = 0;      // Cached so view toggle can re-render without re-fetching state
+  let currentDiscoverView = 'templates'; // 'templates' | 'sitemap'
 
   // URL → page type classification
   // Returns { type, label, template } where template indicates if pages share a layout
@@ -428,41 +431,216 @@ document.addEventListener('DOMContentLoaded', () => {
     return groups;
   }
 
+  // Build a template-level sitemap tree. Each node is a template type (one row in the
+  // UI, one black rectangle in the Figma IA). Parent is inferred by:
+  //   1. Crawl parentMap votes (if available) — the dominant parent template of the URLs
+  //      inside the child template.
+  //   2. Path-segment prefix matching of the sample URL against other templates' samples.
+  //   3. Fallback to homepage (or no parent if no homepage was discovered).
+  // Cycles are broken by preferring crawl votes over path inference, and otherwise
+  // dropping the edge back to root.
+  function buildTemplateTree(groups, parentMap) {
+    const types = Object.keys(groups);
+    const pathOfType = {};
+    for (const t of types) {
+      try { pathOfType[t] = new URL(groups[t].sample).pathname.toLowerCase(); }
+      catch { pathOfType[t] = '/'; }
+    }
+    const homepageType = types.includes('homepage') ? 'homepage' : null;
+
+    // Helper: classify any URL back to a template type we actually have
+    function typeOf(url) {
+      try {
+        const info = classifyUrl(url);
+        return types.includes(info.type) ? info.type : null;
+      } catch { return null; }
+    }
+
+    // Step 1 — vote from crawl parentMap (if we got one)
+    const votes = {}; // childType -> { parentType: count }
+    if (parentMap && typeof parentMap === 'object') {
+      for (const [childUrl, parentUrl] of Object.entries(parentMap)) {
+        const childType = typeOf(childUrl);
+        if (!childType) continue;
+        const parentType = parentUrl ? typeOf(parentUrl) : null;
+        if (parentType === childType) continue; // ignore same-template self-loops
+        if (!votes[childType]) votes[childType] = {};
+        const key = parentType || '__root__';
+        votes[childType][key] = (votes[childType][key] || 0) + 1;
+      }
+    }
+
+    // Step 2 — for each type, pick a parent
+    const parentOf = {};
+    for (const t of types) {
+      if (t === homepageType) { parentOf[t] = null; continue; }
+
+      // 2a — crawl votes: pick top-voted non-self parent
+      const v = votes[t];
+      if (v) {
+        let best = null, bestCount = 0;
+        for (const [cand, count] of Object.entries(v)) {
+          if (cand === t) continue;
+          if (count > bestCount) { best = cand; bestCount = count; }
+        }
+        if (best && best !== '__root__' && types.includes(best)) {
+          parentOf[t] = best;
+          continue;
+        }
+        if (best === '__root__' && bestCount > 0) {
+          // Majority said "root" — respect that, unless there's a clear path-based parent
+          // (handled below). For now, leave undefined so path inference can override.
+        }
+      }
+
+      // 2b — path-segment inference: walk up from sample URL, look for an ancestor template
+      const samplePath = pathOfType[t];
+      const segments = samplePath.split('/').filter(Boolean);
+      let pathParent = null;
+      for (let i = segments.length - 1; i >= 1; i--) {
+        const prefix = '/' + segments.slice(0, i).join('/');
+        const match = types.find(tt => tt !== t && pathOfType[tt] === prefix);
+        if (match) { pathParent = match; break; }
+      }
+      parentOf[t] = pathParent ?? homepageType ?? null;
+    }
+
+    // Step 3 — cycle break: if walking up reveals a cycle, drop that edge to root
+    for (const t of types) {
+      const seen = new Set();
+      let cur = t;
+      while (parentOf[cur]) {
+        if (seen.has(cur)) { parentOf[t] = null; break; }
+        seen.add(cur);
+        cur = parentOf[cur];
+      }
+    }
+
+    // Step 4 — children index + depth
+    const childrenOf = { __root__: [] };
+    for (const t of types) {
+      const p = parentOf[t] || '__root__';
+      if (!childrenOf[p]) childrenOf[p] = [];
+      childrenOf[p].push(t);
+    }
+    const depthOf = {};
+    function depth(t, visited = new Set()) {
+      if (depthOf[t] !== undefined) return depthOf[t];
+      if (visited.has(t)) { depthOf[t] = 0; return 0; }
+      visited.add(t);
+      const p = parentOf[t];
+      const d = p ? 1 + depth(p, visited) : 0;
+      depthOf[t] = d;
+      return d;
+    }
+    for (const t of types) depth(t);
+
+    const roots = types.filter(t => !parentOf[t]);
+    return { parentOf, childrenOf, depthOf, roots };
+  }
+
+  // Display order for the flat Templates view (unused in Sitemap view, which uses tree depth)
+  const TYPE_ORDER = ['homepage', 'collection-index', 'shop-index', 'product', 'collection', 'blog-index', 'blog-post',
+    'login', 'register', 'account', 'account-orders', 'wishlist',
+    'cart', 'checkout', 'search', 'contact', 'help-center', 'help-article', 'faq',
+    'about', 'our-story', 'team', 'careers', 'press',
+    'store-locator', 'store-detail', 'gift-card', 'loyalty',
+    'policy-privacy', 'policy-terms', 'policy-refund', 'policy-shipping', 'policy-cookie', 'policy-other',
+    '404', 'other'];
+
+  function typeRank(type) {
+    const i = TYPE_ORDER.indexOf(type);
+    if (i >= 0) return i;
+    if (type.startsWith('page:')) return 90;
+    return 99;
+  }
+
+  // Build the DOM for one template row. `depth` adds indent (tree view only).
+  function buildTemplateRow(type, group, depth = 0) {
+    const row = document.createElement('label');
+    row.className = 'discover-group-row';
+    if (depth > 0) row.style.paddingLeft = `${8 + depth * 16}px`;
+
+    const isShared = group.template === 'shared';
+    const count = group.urls.length;
+    const checked = type !== 'feed' && type !== 'asset';
+
+    let countBadge = '';
+    if (isShared) {
+      if (group.totalDetected && group.totalDetected > count) {
+        countBadge = `<span class="discover-group-count" title="${group.sampledCount || count} samples kept of ${group.totalDetected.toLocaleString()} detected">${count} / ${group.totalDetected.toLocaleString()}</span>`;
+      } else {
+        countBadge = `<span class="discover-group-count">${count.toLocaleString()}</span>`;
+      }
+    } else if (count > 1) {
+      countBadge = `<span class="discover-group-count">${count}</span>`;
+    }
+
+    const templateTag = isShared
+      ? '<span class="discover-template-tag">shared</span>'
+      : '<span class="discover-template-tag unique">unique</span>';
+
+    const sampleLink = group.sample
+      ? `<a href="${group.sample}" target="_blank" class="discover-sample-link" title="${group.sample}">↗</a>`
+      : '';
+
+    row.innerHTML = `
+      <input type="checkbox" class="discover-group-check" data-type="${type}" ${checked ? 'checked' : ''}>
+      <span class="discover-group-label">${group.label}</span>
+      ${templateTag}
+      ${countBadge}
+      ${sampleLink}
+    `;
+    return row;
+  }
+
   function renderDiscoverSummary(groups, totalCount) {
     const summary = document.getElementById('discover-summary');
     const totalEl = document.getElementById('discover-total');
     const groupsEl = document.getElementById('discover-groups');
 
     // Each group is one "page template" — maps 1:1 to a black rectangle in the Figma IA diagram
-    const templateCount = Object.keys(groups).length;
+    const templateCount = Object.keys(groups).filter(t => t !== '__collapsed__').length;
 
+    // Header: counts + view toggle
+    const tplActive = currentDiscoverView === 'templates';
     totalEl.innerHTML = `
       <span>${totalCount.toLocaleString()} pages found</span>
       <span class="discover-templates">${templateCount} page templates</span>
+      <span class="discover-view-toggle">
+        <button class="discover-view-btn${tplActive ? ' active' : ''}" data-view="templates">Templates</button>
+        <button class="discover-view-btn${!tplActive ? ' active' : ''}" data-view="sitemap">Sitemap</button>
+      </span>
     `;
-    groupsEl.innerHTML = '';
-
-    // Display order: unique pages first (each is a template), then shared-template groups
-    const typeOrder = ['homepage', 'collection-index', 'shop-index', 'product', 'collection', 'blog-index', 'blog-post',
-      'login', 'register', 'account', 'account-orders', 'wishlist',
-      'cart', 'checkout', 'search', 'contact', 'help-center', 'help-article', 'faq',
-      'about', 'our-story', 'team', 'careers', 'press',
-      'store-locator', 'store-detail', 'gift-card', 'loyalty',
-      'policy-privacy', 'policy-terms', 'policy-refund', 'policy-shipping', 'policy-cookie', 'policy-other',
-      '404', 'other'];
-
-    const entries = Object.entries(groups);
-    entries.sort((a, b) => {
-      const ai = typeOrder.indexOf(a[0]);
-      const bi = typeOrder.indexOf(b[0]);
-      // page:xxx entries go between known unique pages and 'other'
-      const aIdx = ai >= 0 ? ai : (a[0].startsWith('page:') ? 90 : 99);
-      const bIdx = bi >= 0 ? bi : (b[0].startsWith('page:') ? 90 : 99);
-      return aIdx - bIdx;
+    // Wire up the toggle buttons (inline listeners — totalEl is re-rendered every pass)
+    totalEl.querySelectorAll('.discover-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.view;
+        if (v === currentDiscoverView) return;
+        currentDiscoverView = v;
+        renderDiscoverSummary(discoveredGroups, lastTotalCount);
+      });
     });
 
-    // Overflow cap: if we have >30 unique-template rows, collapse the tail so the list stays scannable.
-    // Shared-template rows (product, collection, blog posts) never get capped — they're always just 1 row each.
+    groupsEl.innerHTML = '';
+
+    if (currentDiscoverView === 'sitemap' && discoveredTree) {
+      renderSitemapView(groups, groupsEl);
+    } else {
+      renderTemplatesView(groups, groupsEl);
+    }
+
+    summary.style.display = 'block';
+  }
+
+  // Flat Templates view — unique pages first, then shared-template groups, with the 30-row cap
+  function renderTemplatesView(groups, groupsEl) {
+    // Never render the synthetic collapsed bucket twice — rebuild it from scratch each pass
+    delete groups['__collapsed__'];
+
+    const entries = Object.entries(groups);
+    entries.sort((a, b) => typeRank(a[0]) - typeRank(b[0]));
+
     const UNIQUE_CAP = 30;
     const sharedEntries = entries.filter(([_, g]) => g.template === 'shared');
     const uniqueEntries = entries.filter(([_, g]) => g.template !== 'shared');
@@ -478,7 +656,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const tail = uniqueEntries.slice(UNIQUE_CAP);
       collapsedCount = tail.length;
       collapsedUrlCount = tail.reduce((sum, [_, g]) => sum + g.urls.length, 0);
-      // Stash collapsed group entries under a synthetic key so "Copy for FigJam" / batch still see a sample
       const collapsedSample = tail[0]?.[1]?.sample || '';
       groups['__collapsed__'] = {
         label: `Other Pages (${collapsedCount} more)`,
@@ -488,7 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
-    // Show a warning banner above the list when the cap fired
     if (capTriggered) {
       const warn = document.createElement('div');
       warn.className = 'discover-warning';
@@ -496,51 +672,45 @@ document.addEventListener('DOMContentLoaded', () => {
       groupsEl.appendChild(warn);
     }
 
-    // Render order: visible unique entries (sorted), then shared entries, then the synthetic collapsed row
     const renderList = [...visibleUnique, ...sharedEntries];
     if (capTriggered) renderList.push(['__collapsed__', groups['__collapsed__']]);
 
     for (const [type, group] of renderList) {
-      const row = document.createElement('label');
-      row.className = 'discover-group-row';
+      groupsEl.appendChild(buildTemplateRow(type, group, 0));
+    }
+  }
 
-      const isShared = group.template === 'shared';
-      const count = group.urls.length;
-      const checked = type !== 'feed' && type !== 'asset';
+  // Indented Sitemap view — walks the template tree; no row cap (the tree self-organizes)
+  function renderSitemapView(groups, groupsEl) {
+    // Clear the synthetic collapsed row — sitemap doesn't use it
+    delete groups['__collapsed__'];
 
-      // For shared templates: show count badge. When the backend sampled
-      // (e.g. kept 5 of 8,400 products), show "5 / 8,400" so the user sees
-      // both what was kept and the real size of the template.
-      let countBadge = '';
-      if (isShared) {
-        if (group.totalDetected && group.totalDetected > count) {
-          countBadge = `<span class="discover-group-count" title="${group.sampledCount || count} samples kept of ${group.totalDetected.toLocaleString()} detected">${count} / ${group.totalDetected.toLocaleString()}</span>`;
-        } else {
-          countBadge = `<span class="discover-group-count">${count.toLocaleString()}</span>`;
-        }
-      } else if (count > 1) {
-        countBadge = `<span class="discover-group-count">${count}</span>`;
-      }
+    const tree = discoveredTree;
+    if (!tree) { renderTemplatesView(groups, groupsEl); return; }
 
-      const templateTag = isShared
-        ? '<span class="discover-template-tag">shared</span>'
-        : '<span class="discover-template-tag unique">unique</span>';
-
-      const sampleLink = group.sample
-        ? `<a href="${group.sample}" target="_blank" class="discover-sample-link" title="${group.sample}">↗</a>`
-        : '';
-
-      row.innerHTML = `
-        <input type="checkbox" class="discover-group-check" data-type="${type}" ${checked ? 'checked' : ''}>
-        <span class="discover-group-label">${group.label}</span>
-        ${templateTag}
-        ${countBadge}
-        ${sampleLink}
-      `;
-      groupsEl.appendChild(row);
+    const emitted = new Set();
+    function emit(type, depth) {
+      if (emitted.has(type)) return;
+      emitted.add(type);
+      const group = groups[type];
+      if (!group) return;
+      groupsEl.appendChild(buildTemplateRow(type, group, depth));
+      const kids = (tree.childrenOf[type] || []).slice().sort((a, b) => typeRank(a) - typeRank(b));
+      for (const k of kids) emit(k, depth + 1);
     }
 
-    summary.style.display = 'block';
+    // Roots first — homepage pinned to top, then the rest in type-order
+    const sortedRoots = tree.roots.slice().sort((a, b) => {
+      if (a === 'homepage') return -1;
+      if (b === 'homepage') return 1;
+      return typeRank(a) - typeRank(b);
+    });
+    for (const r of sortedRoots) emit(r, 0);
+
+    // Safety net: any template not reached from a root (cycle remnants) renders flat at depth 0
+    for (const type of Object.keys(groups)) {
+      if (!emitted.has(type)) groupsEl.appendChild(buildTemplateRow(type, groups[type], 0));
+    }
   }
 
   // ── Discovery UI state helpers ──
@@ -585,6 +755,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     const totalDetected = result.totalDetected || result.urls.length;
+    // Build the template-level sitemap tree once per discovery. Crawl mode supplies
+    // a parentMap (URL → parent URL); sitemap.xml mode passes null and we fall back
+    // to pure path-segment inference inside buildTemplateTree.
+    discoveredTree = buildTemplateTree(discoveredGroups, result.parentMap || null);
+    lastTotalCount = totalDetected;
     renderDiscoverSummary(discoveredGroups, totalDetected);
     const collapsed = totalDetected - result.urls.length;
     projectStatus.textContent = collapsed > 0
@@ -738,31 +913,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // "Copy for FigJam" — puts one tab-separated `Label<TAB>URL` row per checked template on the clipboard.
-  // Format is compatible with FigJam sitemap plugins (Sitemap, Autoflow, Sitemapping for FigJam) which
-  // accept either plain URL lists or delimited text. One row = one black rectangle in the IA diagram.
+  // "Copy for FigJam" — output format depends on current view:
+  //   Templates view → flat `Label<TAB>URL` per line (one black rectangle per row)
+  //   Sitemap view  → tab-indented label tree (FigJam Sitemap/Autoflow plugins parse
+  //                    leading tabs as parent→child; URL goes in a trailing tab column)
   const btnDiscoverFigjam = document.getElementById('btn-discover-figjam');
   if (btnDiscoverFigjam) {
     btnDiscoverFigjam.addEventListener('click', async () => {
-      const checks = document.querySelectorAll('.discover-group-check:checked');
-      const lines = [];
-      checks.forEach(chk => {
-        const type = chk.dataset.type;
-        const group = discoveredGroups[type];
-        if (group && group.sample) {
-          lines.push(`${group.label}\t${group.sample}`);
-        }
-      });
+      const checked = new Set();
+      document.querySelectorAll('.discover-group-check:checked').forEach(chk => checked.add(chk.dataset.type));
 
-      if (lines.length === 0) {
+      if (checked.size === 0) {
         projectStatus.textContent = 'No templates selected';
         projectStatus.className = 'status error';
         return;
       }
 
+      let lines = [];
+      let exportCount = 0;
+
+      if (currentDiscoverView === 'sitemap' && discoveredTree) {
+        // Tree export — walk the sitemap in display order, emit each checked node
+        // at its tree depth. Descendants of unchecked ancestors keep their real depth
+        // so the overall shape stays readable in the FigJam import.
+        const emitted = new Set();
+        function walk(type, depth) {
+          if (emitted.has(type)) return;
+          emitted.add(type);
+          const group = discoveredGroups[type];
+          if (group && checked.has(type)) {
+            lines.push(`${'\t'.repeat(depth)}${group.label}\t${group.sample || ''}`);
+            exportCount++;
+          }
+          const kids = (discoveredTree.childrenOf[type] || []).slice().sort((a, b) => typeRank(a) - typeRank(b));
+          for (const k of kids) walk(k, depth + 1);
+        }
+        const roots = discoveredTree.roots.slice().sort((a, b) => {
+          if (a === 'homepage') return -1;
+          if (b === 'homepage') return 1;
+          return typeRank(a) - typeRank(b);
+        });
+        for (const r of roots) walk(r, 0);
+      } else {
+        // Templates (flat) export — one Label<TAB>URL row per checked template
+        document.querySelectorAll('.discover-group-check:checked').forEach(chk => {
+          const type = chk.dataset.type;
+          const group = discoveredGroups[type];
+          if (group && group.sample) {
+            lines.push(`${group.label}\t${group.sample}`);
+            exportCount++;
+          }
+        });
+      }
+
       try {
         await navigator.clipboard.writeText(lines.join('\n'));
-        projectStatus.textContent = `Copied ${lines.length} templates for FigJam`;
+        const mode = currentDiscoverView === 'sitemap' ? 'sitemap tree' : 'templates';
+        projectStatus.textContent = `Copied ${exportCount} ${mode} for FigJam`;
         projectStatus.className = 'status success';
       } catch (err) {
         projectStatus.textContent = 'Clipboard copy failed — check browser permissions';

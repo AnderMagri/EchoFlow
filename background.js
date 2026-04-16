@@ -867,7 +867,8 @@ async function discoverViaSitemap(origin) {
   const totalSkipped = sampler.totalSkipped();
   const totalDetected = unique.length + totalSkipped;
   sendDiscoverProgress(`Done: ${unique.length} kept (${totalDetected.toLocaleString()} detected, ${totalSkipped.toLocaleString()} collapsed into samples)`);
-  return { urls: unique, sampleStats, totalDetected };
+  // No parent data from sitemap.xml — signal null so the popup uses pure path-segment inference.
+  return { urls: unique, sampleStats, totalDetected, parentMap: null };
 }
 
 async function discoverViaCrawl(origin, startUrl) {
@@ -877,7 +878,9 @@ async function discoverViaCrawl(origin, startUrl) {
   const maxPages = 200;  // Safety limit
   const maxDepth = 3;    // Don't go too deep
   const depthMap = new Map();
+  const parentMap = {};  // child URL → URL of page that first linked to it (null for startUrl)
   depthMap.set(startUrl, 0);
+  parentMap[startUrl] = null;
   const sampler = createSharedSampler();
 
   // Always keep the startUrl (it's the entry point the user clicked from)
@@ -934,6 +937,7 @@ async function discoverViaCrawl(origin, startUrl) {
 
           queue.push(clean);
           if (!depthMap.has(clean)) depthMap.set(clean, depth + 1);
+          if (!(clean in parentMap)) parentMap[clean] = url;
         } catch (_) {}
       }
     } catch (_) {
@@ -945,8 +949,11 @@ async function discoverViaCrawl(origin, startUrl) {
   const sampleStats = sampler.stats();
   const totalSkipped = sampler.totalSkipped();
   const totalDetected = unique.length + totalSkipped;
+  // Only keep parentMap entries for URLs we actually kept (saves payload, keeps tree clean).
+  const keptParents = {};
+  for (const u of unique) if (u in parentMap) keptParents[u] = parentMap[u];
   sendDiscoverProgress(`Done: ${unique.length} kept (${totalDetected.toLocaleString()} detected, ${totalSkipped.toLocaleString()} collapsed into samples)`);
-  return { urls: unique, sampleStats, totalDetected };
+  return { urls: unique, sampleStats, totalDetected, parentMap: keptParents };
 }
 
 function sendDiscoverProgress(text) {
