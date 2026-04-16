@@ -655,6 +655,47 @@ function mapComponentsToShopify(components, shopifyComponents) {
 let batchStopped = false;
 let discoverStopped = false;
 
+// ── Discovery State (background-resident, persisted for popup reconnect) ──
+// The popup can close mid-discover; the service worker keeps running. State
+// is mirrored to chrome.storage.local so a freshly-opened popup (or a
+// service worker that was restarted) can see what's in progress / what
+// completed while the popup was gone.
+let discoveryState = {
+  status: 'idle', // 'idle' | 'running' | 'stopping' | 'stopped' | 'completed' | 'error'
+  method: null,
+  origin: null,
+  startUrl: null,
+  progressText: '',
+  result: null,
+  error: null,
+  startedAt: null,
+  finishedAt: null
+};
+
+async function persistDiscoveryState() {
+  try {
+    await chrome.storage.local.set({ __echoflowDiscoveryState: discoveryState });
+  } catch (_) {}
+}
+
+async function hydrateDiscoveryState() {
+  try {
+    const { __echoflowDiscoveryState } = await chrome.storage.local.get('__echoflowDiscoveryState');
+    if (__echoflowDiscoveryState) {
+      discoveryState = __echoflowDiscoveryState;
+      // If the previous SW died mid-run, there's nothing running now. Mark
+      // the state as stopped so the popup doesn't poll forever.
+      if (discoveryState.status === 'running' || discoveryState.status === 'stopping') {
+        discoveryState.status = 'stopped';
+        discoveryState.finishedAt = Date.now();
+        discoveryState.error = 'Service worker was restarted — discovery interrupted';
+        await persistDiscoveryState();
+      }
+    }
+  } catch (_) {}
+}
+hydrateDiscoveryState();
+
 // ── Page Discovery ──
 
 // Shared-template sampling: sites with 100k+ products produce 100k+ URLs that all
@@ -909,9 +950,13 @@ async function discoverViaCrawl(origin, startUrl) {
 }
 
 function sendDiscoverProgress(text) {
-  // chrome.runtime.sendMessage returns a Promise in MV3. When the popup is
-  // closed (user clicked away during a long discover), the Promise rejects
-  // asynchronously — a sync try/catch can't catch it. Always attach .catch().
+  // Mirror progress into the persisted state so a popup opened later can
+  // pick up the current text via DISCOVER_STATE polling.
+  discoveryState.progressText = text;
+  persistDiscoveryState();
+
+  // Also push a live notification to any open popup. Swallow the async
+  // "no receiver" rejection when no popup is listening.
   try {
     const p = chrome.runtime.sendMessage({ action: 'DISCOVER_PROGRESS', text, count: 0 });
     if (p && typeof p.catch === 'function') p.catch(() => {});
@@ -1107,8 +1152,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'DISCOVER_PAGES') {
     const { method, origin, startUrl } = message;
-    discoverStopped = false;
 
+    // Reject if a discovery is already running — the user would have to stop
+    // it first. The popup's auto-hydration normally prevents this; this is
+    // just a safety net for duplicate clicks.
+    if (discoveryState.status === 'running' || discoveryState.status === 'stopping') {
+      sendResponse({ success: false, error: 'Discovery already running', alreadyRunning: true });
+      return true;
+    }
+
+    discoverStopped = false;
+    discoveryState = {
+      status: 'running',
+      method, origin, startUrl,
+      progressText: method === 'sitemap' ? 'Fetching sitemap...' : 'Crawling links...',
+      result: null,
+      error: null,
+      startedAt: Date.now(),
+      finishedAt: null
+    };
+    persistDiscoveryState();
+
+    // Fire and forget — the popup no longer awaits this. It polls DISCOVER_STATE.
     (async () => {
       try {
         let result = { urls: [], sampleStats: {}, totalDetected: 0 };
@@ -1117,22 +1182,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else if (method === 'crawl') {
           result = await discoverViaCrawl(origin, startUrl);
         }
-        sendResponse({
-          success: true,
+        discoveryState.status = discoverStopped ? 'stopped' : 'completed';
+        discoveryState.result = {
           urls: result.urls,
           sampleStats: result.sampleStats || {},
           totalDetected: result.totalDetected || result.urls.length
-        });
+        };
+        discoveryState.finishedAt = Date.now();
+        await persistDiscoveryState();
       } catch (err) {
-        sendResponse({ success: false, error: err.message });
+        discoveryState.status = 'error';
+        discoveryState.error = err.message || String(err);
+        discoveryState.finishedAt = Date.now();
+        await persistDiscoveryState();
       }
     })();
 
+    sendResponse({ success: true, started: true });
+    return true;
+  }
+
+  if (message.action === 'DISCOVER_STATE') {
+    sendResponse({ success: true, state: discoveryState });
     return true;
   }
 
   if (message.action === 'DISCOVER_STOP') {
     discoverStopped = true;
+    if (discoveryState.status === 'running') {
+      discoveryState.status = 'stopping';
+      persistDiscoveryState();
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.action === 'DISCOVER_CLEAR') {
+    // Resets finished/error/stopped state back to idle so the popup returns
+    // to its initial "click Sitemap or Crawl" UI. Does nothing if a
+    // discovery is actively running.
+    if (discoveryState.status !== 'running' && discoveryState.status !== 'stopping') {
+      discoveryState = {
+        status: 'idle',
+        method: null, origin: null, startUrl: null,
+        progressText: '', result: null, error: null,
+        startedAt: null, finishedAt: null
+      };
+      persistDiscoveryState();
+    }
     sendResponse({ success: true });
     return true;
   }

@@ -543,6 +543,122 @@ document.addEventListener('DOMContentLoaded', () => {
     summary.style.display = 'block';
   }
 
+  // ── Discovery UI state helpers ──
+  // Discovery runs in the background service worker. The popup fires it and
+  // polls for state; the popup can be closed and reopened without affecting
+  // the in-flight discovery.
+  let discoverPollInterval = null;
+
+  function showDiscoverRunning(text) {
+    btnDiscoverSitemap.disabled = true;
+    btnDiscoverCrawl.disabled = true;
+    discoverProgress.style.display = 'flex';
+    discoverProgressText.textContent = text || 'Discovering pages...';
+    document.getElementById('discover-summary').style.display = 'none';
+  }
+
+  function hideDiscoverRunning() {
+    btnDiscoverSitemap.disabled = false;
+    btnDiscoverCrawl.disabled = false;
+    discoverProgress.style.display = 'none';
+  }
+
+  // Render a completed discovery result (shared by fresh finishes and
+  // re-hydration when the popup reopens).
+  function renderDiscoveryResult(result, method) {
+    if (!result || !result.urls) return;
+    if (result.urls.length === 0) {
+      projectStatus.textContent = method === 'sitemap'
+        ? 'No sitemap found. Try "Crawl Links" instead.'
+        : 'No links discovered on this page.';
+      projectStatus.className = 'status error';
+      return;
+    }
+
+    discoveredGroups = groupDiscoveredUrls(result.urls);
+    const stats = result.sampleStats || {};
+    for (const [key, stat] of Object.entries(stats)) {
+      if (discoveredGroups[key]) {
+        discoveredGroups[key].totalDetected = stat.total;
+        discoveredGroups[key].sampledCount = stat.kept;
+        discoveredGroups[key].skippedCount = stat.skipped;
+      }
+    }
+    const totalDetected = result.totalDetected || result.urls.length;
+    renderDiscoverSummary(discoveredGroups, totalDetected);
+    const collapsed = totalDetected - result.urls.length;
+    projectStatus.textContent = collapsed > 0
+      ? `Found ${totalDetected.toLocaleString()} pages (${collapsed.toLocaleString()} collapsed into samples) via ${method || 'discovery'}`
+      : `Found ${result.urls.length.toLocaleString()} pages via ${method || 'discovery'}`;
+    projectStatus.className = 'status success';
+  }
+
+  function stopDiscoverPolling() {
+    if (discoverPollInterval) {
+      clearInterval(discoverPollInterval);
+      discoverPollInterval = null;
+    }
+  }
+
+  async function pollDiscoverState() {
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'DISCOVER_STATE' });
+      const state = resp?.state;
+      if (!state) return;
+
+      if (state.status === 'running' || state.status === 'stopping') {
+        showDiscoverRunning(state.progressText || 'Discovering pages...');
+        return;
+      }
+
+      // Terminal status — update UI and stop polling.
+      stopDiscoverPolling();
+      hideDiscoverRunning();
+
+      if (state.status === 'completed') {
+        renderDiscoveryResult(state.result, state.method);
+      } else if (state.status === 'stopped') {
+        projectStatus.textContent = state.error || 'Discovery stopped';
+        projectStatus.className = 'status error';
+      } else if (state.status === 'error') {
+        projectStatus.textContent = state.error || 'Discovery failed';
+        projectStatus.className = 'status error';
+      }
+    } catch (_) {
+      // SW may briefly be unresponsive during restart — keep polling.
+    }
+  }
+
+  function startDiscoverPolling() {
+    if (discoverPollInterval) return;
+    pollDiscoverState(); // run once immediately
+    discoverPollInterval = setInterval(pollDiscoverState, 1000);
+  }
+
+  // On popup open, re-hydrate discover UI from the background state. This
+  // is what makes "close popup, reopen, see results" work.
+  async function hydrateDiscoverOnOpen() {
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'DISCOVER_STATE' });
+      const state = resp?.state;
+      if (!state || state.status === 'idle') return;
+
+      if (state.status === 'running' || state.status === 'stopping') {
+        showDiscoverRunning(state.progressText || 'Discovering pages...');
+        startDiscoverPolling();
+      } else if (state.status === 'completed' && state.result) {
+        renderDiscoveryResult(state.result, state.method);
+      } else if (state.status === 'stopped' && state.error) {
+        projectStatus.textContent = state.error;
+        projectStatus.className = 'status error';
+      } else if (state.status === 'error') {
+        projectStatus.textContent = state.error || 'Discovery failed';
+        projectStatus.className = 'status error';
+      }
+    } catch (_) {}
+  }
+  hydrateDiscoverOnOpen();
+
   async function runDiscover(method) {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url) {
@@ -558,70 +674,48 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    btnDiscoverSitemap.disabled = true;
-    btnDiscoverCrawl.disabled = true;
-    discoverProgress.style.display = 'flex';
-    discoverProgressText.textContent = method === 'sitemap' ? 'Fetching sitemap...' : 'Crawling links...';
+    // Clear any previous completed/stopped state first so the run starts fresh.
+    await chrome.runtime.sendMessage({ action: 'DISCOVER_CLEAR' }).catch(() => {});
+
+    showDiscoverRunning(method === 'sitemap' ? 'Fetching sitemap...' : 'Crawling links...');
     projectStatus.textContent = '';
-    document.getElementById('discover-summary').style.display = 'none';
 
     try {
-      const result = await chrome.runtime.sendMessage({
+      const resp = await chrome.runtime.sendMessage({
         action: 'DISCOVER_PAGES',
         method,
         origin,
         startUrl: tab.url
       });
 
-      if (result?.success && result.urls?.length > 0) {
-        discoveredGroups = groupDiscoveredUrls(result.urls);
-        // Annotate shared-template groups with the real backend-detected totals.
-        // Without this, a "Product Pages" group would show 5 even though the
-        // site has 8,400 products — the 5 is our sample cap, not reality.
-        const stats = result.sampleStats || {};
-        for (const [key, stat] of Object.entries(stats)) {
-          if (discoveredGroups[key]) {
-            discoveredGroups[key].totalDetected = stat.total;
-            discoveredGroups[key].sampledCount = stat.kept;
-            discoveredGroups[key].skippedCount = stat.skipped;
-          }
-        }
-        const totalDetected = result.totalDetected || result.urls.length;
-        renderDiscoverSummary(discoveredGroups, totalDetected);
-        const collapsed = totalDetected - result.urls.length;
-        projectStatus.textContent = collapsed > 0
-          ? `Found ${totalDetected.toLocaleString()} pages (${collapsed.toLocaleString()} collapsed into samples) via ${method}`
-          : `Found ${result.urls.length.toLocaleString()} pages via ${method}`;
-        projectStatus.className = 'status success';
-      } else if (result?.success && result.urls?.length === 0) {
-        projectStatus.textContent = method === 'sitemap'
-          ? 'No sitemap found. Try "Crawl Links" instead.'
-          : 'No links discovered on this page.';
-        projectStatus.className = 'status error';
-      } else {
-        projectStatus.textContent = result?.error || 'Discovery failed';
-        projectStatus.className = 'status error';
+      if (resp?.alreadyRunning) {
+        // A discovery is already in progress — hydrate instead of starting a new one.
+        startDiscoverPolling();
+        return;
       }
+
+      if (!resp?.success) {
+        hideDiscoverRunning();
+        projectStatus.textContent = resp?.error || 'Failed to start discovery';
+        projectStatus.className = 'status error';
+        return;
+      }
+
+      // Discovery started in the background — begin polling for progress/result.
+      startDiscoverPolling();
     } catch (err) {
+      hideDiscoverRunning();
       projectStatus.textContent = err.message || 'Discovery failed';
       projectStatus.className = 'status error';
     }
-
-    btnDiscoverSitemap.disabled = false;
-    btnDiscoverCrawl.disabled = false;
-    discoverProgress.style.display = 'none';
   }
 
   btnDiscoverSitemap.addEventListener('click', () => runDiscover('sitemap'));
   btnDiscoverCrawl.addEventListener('click', () => runDiscover('crawl'));
 
   btnDiscoverStop.addEventListener('click', async () => {
-    await chrome.runtime.sendMessage({ action: 'DISCOVER_STOP' });
-    btnDiscoverSitemap.disabled = false;
-    btnDiscoverCrawl.disabled = false;
-    discoverProgress.style.display = 'none';
-    projectStatus.textContent = 'Discovery stopped';
-    projectStatus.className = 'status error';
+    await chrome.runtime.sendMessage({ action: 'DISCOVER_STOP' }).catch(() => {});
+    // Polling will pick up the 'stopped' state on its next tick and update UI.
   });
 
   // "Use Selected for Batch" — one URL per checked row.
