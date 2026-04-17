@@ -675,7 +675,55 @@ let discoveryState = {
 async function persistDiscoveryState() {
   try {
     await chrome.storage.local.set({ __echoflowDiscoveryState: discoveryState });
+    // Keep the toolbar badge in sync with state so users see discovery is alive
+    // even when the popup is closed.
+    updateDiscoveryBadge();
   } catch (_) {}
+}
+
+// Toolbar-icon badge reflects discoveryState:
+//   running/stopping → teal, live "N kept" count pulled from progressText
+//   completed         → green "✓" that persists until the popup is opened
+//   error/stopped     → red "!" that persists until the popup is opened
+//   idle              → cleared
+function updateDiscoveryBadge() {
+  if (!chrome.action || !chrome.action.setBadgeText) return; // older Chrome
+  const s = discoveryState || {};
+  try {
+    if (s.status === 'running' || s.status === 'stopping') {
+      // Try to scrape a kept-count out of the progress text for a meaningful number
+      const m = typeof s.progressText === 'string' ? s.progressText.match(/(\d[\d,]*)\s*kept/i) : null;
+      const text = m ? m[1].replace(/,/g, '').slice(0, 4) : '...';
+      chrome.action.setBadgeText({ text });
+      chrome.action.setBadgeBackgroundColor({ color: s.status === 'stopping' ? '#b36b00' : '#00C9A7' });
+      chrome.action.setTitle({ title: `EchoFlow — ${s.progressText || 'Discovering pages...'}` });
+    } else if (s.status === 'completed') {
+      chrome.action.setBadgeText({ text: '✓' });
+      chrome.action.setBadgeBackgroundColor({ color: '#00996e' });
+      const count = s.result?.urls?.length ?? 0;
+      chrome.action.setTitle({ title: `EchoFlow — Discovery complete (${count.toLocaleString()} pages)` });
+    } else if (s.status === 'error' || s.status === 'stopped') {
+      chrome.action.setBadgeText({ text: '!' });
+      chrome.action.setBadgeBackgroundColor({ color: '#e53935' });
+      chrome.action.setTitle({ title: `EchoFlow — ${s.error || 'Discovery stopped'}` });
+    } else {
+      chrome.action.setBadgeText({ text: '' });
+      chrome.action.setTitle({ title: 'EchoFlow' });
+    }
+  } catch (_) {}
+}
+
+// Once the user opens the popup on a terminal state, they've seen the result —
+// clear the badge so it doesn't linger across sessions.
+function clearDiscoveryBadgeIfTerminal() {
+  if (!chrome.action || !chrome.action.setBadgeText) return;
+  const s = discoveryState || {};
+  if (s.status === 'completed' || s.status === 'error' || s.status === 'stopped') {
+    try {
+      chrome.action.setBadgeText({ text: '' });
+      chrome.action.setTitle({ title: 'EchoFlow' });
+    } catch (_) {}
+  }
 }
 
 async function hydrateDiscoveryState() {
@@ -692,6 +740,7 @@ async function hydrateDiscoveryState() {
         await persistDiscoveryState();
       }
     }
+    updateDiscoveryBadge();
   } catch (_) {}
 }
 hydrateDiscoveryState();
@@ -1210,6 +1259,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'DISCOVER_STATE') {
+    // If the popup is asking for state and discovery is finished, the user has
+    // seen the result — clear the toolbar badge so it doesn't linger.
+    clearDiscoveryBadgeIfTerminal();
     sendResponse({ success: true, state: discoveryState });
     return true;
   }

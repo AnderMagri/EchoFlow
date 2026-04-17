@@ -431,14 +431,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return groups;
   }
 
-  // Build a template-level sitemap tree. Each node is a template type (one row in the
-  // UI, one black rectangle in the Figma IA). Parent is inferred by:
-  //   1. Crawl parentMap votes (if available) — the dominant parent template of the URLs
-  //      inside the child template.
-  //   2. Path-segment prefix matching of the sample URL against other templates' samples.
-  //   3. Fallback to homepage (or no parent if no homepage was discovered).
-  // Cycles are broken by preferring crawl votes over path inference, and otherwise
-  // dropping the edge back to root.
+  // Build a template-level sitemap tree. Each node is a template type (one row
+  // in the UI, one black rectangle in the Figma IA).
+  //
+  // TWO modes of inference depending on available data:
+  //
+  //   Crawl mode (parentMap provided):
+  //     The crawl recorded which page linked to which. We aggregate votes at
+  //     the template level: for every URL in template X, look up the page that
+  //     linked to it → classify that page → count votes. The template with the
+  //     most votes becomes X's parent. If the majority vote is "__root__" (the
+  //     link target was the start URL / nobody known linked there), X becomes
+  //     a root. This gives the **real navigation tree** the user sees on the
+  //     site — e.g. Blog won't nest under Homepage unless the homepage
+  //     actually links to a blog page.
+  //
+  //   Sitemap-XML mode (parentMap is null):
+  //     No link data. Fall back to URL path-segment prefix matching
+  //     (/Blog/Article → child of /Blog → child of /). This is a structural
+  //     guess, not real navigation, so we label it "inferred".
+  //
+  //   hasCrawlData flag is exposed in the return so the UI can label the tree.
   function buildTemplateTree(groups, parentMap) {
     const types = Object.keys(groups);
     const pathOfType = {};
@@ -447,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
       catch { pathOfType[t] = '/'; }
     }
     const homepageType = types.includes('homepage') ? 'homepage' : null;
+    const hasCrawlData = parentMap && typeof parentMap === 'object' && Object.keys(parentMap).length > 0;
 
     // Helper: classify any URL back to a template type we actually have
     function typeOf(url) {
@@ -456,56 +470,63 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch { return null; }
     }
 
-    // Step 1 — vote from crawl parentMap (if we got one)
-    const votes = {}; // childType -> { parentType: count }
-    if (parentMap && typeof parentMap === 'object') {
+    const parentOf = {};
+
+    if (hasCrawlData) {
+      // ── Crawl-vote mode ──
+      // Build vote table: childType → { candidateParentType → count }
+      const votes = {};
       for (const [childUrl, parentUrl] of Object.entries(parentMap)) {
         const childType = typeOf(childUrl);
         if (!childType) continue;
         const parentType = parentUrl ? typeOf(parentUrl) : null;
-        if (parentType === childType) continue; // ignore same-template self-loops
+        if (parentType === childType) continue; // same-template self-link (e.g. product → product in "related")
         if (!votes[childType]) votes[childType] = {};
         const key = parentType || '__root__';
         votes[childType][key] = (votes[childType][key] || 0) + 1;
       }
-    }
 
-    // Step 2 — for each type, pick a parent
-    const parentOf = {};
-    for (const t of types) {
-      if (t === homepageType) { parentOf[t] = null; continue; }
+      for (const t of types) {
+        if (t === homepageType) { parentOf[t] = null; continue; }
 
-      // 2a — crawl votes: pick top-voted non-self parent
-      const v = votes[t];
-      if (v) {
-        let best = null, bestCount = 0;
-        for (const [cand, count] of Object.entries(v)) {
-          if (cand === t) continue;
-          if (count > bestCount) { best = cand; bestCount = count; }
-        }
-        if (best && best !== '__root__' && types.includes(best)) {
-          parentOf[t] = best;
-          continue;
-        }
-        if (best === '__root__' && bestCount > 0) {
-          // Majority said "root" — respect that, unless there's a clear path-based parent
-          // (handled below). For now, leave undefined so path inference can override.
+        const v = votes[t];
+        if (v) {
+          // Pick the candidate with the most votes (excluding self)
+          let best = null, bestCount = 0;
+          for (const [cand, count] of Object.entries(v)) {
+            if (cand === t) continue;
+            if (count > bestCount) { best = cand; bestCount = count; }
+          }
+          if (best && best !== '__root__' && types.includes(best)) {
+            parentOf[t] = best;
+          } else {
+            // Majority said __root__ (nobody in our known templates linked here),
+            // or we have no votes at all — this template is a top-level entry.
+            parentOf[t] = null;
+          }
+        } else {
+          // No votes at all for this type (edge case — e.g. only the start URL was in this template)
+          parentOf[t] = null;
         }
       }
+    } else {
+      // ── Path-inference mode (sitemap.xml, no link data) ──
+      for (const t of types) {
+        if (t === homepageType) { parentOf[t] = null; continue; }
 
-      // 2b — path-segment inference: walk up from sample URL, look for an ancestor template
-      const samplePath = pathOfType[t];
-      const segments = samplePath.split('/').filter(Boolean);
-      let pathParent = null;
-      for (let i = segments.length - 1; i >= 1; i--) {
-        const prefix = '/' + segments.slice(0, i).join('/');
-        const match = types.find(tt => tt !== t && pathOfType[tt] === prefix);
-        if (match) { pathParent = match; break; }
+        const samplePath = pathOfType[t];
+        const segments = samplePath.split('/').filter(Boolean);
+        let pathParent = null;
+        for (let i = segments.length - 1; i >= 1; i--) {
+          const prefix = '/' + segments.slice(0, i).join('/');
+          const match = types.find(tt => tt !== t && pathOfType[tt] === prefix);
+          if (match) { pathParent = match; break; }
+        }
+        parentOf[t] = pathParent ?? homepageType ?? null;
       }
-      parentOf[t] = pathParent ?? homepageType ?? null;
     }
 
-    // Step 3 — cycle break: if walking up reveals a cycle, drop that edge to root
+    // Cycle break: if walking up reveals a loop, detach the starting node to root
     for (const t of types) {
       const seen = new Set();
       let cur = t;
@@ -516,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Step 4 — children index + depth
+    // Children index + depth
     const childrenOf = { __root__: [] };
     for (const t of types) {
       const p = parentOf[t] || '__root__';
@@ -536,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const t of types) depth(t);
 
     const roots = types.filter(t => !parentOf[t]);
-    return { parentOf, childrenOf, depthOf, roots };
+    return { parentOf, childrenOf, depthOf, roots, hasCrawlData };
   }
 
   // Display order for the flat Templates view (unused in Sitemap view, which uses tree depth)
