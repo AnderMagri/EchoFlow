@@ -265,7 +265,7 @@
         html += '<a class="design-logo-download" href="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(inv.logo.content) + '" download="logo.svg">Download SVG</a>';
       } else if (inv.logo.type === 'img') {
         html += '<div class="design-logo-preview"><img src="' + escapeHtml(inv.logo.src) + '" style="max-height:60px;max-width:160px;object-fit:contain;"></div>';
-        html += '<a class="design-logo-download" href="' + escapeHtml(inv.logo.src) + '" target="_blank">Open image ↗</a>';
+        html += '<button class="design-logo-download" data-logo-url="' + escapeHtml(inv.logo.src) + '">⬇ Download</button>';
       }
       html += '</div></div>';
     }
@@ -371,6 +371,32 @@
     }
 
     container.innerHTML = html;
+
+    // Logo download handler for img logos.
+    // <a download> doesn't work cross-origin, so we fetch→blob→objectURL instead.
+    container.querySelectorAll('button[data-logo-url]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const url = btn.dataset.logoUrl;
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error('fetch failed');
+          const blob = await resp.blob();
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          const rawExt = url.split('?')[0].split('.').pop().toLowerCase();
+          a.download = 'logo.' + (['png','jpg','jpeg','gif','webp','avif'].includes(rawExt) ? rawExt : 'png');
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+          showToast('Logo downloaded');
+        } catch {
+          // Fallback: open in new tab if fetch fails (e.g. CORS block)
+          window.open(url, '_blank');
+        }
+      });
+    });
 
     // Render design findings below the inventory
     findingsList.innerHTML = '';

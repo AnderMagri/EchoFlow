@@ -34,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tab.dataset.popupTab === 'explorer') {
         loadExplorerTab();
       }
+      // Warn if the current site is already on Shopify
+      if (tab.dataset.popupTab === 'shopify-adapt') {
+        maybeWarnShopifyMigration();
+      }
     });
   });
 
@@ -401,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let discoveredOrigin = '';  // e.g. "https://bookdepot.ca"
   let lastTotalCount = 0;      // Cached so view toggle can re-render without re-fetching state
   let currentDiscoverView = 'templates'; // 'templates' | 'sitemap' | 'navigation'
+  let detectedPlatform = null;  // Set by detectAndShowPlatform(); used to warn in Shopify Migration tab
 
   // ── Platform Detection ──
   // Runs a lightweight script in the active tab (no network needed) to detect
@@ -478,6 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!detected) return;
 
+      detectedPlatform = detected;
+
       const info = PLATFORMS[detected];
       banner.style.cssText = `
         display:flex; align-items:center; gap:8px;
@@ -487,9 +494,25 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       banner.innerHTML = `<span style="font-size:15px;">${info.icon}</span><span>${info.note}</span>`;
 
+      // If the user is already on the Shopify Migration tab when detection finishes,
+      // show the warning there too (tab may have been open before detection completed).
+      maybeWarnShopifyMigration();
+
     } catch (_) {
       // Silently ignore — scripting may be blocked on some pages
     }
+  }
+
+  // Show a contextual warning in the Shopify Migration tab if the current site
+  // is already on Shopify — the migration tool is designed for non-Shopify sites.
+  function maybeWarnShopifyMigration() {
+    if (detectedPlatform !== 'shopify') return;
+    const adaptStatusEl = document.getElementById('adapt-status');
+    if (!adaptStatusEl) return;
+    // Only set the warning if no analysis is currently running (don't overwrite progress)
+    if (adaptStatusEl.textContent.includes('Analyzing')) return;
+    adaptStatusEl.textContent = '⚠️ This is already a Shopify store. Shopify Migration is designed for non-Shopify sites. You can still run it to audit migration quality.';
+    adaptStatusEl.className = 'status error';
   }
 
   detectAndShowPlatform();

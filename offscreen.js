@@ -14,33 +14,38 @@ async function stitchScreenshots(strips, cssWidth, cssHeight, dpr) {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
-  // Work in device pixels for the output canvas
-  const pxWidth = Math.round(cssWidth * dpr);
-  const pxHeight = Math.round(cssHeight * dpr);
+  // Load the first strip to derive the *actual* device pixel ratio from the
+  // captured image's own dimensions. window.devicePixelRatio (passed as dpr)
+  // can diverge from the capture ratio when the browser zoom ≠ 100% or the
+  // OS uses fractional scaling — using the real image ratio eliminates seams.
+  const firstImg = await loadImage(strips[0].dataUrl);
+  const imgDpr = firstImg.naturalWidth / cssWidth;  // actual px per CSS px
 
-  canvas.width = pxWidth;
+  // Output canvas size uses the real imgDpr so height is exact
+  const pxWidth  = Math.round(cssWidth  * imgDpr);
+  const pxHeight = Math.round(cssHeight * imgDpr);
+  canvas.width  = pxWidth;
   canvas.height = pxHeight;
 
-  for (const strip of strips) {
-    const img = await loadImage(strip.dataUrl);
-
-    // The captured image is in device pixels (e.g., 2x on Retina)
-    // srcY and srcHeight are in CSS pixels — convert to device pixels
-    const srcX = 0;
-    const srcY = Math.round(strip.srcY * dpr);
-    const srcW = img.naturalWidth;
-    const srcH = Math.round(strip.srcHeight * dpr);
-
-    // Destination on output canvas (also in device pixels)
-    const destX = 0;
-    const destY = Math.round(strip.destY * dpr);
-    const destW = pxWidth;
-    const destH = Math.round(strip.srcHeight * dpr);
-
-    ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+  async function drawStrip(img, strip) {
+    // Source: crop from the captured image (device pixels via imgDpr)
+    const srcY = Math.round(strip.srcY      * imgDpr);
+    const srcH = Math.round(strip.srcHeight * imgDpr);
+    // Destination: same coordinate system — no scaling distortion at seams
+    const destY = Math.round(strip.destY    * imgDpr);
+    ctx.drawImage(img, 0, srcY, img.naturalWidth, srcH, 0, destY, pxWidth, srcH);
   }
 
-  return canvas.toDataURL('image/jpeg', 0.85);
+  // First strip already loaded
+  await drawStrip(firstImg, strips[0]);
+
+  // Remaining strips — load and draw sequentially to keep memory bounded
+  for (let i = 1; i < strips.length; i++) {
+    const img = await loadImage(strips[i].dataUrl);
+    await drawStrip(img, strips[i]);
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.90);
 }
 
 function loadImage(dataUrl) {

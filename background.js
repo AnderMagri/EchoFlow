@@ -120,9 +120,9 @@ async function captureFullPage(tabId) {
 
   // Capture first viewport (keep fixed/sticky elements visible for first strip)
   await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: 0 });
-  await sleep(400);
+  await sleep(500);
   const firstStrip = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 90 });
-  await sleep(600); // Rate limit: max ~2 captureVisibleTab calls/sec
+  await sleep(500); // Rate limit: ~1 capture/sec max
 
   // Each strip tracks: actual scroll position, how much to crop from top, and output Y
   const strips = [{
@@ -137,14 +137,14 @@ async function captureFullPage(tabId) {
   // Hide fixed/sticky elements for remaining strips to avoid duplication
   if (totalHeight > viewportHeight) {
     await chrome.tabs.sendMessage(tabId, { action: 'HIDE_FIXED_ELEMENTS' });
-    await sleep(100);
+    await sleep(200); // Wait for layout to settle after hiding fixed elements
   }
 
   // Capture remaining strips — scroll in viewport-sized steps
   let targetY = viewportHeight;
   while (coveredUpTo < totalHeight) {
     const scrollResult = await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: targetY });
-    await sleep(400);
+    await sleep(500); // Wait for scroll and render to settle
 
     // The browser clamps scrollY to the maximum scrollable position
     const actualScrollY = scrollResult.scrollY;
@@ -162,7 +162,7 @@ async function captureFullPage(tabId) {
     if (usableHeight <= 0) break;
 
     const stripDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 90 });
-    await sleep(600); // Rate limit: max ~2 captureVisibleTab calls/sec
+    await sleep(500); // Rate limit buffer (~1 capture/sec)
 
     strips.push({
       dataUrl: stripDataUrl,
