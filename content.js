@@ -713,6 +713,41 @@
       return true;
     }
 
+    if (message.action === 'PREPARE_FOR_CAPTURE') {
+      // 1. Freeze all CSS animations and transitions so nothing is mid-state
+      //    between strip captures (scroll-reveal animations, hover effects, etc.)
+      // 2. Force background-attachment:scroll so parallax/fixed backgrounds
+      //    move with the page and align correctly in every strip.
+      const style = document.createElement('style');
+      style.id = '__echoflow-freeze';
+      style.textContent = `
+        *, *::before, *::after {
+          animation-duration: 0.001s !important;
+          animation-delay: 0s !important;
+          transition-duration: 0.001s !important;
+          transition-delay: 0s !important;
+        }
+        * { background-attachment: scroll !important; }
+      `;
+      document.head.appendChild(style);
+
+      // 3. Promote lazy images to eager so lower strips have loaded content.
+      //    Also works for native loading="lazy" images.
+      document.querySelectorAll('img[loading="lazy"]').forEach(img => {
+        img.loading = 'eager';
+      });
+
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (message.action === 'RESTORE_AFTER_CAPTURE') {
+      const style = document.getElementById('__echoflow-freeze');
+      if (style) style.remove();
+      sendResponse({ success: true });
+      return true;
+    }
+
     if (message.action === 'HIDE_FIXED_ELEMENTS') {
       // Hide sticky/fixed elements (headers, navs, chat widgets) to avoid duplication in stitched screenshots
       const fixed = document.querySelectorAll('*');

@@ -103,7 +103,13 @@ async function captureFullPage(tabId) {
   const totalHeight = Math.min(scrollHeight, 15000);
   const maxScrollY = totalHeight - viewportHeight;
 
-  // Disable smooth scrolling and hide scrollbar (but keep scroll functional)
+  // ── Phase 1: Prepare page for distortion-free capture ──
+  // Freeze CSS animations/transitions so no element is mid-state between strips.
+  // Force background-attachment:scroll to fix parallax heroes.
+  // Promote lazy images to eager so lower strips have loaded content.
+  await chrome.tabs.sendMessage(tabId, { action: 'PREPARE_FOR_CAPTURE' }).catch(() => {});
+
+  // Disable smooth scrolling and hide scrollbar
   await chrome.scripting.executeScript({
     target: { tabId },
     func: () => {
@@ -118,6 +124,22 @@ async function captureFullPage(tabId) {
     }
   });
 
+  // ── Phase 2: Pre-scroll to trigger lazy loading and scroll-reveal elements ──
+  // Quickly scroll through the full page so Intersection Observers and JS lazy
+  // loaders detect lower sections and begin fetching images before we capture.
+  // Animations are already frozen so elements snap to their final visible state.
+  if (totalHeight > viewportHeight) {
+    const preScrollStep = Math.floor(viewportHeight * 0.75);
+    for (let y = preScrollStep; y < totalHeight; y += preScrollStep) {
+      await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y });
+      await sleep(80); // Just enough for IO to fire, not a full render wait
+    }
+    // Return to top and let lazy-loaded images finish loading
+    await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: 0 });
+    await sleep(800);
+  }
+
+  // ── Phase 3: Capture strips ──
   // Capture first viewport (keep fixed/sticky elements visible for first strip)
   await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: 0 });
   await sleep(500);
@@ -178,12 +200,13 @@ async function captureFullPage(tabId) {
     if (actualScrollY >= maxScrollY) break;
   }
 
-  // Restore fixed elements and scroll position
+  // ── Phase 4: Restore page to original state ──
   if (totalHeight > viewportHeight) {
     await chrome.tabs.sendMessage(tabId, { action: 'RESTORE_FIXED_ELEMENTS' });
   }
 
-  // Restore scrollbar and scroll-behavior
+  // Unfreeze animations and restore scrollbar/scroll-behavior
+  await chrome.tabs.sendMessage(tabId, { action: 'RESTORE_AFTER_CAPTURE' }).catch(() => {});
   await chrome.scripting.executeScript({
     target: { tabId },
     func: () => {
