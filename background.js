@@ -681,6 +681,38 @@ async function persistDiscoveryState() {
   } catch (_) {}
 }
 
+const EXPLORATIONS_KEY = '__echoflowExplorations';
+const EXPLORATIONS_MAX = 10;
+
+async function saveExploration({ siteUrl, method, pageCount, result }) {
+  try {
+    const hostname = new URL(siteUrl).hostname;
+    const stored = await chrome.storage.local.get(EXPLORATIONS_KEY);
+    let explorations = stored[EXPLORATIONS_KEY] || [];
+
+    // Remove existing entry for same origin (dedup — keep the freshest)
+    explorations = explorations.filter(e => e.siteUrl !== siteUrl);
+
+    // Build the new exploration record
+    const exploration = {
+      id: 'exp_' + Date.now(),
+      siteUrl,
+      siteName: hostname,
+      favicon: siteUrl + '/favicon.ico',
+      timestamp: Date.now(),
+      pageCount,
+      method,
+      result
+    };
+
+    // Prepend and cap at max
+    explorations.unshift(exploration);
+    if (explorations.length > EXPLORATIONS_MAX) explorations = explorations.slice(0, EXPLORATIONS_MAX);
+
+    await chrome.storage.local.set({ [EXPLORATIONS_KEY]: explorations });
+  } catch (_) {}
+}
+
 // Toolbar-icon badge reflects discoveryState:
 //   running/stopping → teal, live "N kept" count pulled from progressText
 //   completed         → green "✓" that persists until the popup is opened
@@ -1500,6 +1532,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         };
         discoveryState.finishedAt = Date.now();
         await persistDiscoveryState();
+
+        // Auto-save to Explorations (only on completed crawls, not stopped/errored)
+        if (!discoverStopped && result.urls.length > 0) {
+          await saveExploration({
+            siteUrl: origin,
+            method,
+            pageCount: result.totalDetected || result.urls.length,
+            result: discoveryState.result
+          });
+        }
       } catch (err) {
         discoveryState.status = 'error';
         discoveryState.error = err.message || String(err);

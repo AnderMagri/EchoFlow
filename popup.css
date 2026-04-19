@@ -787,3 +787,94 @@ body {
   text-align: center;
   line-height: 1.6;
 }
+
+/* ─── Explorer Tab ─── */
+.explorer-card {
+  border: 1px solid #e8e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  transition: box-shadow 0.15s;
+}
+
+.explorer-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+.explorer-card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.explorer-favicon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.explorer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.explorer-site {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-meta {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.explorer-delete {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.explorer-delete:hover {
+  color: #e53935;
+  background: #fff0f0;
+}
+
+.explorer-restore {
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  padding: 5px 0;
+}
+
+.explorer-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: #999;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.explorer-empty-icon {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.explorer-empty-hint {
+  color: #bbb;
+  font-size: 11px;
+  margin-top: 4px;
+}

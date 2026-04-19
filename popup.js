@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tab.dataset.popupTab === 'project-review') {
         loadProjectList();
       }
+      // Load explorations when switching to explorer tab
+      if (tab.dataset.popupTab === 'explorer') {
+        loadExplorerTab();
+      }
     });
   });
 
@@ -219,6 +223,85 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDeleteProject = document.getElementById('btn-delete-project');
 
   let batchRunning = false;
+
+  // ── Explorer Tab ──
+  async function loadExplorerTab() {
+    const container = document.getElementById('explorer-list');
+    if (!container) return;
+
+    try {
+      const stored = await chrome.storage.local.get('__echoflowExplorations');
+      const explorations = stored['__echoflowExplorations'] || [];
+
+      if (explorations.length === 0) {
+        container.innerHTML = '<div class="explorer-empty"><span class="explorer-empty-icon">🔍</span><p>No explorations yet.</p><p class="explorer-empty-hint">Crawl any site on the Page Review tab — it\'ll appear here automatically.</p></div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      for (const exp of explorations) {
+        const card = document.createElement('div');
+        card.className = 'explorer-card';
+
+        const ago = formatTimeAgo(exp.timestamp);
+        const methodLabel = exp.method === 'crawl' ? '🕷 Crawl' : '🗺 Sitemap';
+        const pageCount = (exp.result?.totalDetected || exp.pageCount || 0).toLocaleString();
+
+        card.innerHTML = `
+          <div class="explorer-card-main">
+            <img class="explorer-favicon" src="${exp.favicon}" onerror="this.style.display='none'" />
+            <div class="explorer-info">
+              <div class="explorer-site">${escapeHtml(exp.siteName)}</div>
+              <div class="explorer-meta">${methodLabel} · ${pageCount} pages · ${ago}</div>
+            </div>
+            <button class="explorer-delete" data-id="${exp.id}" title="Remove">✕</button>
+          </div>
+          <button class="explorer-restore btn-sm-secondary" data-id="${exp.id}">Reload Discovery</button>
+        `;
+
+        // Restore discovery results
+        card.querySelector('.explorer-restore').addEventListener('click', () => {
+          // Switch to Page Review tab
+          const pageReviewTab = document.querySelector('[data-popup-tab="page-review"]');
+          if (pageReviewTab) pageReviewTab.click();
+
+          // Load the stored result into the discover section
+          if (exp.result) {
+            renderDiscoveryResult(exp.result, exp.method);
+            if (projectStatus) {
+              projectStatus.textContent = `Loaded: ${exp.siteName} (${pageCount} pages)`;
+              projectStatus.className = 'status success';
+            }
+          }
+        });
+
+        // Delete exploration
+        card.querySelector('.explorer-delete').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const stored2 = await chrome.storage.local.get('__echoflowExplorations');
+          const updated = (stored2['__echoflowExplorations'] || []).filter(ex => ex.id !== exp.id);
+          await chrome.storage.local.set({ '__echoflowExplorations': updated });
+          card.remove();
+          if (container.children.length === 0) loadExplorerTab();
+        });
+
+        container.appendChild(card);
+      }
+    } catch (err) {
+      container.innerHTML = '<div class="explorer-empty"><p>Could not load explorations.</p></div>';
+    }
+  }
+
+  function formatTimeAgo(timestamp) {
+    const diff = Date.now() - timestamp;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  }
 
   async function loadProjectList() {
     try {

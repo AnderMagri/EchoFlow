@@ -22,8 +22,10 @@
     <!-- Main Tabs -->
     <nav class="popup-tabs">
       <button class="popup-tab active" data-popup-tab="page-review">Page Review</button>
-      <button class="popup-tab" data-popup-tab="project-review">Project</button>
+      <button class="popup-tab" data-popup-tab="explorer">Explorer</button>
       <button class="popup-tab" data-popup-tab="shopify-adapt">Shopify Migration</button>
+      <!-- Project tab hidden — kept for future use -->
+      <button class="popup-tab" data-popup-tab="project-review" style="display:none;">Project</button>
     </nav>
 
     <!-- ═══ Page Review Tab ═══ -->
@@ -110,6 +112,15 @@
     </div>
 
     <!-- ═══ Project Review Tab ═══ -->
+    <!-- ═══ Explorer Tab ═══ -->
+    <div id="tab-explorer" class="popup-tab-content">
+      <div class="section">
+        <label class="section-label">Recent Explorations</label>
+        <p class="section-hint">Sites you've crawled recently. Click any card to reload its discovery results.</p>
+        <div id="explorer-list"></div>
+      </div>
+    </div>
+
     <div id="tab-project-review" class="popup-tab-content">
       <div class="section">
         <label class="section-label">Project</label>
