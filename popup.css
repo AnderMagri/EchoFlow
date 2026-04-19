@@ -9,7 +9,8 @@ body {
   font-size: 13px;
   color: #1a1a2e;
   background: #fff;
-  width: 340px;
+  width: 420px;
+  min-height: 560px;
 }
 
 .popup {
@@ -557,7 +558,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 200px;
+  max-height: 340px;
   overflow-y: auto;
 }
 
