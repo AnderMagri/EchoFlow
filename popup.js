@@ -658,6 +658,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     summary.style.display = 'block';
+
+    // Show/hide the right action buttons depending on view
+    const isNavView = currentDiscoverView === 'navigation';
+    const btnFigjam = document.getElementById('btn-discover-figjam');
+    const btnScript = document.getElementById('btn-discover-nav-script');
+    const btnText   = document.getElementById('btn-discover-nav-text');
+    if (btnFigjam) btnFigjam.style.display = isNavView ? 'none' : '';
+    if (btnScript) btnScript.style.display = isNavView ? '' : 'none';
+    if (btnText)   btnText.style.display   = isNavView ? '' : 'none';
   }
 
   // Flat Templates view — unique pages first, then shared-template groups, with the 30-row cap
@@ -1220,20 +1229,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDiscoverFigjam = document.getElementById('btn-discover-figjam');
   if (btnDiscoverFigjam) {
     btnDiscoverFigjam.addEventListener('click', async () => {
-      // ── Navigation view: generate Desktop Bridge script ──
-      if (currentDiscoverView === 'navigation' && discoveredNavStructure) {
-        try {
-          const script = generateFigJamScript(discoveredNavStructure, discoveredOrigin);
-          await navigator.clipboard.writeText(script);
-          projectStatus.textContent = 'FigJam script copied — paste into Desktop Bridge and run';
-          projectStatus.className = 'status success';
-        } catch (err) {
-          projectStatus.textContent = 'Clipboard copy failed — check browser permissions';
-          projectStatus.className = 'status error';
-        }
-        return;
-      }
-
       const checked = new Set();
       document.querySelectorAll('.discover-group-check:checked').forEach(chk => checked.add(chk.dataset.type));
 
@@ -1284,6 +1279,91 @@ document.addEventListener('DOMContentLoaded', () => {
         await navigator.clipboard.writeText(lines.join('\n'));
         const mode = currentDiscoverView === 'sitemap' ? 'sitemap tree' : currentDiscoverView === 'navigation' ? 'navigation' : 'templates';
         projectStatus.textContent = `Copied ${exportCount} ${mode} for FigJam`;
+        projectStatus.className = 'status success';
+      } catch (err) {
+        projectStatus.textContent = 'Clipboard copy failed — check browser permissions';
+        projectStatus.className = 'status error';
+      }
+    });
+  }
+
+  // ── "Run it" — copies JS script for Desktop Bridge ──
+  const btnNavScript = document.getElementById('btn-discover-nav-script');
+  if (btnNavScript) {
+    btnNavScript.addEventListener('click', async () => {
+      if (!discoveredNavStructure) {
+        projectStatus.textContent = 'No navigation data — run Crawl Links first';
+        projectStatus.className = 'status error';
+        return;
+      }
+      try {
+        const script = generateFigJamScript(discoveredNavStructure, discoveredOrigin);
+        await navigator.clipboard.writeText(script);
+        projectStatus.textContent = 'Script copied — paste into Desktop Bridge and click Run';
+        projectStatus.className = 'status success';
+      } catch (err) {
+        projectStatus.textContent = 'Clipboard copy failed — check browser permissions';
+        projectStatus.className = 'status error';
+      }
+    });
+  }
+
+  // ── "Copy Text" — clean tab-indented text for notes / docs ──
+  const btnNavText = document.getElementById('btn-discover-nav-text');
+  if (btnNavText) {
+    btnNavText.addEventListener('click', async () => {
+      if (!discoveredNavStructure) {
+        projectStatus.textContent = 'No navigation data — run Crawl Links first';
+        projectStatus.className = 'status error';
+        return;
+      }
+
+      const lines = [];
+      const nav = discoveredNavStructure;
+
+      // Header nav
+      if (nav.header && nav.header.items && nav.header.items.length > 0) {
+        lines.push(`[${nav.header.label || 'Main Navigation'}]`);
+        for (const item of nav.header.items) {
+          lines.push(`\t${item.label}${item.url ? '  ' + item.url : ''}`);
+          if (item.children) {
+            for (const child of item.children) {
+              lines.push(`\t\t${child.label}${child.url ? '  ' + child.url : ''}`);
+              if (child.children) {
+                for (const gc of child.children) {
+                  lines.push(`\t\t\t${gc.label}${gc.url ? '  ' + gc.url : ''}`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Footer groups
+      if (nav.footer && nav.footer.groups) {
+        for (const group of nav.footer.groups) {
+          if (!group.items || group.items.length === 0) continue;
+          lines.push(`[${group.label || 'Footer'}]`);
+          for (const item of group.items) {
+            lines.push(`\t${item.label}${item.url ? '  ' + item.url : ''}`);
+          }
+        }
+      }
+
+      // Secondary navs
+      if (nav.secondary) {
+        for (const sec of nav.secondary) {
+          if (!sec.items || sec.items.length === 0) continue;
+          lines.push(`[${sec.label || 'Secondary Navigation'}]`);
+          for (const item of sec.items) {
+            lines.push(`\t${item.label}${item.url ? '  ' + item.url : ''}`);
+          }
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(lines.join('\n'));
+        projectStatus.textContent = `Copied navigation structure (${lines.length} lines)`;
         projectStatus.className = 'status success';
       } catch (err) {
         projectStatus.textContent = 'Clipboard copy failed — check browser permissions';
