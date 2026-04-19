@@ -319,6 +319,98 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastTotalCount = 0;      // Cached so view toggle can re-render without re-fetching state
   let currentDiscoverView = 'templates'; // 'templates' | 'sitemap' | 'navigation'
 
+  // ── Platform Detection ──
+  // Runs a lightweight script in the active tab (no network needed) to detect
+  // the site's tech stack from live DOM signals, then shows a banner in the UI.
+  const PLATFORMS = {
+    shopify:      { label: 'Shopify',      color: '#96bf48', text: '#fff', icon: '🛍️',  note: 'This is a Shopify store — Shopify Migration mode available' },
+    wordpress:    { label: 'WordPress',    color: '#21759b', text: '#fff', icon: '🔵',  note: 'WordPress site detected' },
+    wix:          { label: 'Wix',          color: '#faad4d', text: '#1a1a2e', icon: '⬡', note: 'Wix site detected' },
+    webflow:      { label: 'Webflow',      color: '#4353ff', text: '#fff', icon: '🌊',  note: 'Webflow site detected' },
+    squarespace:  { label: 'Squarespace',  color: '#222',    text: '#fff', icon: '◾',   note: 'Squarespace site detected' },
+    bigcommerce:  { label: 'BigCommerce',  color: '#34313f', text: '#fff', icon: '🛒',  note: 'BigCommerce store detected' },
+    ghost:        { label: 'Ghost',        color: '#738a94', text: '#fff', icon: '👻',  note: 'Ghost CMS detected' },
+  };
+
+  async function detectAndShowPlatform() {
+    const banner = document.getElementById('platform-banner');
+    if (!banner) return;
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
+
+      // Check hostname for myshopify.com before injecting script
+      let hostPlatform = null;
+      try {
+        const hostname = new URL(tab.url).hostname;
+        if (hostname.includes('myshopify.com')) hostPlatform = 'shopify';
+        if (hostname.includes('squarespace.com')) hostPlatform = 'squarespace';
+        if (hostname.includes('wixsite.com') || hostname.includes('wix.com')) hostPlatform = 'wix';
+        if (hostname.includes('webflow.io')) hostPlatform = 'webflow';
+        if (hostname.includes('bigcommerce.com')) hostPlatform = 'bigcommerce';
+      } catch (_) {}
+
+      // Inject script to check live DOM signals
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          const s = {};
+          // Window globals
+          if (window.Shopify)        s.shopify     = true;
+          if (window.wixBiSession)   s.wix         = true;
+          if (window.Webflow)        s.webflow     = true;
+          if (window.BCData)         s.bigcommerce = true;
+          if (window.Ghost)          s.ghost       = true;
+          // Generator meta tag
+          const gen = document.querySelector('meta[name="generator"]');
+          if (gen) {
+            const c = (gen.content || '').toLowerCase();
+            if (c.includes('wordpress'))   s.wordpress   = true;
+            if (c.includes('squarespace')) s.squarespace = true;
+            if (c.includes('webflow'))     s.webflow     = true;
+            if (c.includes('ghost'))       s.ghost       = true;
+            if (c.includes('wix'))         s.wix         = true;
+          }
+          // Script src patterns
+          const srcs = [...document.scripts].map(el => el.src);
+          if (srcs.some(u => u.includes('cdn.shopify.com') || u.includes('/shopify/')))            s.shopify     = true;
+          if (srcs.some(u => u.includes('static.wixstatic.com') || u.includes('wix-code-sdk')))   s.wix         = true;
+          if (srcs.some(u => u.includes('squarespace.com')))                                       s.squarespace = true;
+          if (srcs.some(u => u.includes('webflow.com')))                                           s.webflow     = true;
+          if (srcs.some(u => u.includes('bigcommerce.com')))                                       s.bigcommerce = true;
+          if (srcs.some(u => u.includes('/wp-content/') || u.includes('/wp-includes/')))           s.wordpress   = true;
+          // Shopify meta tag
+          if (document.querySelector('[name^="shopify"]'))  s.shopify = true;
+          return s;
+        }
+      });
+
+      const signals = result?.result || {};
+      if (hostPlatform) signals[hostPlatform] = true;
+
+      // Priority order — pick the first match
+      const detected = ['shopify','bigcommerce','wordpress','wix','webflow','squarespace','ghost']
+        .find(p => signals[p]);
+
+      if (!detected) return;
+
+      const info = PLATFORMS[detected];
+      banner.style.cssText = `
+        display:flex; align-items:center; gap:8px;
+        padding: 8px 10px; margin-bottom: 8px; border-radius: 6px;
+        background:${info.color}; color:${info.text};
+        font-size:12px; font-weight:600; line-height:1.3;
+      `;
+      banner.innerHTML = `<span style="font-size:15px;">${info.icon}</span><span>${info.note}</span>`;
+
+    } catch (_) {
+      // Silently ignore — scripting may be blocked on some pages
+    }
+  }
+
+  detectAndShowPlatform();
+
   // URL → page type classification
   // Returns { type, label, template } where template indicates if pages share a layout
   //   template: 'shared' = high-volume, same layout (product, collection, blog post)
