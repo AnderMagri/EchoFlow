@@ -819,6 +819,237 @@ function createSharedSampler(cap = SHARED_TEMPLATE_CAP) {
   };
 }
 
+/* ─── Nav Structure Extraction ─── */
+
+/**
+ * Extract navigation structure from raw HTML string.
+ * Works in service worker context (no DOM) using regex-based parsing.
+ * Returns { header: { items }, footer: { groups }, secondary: [] }
+ */
+function extractNavStructure(html, pageUrl) {
+  let baseUrl;
+  try { baseUrl = new URL(pageUrl).origin; } catch { return null; }
+
+  // ── Helpers ──
+
+  /** Strip HTML tags, decode common entities, collapse whitespace */
+  function stripTags(s) {
+    return s.replace(/<[^>]*>/g, ' ')
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ').trim();
+  }
+
+  /** Resolve href to absolute pathname (same-origin only), or null */
+  function resolveHref(href) {
+    if (!href) return null;
+    href = href.trim();
+    if (href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) return null;
+    if (href === '#' || href === '') return null;
+    try {
+      const u = new URL(href, pageUrl);
+      if (u.origin !== baseUrl) return null;
+      return u.pathname;
+    } catch { return null; }
+  }
+
+  /** Extract all <a> from an HTML fragment: [{ label, url }] */
+  function extractLinks(fragment) {
+    const links = [];
+    const re = /<a\s[^>]*href\s*=\s*["']([^"'#]*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while ((m = re.exec(fragment)) !== null) {
+      const url = resolveHref(m[1]);
+      const label = stripTags(m[2]);
+      if (url && label && label.length < 80) links.push({ label, url });
+    }
+    return links;
+  }
+
+  /**
+   * Parse nested <ul>/<li> structure into a tree of { label, url, children }.
+   * Handles up to 3 levels of nesting.
+   */
+  function parseUlTree(ulHtml, maxDepth = 3) {
+    if (maxDepth <= 0) return [];
+    const items = [];
+    // Match each top-level <li>
+    const liRegex = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
+    let liMatch;
+    while ((liMatch = liRegex.exec(ulHtml)) !== null) {
+      const liContent = liMatch[1];
+      // Get the first <a> in this <li>
+      const aMatch = /<a\s[^>]*href\s*=\s*["']([^"'#]*)["'][^>]*>([\s\S]*?)<\/a>/i.exec(liContent);
+      if (!aMatch) continue;
+      const url = resolveHref(aMatch[1]);
+      const label = stripTags(aMatch[2]);
+      if (!label || label.length > 80) continue;
+
+      // Look for nested <ul> inside this <li> (dropdown children)
+      let children = [];
+      const nestedUl = /<ul\b[^>]*>([\s\S]*?)<\/ul>/i.exec(liContent);
+      if (nestedUl) {
+        children = parseUlTree(nestedUl[1], maxDepth - 1);
+      }
+
+      items.push({ label, url, children });
+    }
+    return items;
+  }
+
+  /** Extract items from a region, trying <ul> structure first, then flat <a> links */
+  function extractNavItems(regionHtml) {
+    // Try structured <ul> parsing first
+    const ulMatch = /<ul\b[^>]*>([\s\S]*?)<\/ul>/i.exec(regionHtml);
+    if (ulMatch) {
+      const items = parseUlTree(ulMatch[1]);
+      if (items.length >= 2) return items;
+    }
+    // Fallback: flat <a> extraction
+    return extractLinks(regionHtml).map(l => ({ ...l, children: [] }));
+  }
+
+  // ── Main extraction ──
+
+  // Split HTML into before-main and after-main to classify nav position
+  const mainSplit = html.search(/<main[\s>]/i);
+  const footerStart = html.search(/<footer[\s>]/i);
+
+  // Extract all <nav> regions with their position
+  const navRegions = [];
+  const navRegex = /<nav\b([^>]*)>([\s\S]*?)<\/nav>/gi;
+  let navMatch;
+  while ((navMatch = navRegex.exec(html)) !== null) {
+    const attrs = navMatch[1];
+    const content = navMatch[2];
+    const pos = navMatch.index;
+    const ariaLabel = (attrs.match(/aria-label\s*=\s*["']([^"']*)["']/i) || [])[1] || '';
+    const id = (attrs.match(/id\s*=\s*["']([^"']*)["']/i) || [])[1] || '';
+    const className = (attrs.match(/class\s*=\s*["']([^"']*)["']/i) || [])[1] || '';
+
+    navRegions.push({ content, pos, ariaLabel, id, className });
+  }
+
+  // Classify navs as header, footer, or secondary
+  let headerNav = null;
+  let footerNavs = [];
+  let secondaryNavs = [];
+
+  for (const nav of navRegions) {
+    const isFooter = (footerStart > 0 && nav.pos > footerStart) ||
+                     /footer/i.test(nav.ariaLabel) || /footer/i.test(nav.className) || /footer/i.test(nav.id);
+    const isHeader = !isFooter && (
+      (mainSplit > 0 && nav.pos < mainSplit) ||
+      /main[-\s]nav|primary|header/i.test(nav.ariaLabel) ||
+      /main[-_\s]nav|primary|header/i.test(nav.className) ||
+      /main[-_]nav/i.test(nav.id)
+    );
+
+    if (isHeader && !headerNav) {
+      headerNav = nav;
+    } else if (isFooter) {
+      footerNavs.push(nav);
+    } else if (!headerNav && navRegions.indexOf(nav) === 0) {
+      // First nav in the document, likely header
+      headerNav = nav;
+    } else {
+      secondaryNavs.push(nav);
+    }
+  }
+
+  // If no <nav> found, try extracting from <header> directly
+  if (!headerNav) {
+    const headerMatch = /<header\b[^>]*>([\s\S]*?)<\/header>/i.exec(html);
+    if (headerMatch) {
+      headerNav = { content: headerMatch[1], ariaLabel: '', className: '', id: '' };
+    }
+  }
+
+  // ── Build header structure ──
+  let header = { label: 'Main Navigation', items: [] };
+  if (headerNav) {
+    // Try to find the main <ul> (often class="nav" or similar)
+    const allUls = [];
+    const ulRegex = /<ul\b([^>]*)>([\s\S]*?)<\/ul>/gi;
+    let ulM;
+    while ((ulM = ulRegex.exec(headerNav.content)) !== null) {
+      const items = parseUlTree(ulM[2]);
+      allUls.push(items);
+    }
+    // Pick the <ul> with the most items (the main nav, not a utility nav)
+    if (allUls.length > 0) {
+      allUls.sort((a, b) => b.length - a.length);
+      header.items = allUls[0];
+    } else {
+      // Fallback: flat <a> extraction from header
+      header.items = extractLinks(headerNav.content).map(l => ({ ...l, children: [] }));
+    }
+    if (headerNav.ariaLabel) header.label = headerNav.ariaLabel;
+  }
+
+  // ── Build footer structure ──
+  let footer = { groups: [] };
+  if (footerNavs.length > 0) {
+    // Each footer <nav> becomes a group
+    for (const fNav of footerNavs) {
+      const label = fNav.ariaLabel || 'Footer';
+      const items = extractLinks(fNav.content);
+      if (items.length > 0) footer.groups.push({ label, items });
+    }
+  }
+  // Also try extracting from <footer> tag directly if no footer navs
+  if (footer.groups.length === 0 && footerStart > 0) {
+    const footerMatch = /<footer\b[^>]*>([\s\S]*?)<\/footer>/i.exec(html);
+    if (footerMatch) {
+      // Look for heading + link list patterns
+      const groupRegex = /(?:<h[2-6]\b[^>]*>([\s\S]*?)<\/h[2-6]>)([\s\S]*?)(?=<h[2-6]\b|<\/footer|$)/gi;
+      let gm;
+      while ((gm = groupRegex.exec(footerMatch[1])) !== null) {
+        const heading = stripTags(gm[1]);
+        const links = extractLinks(gm[2]);
+        if (heading && links.length > 0) footer.groups.push({ label: heading, items: links });
+      }
+      // Fallback: all footer links as one group
+      if (footer.groups.length === 0) {
+        const allFooterLinks = extractLinks(footerMatch[1]);
+        if (allFooterLinks.length > 0) footer.groups.push({ label: 'Footer', items: allFooterLinks });
+      }
+    }
+  }
+
+  // ── Secondary navs ──
+  const secondary = secondaryNavs.map(nav => {
+    const items = extractNavItems(nav.content);
+    return { label: nav.ariaLabel || 'Secondary Navigation', items };
+  }).filter(s => s.items.length > 0);
+
+  // Skip if we got nothing useful
+  if (header.items.length === 0 && footer.groups.length === 0 && secondary.length === 0) return null;
+
+  return { header, footer, secondary };
+}
+
+/**
+ * Merge multiple nav structure samples into a consensus structure.
+ * Uses majority vote on header item labels to pick the most representative sample.
+ */
+function mergeNavSamples(samples) {
+  const valid = samples.filter(Boolean);
+  if (valid.length === 0) return null;
+  if (valid.length === 1) return valid[0];
+
+  // Score each sample by how many top-level header items it has
+  // Pick the one with the most complete structure
+  let best = valid[0];
+  let bestScore = 0;
+  for (const s of valid) {
+    const score = (s.header?.items?.length || 0) +
+                  (s.footer?.groups?.reduce((n, g) => n + g.items.length, 0) || 0);
+    if (score > bestScore) { bestScore = score; best = s; }
+  }
+  return best;
+}
+
 async function discoverViaSitemap(origin) {
   const urls = [];
   const sitemapUrls = [];
@@ -917,7 +1148,16 @@ async function discoverViaSitemap(origin) {
   const totalDetected = unique.length + totalSkipped;
   sendDiscoverProgress(`Done: ${unique.length} kept (${totalDetected.toLocaleString()} detected, ${totalSkipped.toLocaleString()} collapsed into samples)`);
   // No parent data from sitemap.xml — signal null so the popup uses pure path-segment inference.
-  return { urls: unique, sampleStats, totalDetected, parentMap: null };
+  // Fetch homepage to extract nav structure (single extra fetch for big payoff)
+  let navStructure = null;
+  try {
+    const homeResp = await fetch(origin + '/', { signal: AbortSignal.timeout(8000), headers: { 'Accept': 'text/html' } });
+    if (homeResp.ok) {
+      const homeHtml = await homeResp.text();
+      navStructure = extractNavStructure(homeHtml, origin + '/');
+    }
+  } catch (_) {}
+  return { urls: unique, sampleStats, totalDetected, parentMap: null, navStructure };
 }
 
 async function discoverViaCrawl(origin, startUrl) {
@@ -931,6 +1171,9 @@ async function discoverViaCrawl(origin, startUrl) {
   depthMap.set(startUrl, 0);
   parentMap[startUrl] = null;
   const sampler = createSharedSampler();
+  const NAV_PARSE_LIMIT = 5;
+  let navParsedCount = 0;
+  const navSamples = [];
 
   // Always keep the startUrl (it's the entry point the user clicked from)
   sampler.shouldKeep(startUrl);
@@ -958,6 +1201,14 @@ async function discoverViaCrawl(origin, startUrl) {
 
       const html = await resp.text();
       found.add(url);
+
+      // Extract nav structure from first few pages (it's consistent site-wide)
+      if (navParsedCount < NAV_PARSE_LIMIT) {
+        try {
+          const pageNav = extractNavStructure(html, url);
+          if (pageNav) { navSamples.push(pageNav); navParsedCount++; }
+        } catch (_) {} // Never let nav parsing break the crawl
+      }
 
       // Extract all links from the page
       const linkRegex = /href\s*=\s*["']([^"'#]+)["']/gi;
@@ -1002,7 +1253,8 @@ async function discoverViaCrawl(origin, startUrl) {
   const keptParents = {};
   for (const u of unique) if (u in parentMap) keptParents[u] = parentMap[u];
   sendDiscoverProgress(`Done: ${unique.length} kept (${totalDetected.toLocaleString()} detected, ${totalSkipped.toLocaleString()} collapsed into samples)`);
-  return { urls: unique, sampleStats, totalDetected, parentMap: keptParents };
+  const navStructure = mergeNavSamples(navSamples);
+  return { urls: unique, sampleStats, totalDetected, parentMap: keptParents, navStructure };
 }
 
 function sendDiscoverProgress(text) {
@@ -1242,7 +1494,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         discoveryState.result = {
           urls: result.urls,
           sampleStats: result.sampleStats || {},
-          totalDetected: result.totalDetected || result.urls.length
+          totalDetected: result.totalDetected || result.urls.length,
+          parentMap: result.parentMap || null,
+          navStructure: result.navStructure || null
         };
         discoveryState.finishedAt = Date.now();
         await persistDiscoveryState();

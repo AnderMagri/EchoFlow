@@ -314,8 +314,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let discoveredGroups = {}; // Store grouped results
   let discoveredTree = null;  // { parentOf, childrenOf, depthOf, roots }
+  let discoveredNavStructure = null; // { header, footer, secondary } from nav extraction
+  let discoveredOrigin = '';  // e.g. "https://bookdepot.ca"
   let lastTotalCount = 0;      // Cached so view toggle can re-render without re-fetching state
-  let currentDiscoverView = 'templates'; // 'templates' | 'sitemap'
+  let currentDiscoverView = 'templates'; // 'templates' | 'sitemap' | 'navigation'
 
   // URL → page type classification
   // Returns { type, label, template } where template indicates if pages share a layout
@@ -624,13 +626,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const templateCount = Object.keys(groups).filter(t => t !== '__collapsed__').length;
 
     // Header: counts + view toggle
-    const tplActive = currentDiscoverView === 'templates';
+    const v = currentDiscoverView;
+    const hasNav = !!discoveredNavStructure;
     totalEl.innerHTML = `
       <span>${totalCount.toLocaleString()} pages found</span>
       <span class="discover-templates">${templateCount} page templates</span>
       <span class="discover-view-toggle">
-        <button class="discover-view-btn${tplActive ? ' active' : ''}" data-view="templates">Templates</button>
-        <button class="discover-view-btn${!tplActive ? ' active' : ''}" data-view="sitemap">Sitemap</button>
+        <button class="discover-view-btn${v === 'templates' ? ' active' : ''}" data-view="templates">Templates</button>
+        <button class="discover-view-btn${v === 'sitemap' ? ' active' : ''}" data-view="sitemap">Sitemap</button>
+        <button class="discover-view-btn${v === 'navigation' ? ' active' : ''}${!hasNav ? ' disabled' : ''}" data-view="navigation" ${!hasNav ? 'disabled title="Run Crawl Links to extract navigation"' : ''}>Navigation</button>
       </span>
     `;
     // Wire up the toggle buttons (inline listeners — totalEl is re-rendered every pass)
@@ -645,7 +649,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     groupsEl.innerHTML = '';
 
-    if (currentDiscoverView === 'sitemap' && discoveredTree) {
+    if (currentDiscoverView === 'navigation' && discoveredNavStructure) {
+      renderNavigationView(groupsEl);
+    } else if (currentDiscoverView === 'sitemap' && discoveredTree) {
       renderSitemapView(groups, groupsEl);
     } else {
       renderTemplatesView(groups, groupsEl);
@@ -734,6 +740,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Navigation view — renders the extracted nav structure as a tree
+  function renderNavigationView(groupsEl) {
+    if (!discoveredNavStructure) {
+      groupsEl.innerHTML = '<div class="discover-empty">Navigation data not available. Run <b>Crawl Links</b> to extract navigation structure.</div>';
+      return;
+    }
+
+    function createNavItem(item, depth) {
+      const row = document.createElement('div');
+      row.className = 'nav-item-row';
+      row.style.paddingLeft = `${8 + depth * 16}px`;
+
+      const label = document.createElement('span');
+      label.className = 'nav-item-label';
+      label.textContent = item.label;
+      row.appendChild(label);
+
+      if (item.url) {
+        const url = document.createElement('span');
+        url.className = 'nav-item-url';
+        url.textContent = item.url;
+        url.title = item.url;
+        row.appendChild(url);
+      }
+
+      if (item.children && item.children.length > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'nav-children-badge';
+        badge.textContent = `${item.children.length}`;
+        row.appendChild(badge);
+      }
+
+      return row;
+    }
+
+    function createNavSection(title, items, tag) {
+      const section = document.createElement('div');
+      section.className = 'nav-section';
+
+      const header = document.createElement('div');
+      header.className = 'nav-section-header';
+      header.textContent = title;
+      if (tag) {
+        const tagEl = document.createElement('span');
+        tagEl.className = `nav-section-tag ${tag}`;
+        tagEl.textContent = tag;
+        header.appendChild(tagEl);
+      }
+      const countEl = document.createElement('span');
+      countEl.className = 'nav-children-badge';
+      countEl.textContent = items.length;
+      header.appendChild(countEl);
+      section.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'nav-section-body';
+      for (const item of items) {
+        body.appendChild(createNavItem(item, 0));
+        if (item.children) {
+          for (const child of item.children) {
+            body.appendChild(createNavItem(child, 1));
+            if (child.children) {
+              for (const grandchild of child.children) {
+                body.appendChild(createNavItem(grandchild, 2));
+              }
+            }
+          }
+        }
+      }
+      section.appendChild(body);
+      return section;
+    }
+
+    const nav = discoveredNavStructure;
+
+    // Header nav
+    if (nav.header && nav.header.items && nav.header.items.length > 0) {
+      groupsEl.appendChild(createNavSection(nav.header.label || 'Main Navigation', nav.header.items, 'header'));
+    }
+
+    // Footer groups
+    if (nav.footer && nav.footer.groups) {
+      for (const group of nav.footer.groups) {
+        if (group.items && group.items.length > 0) {
+          groupsEl.appendChild(createNavSection(group.label || 'Footer', group.items, 'footer'));
+        }
+      }
+    }
+
+    // Secondary navs
+    if (nav.secondary) {
+      for (const sec of nav.secondary) {
+        if (sec.items && sec.items.length > 0) {
+          groupsEl.appendChild(createNavSection(sec.label || 'Secondary Navigation', sec.items, 'secondary'));
+        }
+      }
+    }
+  }
+
   // ── Discovery UI state helpers ──
   // Discovery runs in the background service worker. The popup fires it and
   // polls for state; the popup can be closed and reopened without affecting
@@ -780,6 +885,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // a parentMap (URL → parent URL); sitemap.xml mode passes null and we fall back
     // to pure path-segment inference inside buildTemplateTree.
     discoveredTree = buildTemplateTree(discoveredGroups, result.parentMap || null);
+    discoveredNavStructure = result.navStructure || null;
+    if (result.urls && result.urls[0]) {
+      try { discoveredOrigin = new URL(result.urls[0]).origin; } catch { discoveredOrigin = ''; }
+    }
     lastTotalCount = totalDetected;
     renderDiscoverSummary(discoveredGroups, totalDetected);
     const collapsed = totalDetected - result.urls.length;
@@ -934,6 +1043,176 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // ── FigJam Script Generator ──
+  // Converts the extracted nav structure into a self-contained JS script that
+  // the Desktop Bridge plugin can run directly to build the full diagram —
+  // same shape styles as the user's hand-built inventories.
+  function generateFigJamScript(navStructure, siteUrl) {
+    // ── Layout constants (matching existing diagram style)
+    const COL_X   = [100, 390, 660, 930];   // column X positions
+    const SQ_W = 186, SQ_H = 53;            // SQUARE (unique pages)
+    const HEX_W = 235, HEX_H = 84;          // HEXAGON (sub-pages / dropdown items)
+    const RR_W  = 235, RR_H = 84;           // ROUNDED_RECTANGLE (nav groups)
+    const ROW_GAP   = 20;                   // gap between siblings
+    const GROUP_GAP = 40;                   // extra gap between top-level groups
+
+    const nodes = []; // { id, label, shapeType, x, y, w, h }
+    const edges = []; // { fromId, toId }
+    let counter = 0;
+    let curY = 150;   // current vertical cursor (below URL label)
+
+    function addNode(label, shapeType, col, y, parentId) {
+      const id = 'n' + (counter++);
+      const w = shapeType === 'SQUARE' ? SQ_W : (shapeType === 'HEXAGON' ? HEX_W : RR_W);
+      const h = shapeType === 'SQUARE' ? SQ_H : HEX_H;
+      nodes.push({ id, label: label.slice(0, 60), shapeType, x: COL_X[col], y, w, h });
+      if (parentId) edges.push({ fromId: parentId, toId: id });
+      return id;
+    }
+
+    // Home is always the root square
+    const homeLabel = 'Home';
+    const homeId = addNode(homeLabel, 'SQUARE', 0, curY, null);
+    curY += SQ_H + ROW_GAP;
+
+    // ── Header nav items ──
+    const headerItems = navStructure.header && navStructure.header.items || [];
+    for (const item of headerItems) {
+      if (!item.label) continue;
+      // Skip items that look like "Home" (already added as root)
+      if (item.label.trim().toLowerCase() === 'home') continue;
+
+      const hasChildren = item.children && item.children.length > 0;
+      const groupY = curY;
+
+      if (hasChildren) {
+        // Nav section with dropdown → ROUNDED_RECTANGLE at col 0
+        const groupId = addNode(item.label, 'ROUNDED_RECTANGLE', 0, groupY, homeId);
+        let childY = groupY;
+
+        for (const child of item.children) {
+          if (!child.label) continue;
+          const hasGrandchildren = child.children && child.children.length > 0;
+          const childId = addNode(child.label, 'HEXAGON', 1, childY, groupId);
+
+          if (hasGrandchildren) {
+            let gcY = childY;
+            for (const gc of child.children) {
+              if (!gc.label) continue;
+              addNode(gc.label, 'HEXAGON', 2, gcY, childId);
+              gcY += HEX_H + ROW_GAP;
+            }
+            childY = gcY;
+          } else {
+            childY += HEX_H + ROW_GAP;
+          }
+        }
+        curY = Math.max(childY, groupY + RR_H + ROW_GAP) + GROUP_GAP;
+      } else {
+        // Direct link (no dropdown) → SQUARE at col 0
+        addNode(item.label, 'SQUARE', 0, groupY, homeId);
+        curY += SQ_H + ROW_GAP;
+      }
+    }
+
+    // ── Footer groups ──
+    curY += GROUP_GAP;
+    const footerGroups = navStructure.footer && navStructure.footer.groups || [];
+    for (const group of footerGroups) {
+      if (!group.items || group.items.length === 0) continue;
+      for (const item of group.items) {
+        if (!item.label) continue;
+        addNode(item.label, 'SQUARE', 0, curY, homeId);
+        curY += SQ_H + ROW_GAP;
+      }
+      curY += GROUP_GAP;
+    }
+
+    // ── Secondary navs ──
+    const secondary = navStructure.secondary || [];
+    for (const sec of secondary) {
+      if (!sec.items || sec.items.length === 0) continue;
+      for (const item of sec.items) {
+        if (!item.label) continue;
+        addNode(item.label, 'SQUARE', 0, curY, homeId);
+        curY += SQ_H + ROW_GAP;
+      }
+      curY += GROUP_GAP;
+    }
+
+    const sectionName = (siteUrl || 'Site') + ' — Nav Structure (EchoFlow)';
+    const sectionW = Math.max(...nodes.map(n => n.x + n.w)) + 100;
+    const sectionH = Math.max(...nodes.map(n => n.y + n.h)) + 100;
+
+    return `(async () => {
+  await figma.loadFontAsync({ family: 'Inter', style: 'Medium' });
+  await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+
+  const DARK   = [{ type:'SOLID', color:{r:0.118,g:0.118,b:0.118} }];
+  const DARK_S = [{ type:'SOLID', color:{r:0.141,g:0.141,b:0.141} }];
+  const WHITE  = [{ type:'SOLID', color:{r:1,g:1,b:1} }];
+  const YELLOW = [{ type:'SOLID', color:{r:1,g:0.788,b:0.263} }];
+  const YEL_S  = [{ type:'SOLID', color:{r:0.91,g:0.639,b:0.008} }];
+  const PURPLE = [{ type:'SOLID', color:{r:0.863,g:0.8,b:1} }];
+  const PUR_S  = [{ type:'SOLID', color:{r:0.529,g:0.31,b:1} }];
+  const BLK80  = [{ type:'SOLID', color:{r:0,g:0,b:0}, opacity:0.8 }];
+
+  const NODES = ${JSON.stringify(nodes)};
+  const EDGES = ${JSON.stringify(edges)};
+
+  // Create section
+  const section = figma.createSection();
+  section.name = ${JSON.stringify(sectionName)};
+  section.resizeWithoutConstraints(${sectionW}, ${sectionH});
+
+  // URL label
+  const lbl = figma.createText();
+  lbl.fontName = { family:'Inter', style:'Regular' };
+  lbl.characters = ${JSON.stringify(siteUrl || 'Discovered Site')};
+  lbl.fontSize = 14;
+  lbl.fills = [{ type:'SOLID', color:{r:0.4,g:0.4,b:0.4} }];
+  lbl.x = 100; lbl.y = 60;
+  section.appendChild(lbl);
+
+  // Create shapes
+  const created = {};
+  for (const n of NODES) {
+    const s = figma.createShapeWithText();
+    s.shapeType = n.shapeType;
+    s.x = n.x; s.y = n.y;
+    s.resize(n.w, n.h);
+    s.name = n.label;
+    if (n.shapeType === 'SQUARE') {
+      s.fills = DARK; s.strokes = DARK_S; s.strokeWeight = 4;
+      s.text.characters = n.label; s.text.fontSize = 16; s.text.fills = WHITE;
+    } else if (n.shapeType === 'HEXAGON') {
+      s.fills = YELLOW; s.strokes = YEL_S; s.strokeWeight = 4;
+      s.text.characters = n.label; s.text.fontSize = 16; s.text.fills = BLK80;
+    } else {
+      s.fills = PURPLE; s.strokes = PUR_S; s.strokeWeight = 4;
+      s.text.characters = n.label; s.text.fontSize = 16; s.text.fills = BLK80;
+    }
+    section.appendChild(s);
+    created[n.id] = s;
+  }
+
+  // Create connectors
+  for (const e of EDGES) {
+    const from = created[e.fromId];
+    const to = created[e.toId];
+    if (!from || !to) continue;
+    const c = figma.createConnector();
+    c.connectorLineType = 'ELBOWED';
+    c.connectorStart = { endpointNodeId: from.id, magnet: 'AUTO' };
+    c.connectorEnd = { endpointNodeId: to.id, magnet: 'AUTO' };
+    c.connectorEndStrokeCap = 'NONE';
+  }
+
+  figma.viewport.scrollAndZoomIntoView([section]);
+  return 'EchoFlow: created ' + NODES.length + ' nodes, ' + EDGES.length + ' connectors.';
+})();`;
+  }
+
   // "Copy for FigJam" — output format depends on current view:
   //   Templates view → flat `Label<TAB>URL` per line (one black rectangle per row)
   //   Sitemap view  → tab-indented label tree (FigJam Sitemap/Autoflow plugins parse
@@ -941,6 +1220,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDiscoverFigjam = document.getElementById('btn-discover-figjam');
   if (btnDiscoverFigjam) {
     btnDiscoverFigjam.addEventListener('click', async () => {
+      // ── Navigation view: generate Desktop Bridge script ──
+      if (currentDiscoverView === 'navigation' && discoveredNavStructure) {
+        try {
+          const script = generateFigJamScript(discoveredNavStructure, discoveredOrigin);
+          await navigator.clipboard.writeText(script);
+          projectStatus.textContent = 'FigJam script copied — paste into Desktop Bridge and run';
+          projectStatus.className = 'status success';
+        } catch (err) {
+          projectStatus.textContent = 'Clipboard copy failed — check browser permissions';
+          projectStatus.className = 'status error';
+        }
+        return;
+      }
+
       const checked = new Set();
       document.querySelectorAll('.discover-group-check:checked').forEach(chk => checked.add(chk.dataset.type));
 
@@ -989,7 +1282,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         await navigator.clipboard.writeText(lines.join('\n'));
-        const mode = currentDiscoverView === 'sitemap' ? 'sitemap tree' : 'templates';
+        const mode = currentDiscoverView === 'sitemap' ? 'sitemap tree' : currentDiscoverView === 'navigation' ? 'navigation' : 'templates';
         projectStatus.textContent = `Copied ${exportCount} ${mode} for FigJam`;
         projectStatus.className = 'status success';
       } catch (err) {
