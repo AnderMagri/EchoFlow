@@ -369,14 +369,16 @@
 
   function captureDesignInventory() {
     const allEls = document.body.querySelectorAll('*');
-    const colors = {};     // hex → count
-    const fonts = {};      // family → count
-    const fontSizes = {};  // px → count
-    const typoCombos = {}; // "family|size|weight" → { fontFamily, fontSize, fontWeight, lineHeight, count }
-    const spacings = {};   // px → count
-    const radii = {};      // value → count
-    const shadows = {};    // value → count
-    const aligns = {};     // value → count
+    const colors = {};        // hex → count
+    const fonts = {};         // family → count
+    const fontSizes = {};     // px → count
+    const typoCombos = {};    // "family|size|weight" → { fontFamily, fontSize, fontWeight, lineHeight, count }
+    const spacings = {};      // px → count
+    const radii = {};         // value → count
+    const shadows = {};       // value → count
+    const aligns = {};        // value → count
+    const lineHeights = {};   // value → count
+    const letterSpacings = {};// value → count
     let processed = 0;
 
     for (const el of allEls) {
@@ -405,6 +407,20 @@
         typoCombos[comboKey] = { fontFamily: family, fontSize: sizePx, fontWeight: cs.fontWeight, lineHeight: cs.lineHeight, count: 0 };
       }
       typoCombos[comboKey].count++;
+
+      // Line height (normalize to ratio if px, else keep as-is)
+      const lh = cs.lineHeight;
+      if (lh && lh !== 'normal') {
+        const lhNum = parseFloat(lh);
+        const lhVal = sizePx && lhNum ? (Math.round((lhNum / sizePx) * 10) / 10).toString() : lh;
+        lineHeights[lhVal] = (lineHeights[lhVal] || 0) + 1;
+      }
+
+      // Letter spacing
+      const ls = cs.letterSpacing;
+      if (ls && ls !== '0px' && ls !== 'normal') {
+        letterSpacings[ls] = (letterSpacings[ls] || 0) + 1;
+      }
 
       // Spacing
       for (const prop of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) {
@@ -437,16 +453,86 @@
       if (parseFloat(px) % 4 === 0) onGrid += count;
     }
 
+    // ── Logo detection ──
+    let logo = null;
+    const logoSelectors = [
+      'header a[href="/"] svg', 'header a[href="/"] img',
+      'nav a[href="/"] svg', 'nav a[href="/"] img',
+      '[class*="logo"] svg', '[class*="logo"] img',
+      '[id*="logo"] svg', '[id*="logo"] img',
+      'header svg', '.site-logo svg', '.site-logo img',
+      '.navbar-brand img', '.navbar-brand svg',
+    ];
+    for (const sel of logoSelectors) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      if (el.tagName === 'svg') {
+        const clone = el.cloneNode(true);
+        clone.style.maxWidth = '160px';
+        clone.style.maxHeight = '60px';
+        clone.removeAttribute('width');
+        clone.removeAttribute('height');
+        clone.setAttribute('viewBox', el.getAttribute('viewBox') || '0 0 ' + (el.getAttribute('width') || 100) + ' ' + (el.getAttribute('height') || 40));
+        logo = { type: 'svg', content: clone.outerHTML };
+        break;
+      } else if (el.tagName === 'IMG') {
+        const src = el.src || el.getAttribute('src');
+        if (src) { logo = { type: 'img', src }; break; }
+      }
+    }
+
+    // ── Image format distribution ──
+    const imageFormats = {};
+    let hasLazyLoading = false;
+    const imgs = document.querySelectorAll('img, source');
+    for (const img of imgs) {
+      const src = img.src || img.srcset || img.getAttribute('src') || img.getAttribute('srcset') || '';
+      if (img.loading === 'lazy' || img.getAttribute('loading') === 'lazy') hasLazyLoading = true;
+      const extMatch = src.match(/\.(webp|avif|svg|png|jpg|jpeg|gif|bmp|ico)(\?|$|\s|,)/i);
+      if (extMatch) {
+        const fmt = extMatch[1].toLowerCase().replace('jpeg', 'jpg');
+        imageFormats[fmt] = (imageFormats[fmt] || 0) + 1;
+      }
+    }
+
+    // ── UI framework detection ──
+    let uiFramework = null;
+    const bodyClasses = document.body.className || '';
+    const allClassNames = Array.from(document.querySelectorAll('[class]')).map(el => el.className).join(' ');
+    if (/\b(tw-|tailwind)/.test(allClassNames) || /\bflex\b|\bgrid\b|\bblock\b|\bhidden\b|\btext-\w+-\d+\b/.test(allClassNames)) uiFramework = 'Tailwind CSS';
+    else if (/\bcol-\w+-\d+\b|\bbtn-\w+\b|\bnavbar\b|\bcontainer\b/.test(allClassNames)) uiFramework = 'Bootstrap';
+    else if (window.Shopify) uiFramework = 'Shopify (Dawn)';
+    const materialLink = document.querySelector('link[href*="material"], script[src*="material-ui"], script[src*="@mui"]');
+    if (materialLink) uiFramework = 'Material UI';
+
+    // ── Icon library detection ──
+    let iconLibrary = null;
+    const iconLinks = Array.from(document.querySelectorAll('link[href], script[src]')).map(el => el.href || el.src || '');
+    if (iconLinks.some(u => u.includes('font-awesome') || u.includes('fontawesome'))) iconLibrary = 'Font Awesome';
+    else if (iconLinks.some(u => u.includes('material-icons') || u.includes('material.io/icons'))) iconLibrary = 'Material Icons';
+    else if (document.querySelector('[class*="heroicon"], [data-heroicon]')) iconLibrary = 'Heroicons';
+    else if (document.querySelector('[class*="lucide"]')) iconLibrary = 'Lucide';
+    else if (document.querySelector('[class*="feather"]')) iconLibrary = 'Feather Icons';
+    else if (iconLinks.some(u => u.includes('remix-icon') || u.includes('remixicon'))) iconLibrary = 'Remix Icons';
+    else if (document.querySelector('.icon-tabler')) iconLibrary = 'Tabler Icons';
+
     return {
+      logo,
       colorPalette: toSorted(colors).slice(0, 30),
       fontFamilies: toSorted(fonts),
       fontSizes: toSorted(fontSizes),
+      lineHeights: toSorted(lineHeights).slice(0, 10),
+      letterSpacings: toSorted(letterSpacings).slice(0, 8),
       typography: Object.values(typoCombos).sort((a, b) => b.count - a.count).slice(0, 20),
       spacingValues: toSorted(spacings),
       spacingGridRatio: totalSpacing > 0 ? Math.round((onGrid / totalSpacing) * 100) : 0,
       borderRadii: toSorted(radii),
       shadows: toSorted(shadows),
-      textAlignments: toSorted(aligns)
+      textAlignments: toSorted(aligns),
+      imageFormats,
+      hasLazyLoading,
+      uiFramework,
+      iconLibrary,
     };
   }
 

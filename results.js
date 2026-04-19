@@ -257,11 +257,28 @@
       html += '</div></div>';
     }
 
+    // Logo
+    if (inv.logo) {
+      html += '<div class="design-section"><h4 class="design-section-title">Logo</h4><div class="design-logo-row">';
+      if (inv.logo.type === 'svg') {
+        html += '<div class="design-logo-preview">' + inv.logo.content + '</div>';
+        html += '<a class="design-logo-download" href="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(inv.logo.content) + '" download="logo.svg">Download SVG</a>';
+      } else if (inv.logo.type === 'img') {
+        html += '<div class="design-logo-preview"><img src="' + escapeHtml(inv.logo.src) + '" style="max-height:60px;max-width:160px;object-fit:contain;"></div>';
+        html += '<a class="design-logo-download" href="' + escapeHtml(inv.logo.src) + '" target="_blank">Open image ↗</a>';
+      }
+      html += '</div></div>';
+    }
+
     // Typography
     if (inv.fontFamilies && inv.fontFamilies.length > 0) {
       html += '<div class="design-section"><h4 class="design-section-title">Typography <span class="design-count">' + inv.fontFamilies.length + ' families</span></h4><div class="design-type-list">';
       for (const f of inv.fontFamilies.slice(0, 8)) {
-        html += '<div class="design-type-row"><span class="type-family" style="font-family:' + f.value + '">' + escapeHtml(f.value) + '</span><span class="type-count">' + f.count + ' uses</span></div>';
+        // Font name always in UI font; sample "Aa" shown in detected font
+        html += '<div class="design-type-row">' +
+          '<span class="type-sample" style="font-family:' + escapeHtml(f.value) + '">Aa</span>' +
+          '<span class="type-family">' + escapeHtml(f.value) + '</span>' +
+          '<span class="type-count">' + f.count + ' uses</span></div>';
       }
       html += '</div>';
       // Font sizes
@@ -269,11 +286,39 @@
         html += '<div class="design-sizes">';
         for (const s of inv.fontSizes.sort((a, b) => parseFloat(a.value) - parseFloat(b.value))) {
           const px = parseFloat(s.value);
-          html += '<span class="design-size-chip" style="font-size:' + Math.min(px, 24) + 'px">' + px + 'px</span>';
+          html += '<span class="design-size-chip">' + px + 'px</span>';
         }
         html += '</div>';
       }
+      // Line heights
+      if (inv.lineHeights && inv.lineHeights.length > 0) {
+        html += '<div class="design-meta-row"><span class="design-meta-label">Line heights</span><div class="design-chips">';
+        for (const lh of inv.lineHeights.slice(0, 10)) {
+          html += '<span class="design-chip">' + lh.value + '</span>';
+        }
+        html += '</div></div>';
+      }
+      // Letter spacing
+      if (inv.letterSpacings && inv.letterSpacings.length > 0) {
+        html += '<div class="design-meta-row"><span class="design-meta-label">Letter spacing</span><div class="design-chips">';
+        for (const ls of inv.letterSpacings.slice(0, 8)) {
+          html += '<span class="design-chip">' + ls.value + '</span>';
+        }
+        html += '</div></div>';
+      }
       html += '</div>';
+    }
+
+    // Detected frameworks & icon libraries
+    const badges = [];
+    if (inv.uiFramework) badges.push({ label: inv.uiFramework, color: '#6366f1' });
+    if (inv.iconLibrary) badges.push({ label: inv.iconLibrary + ' icons', color: '#0891b2' });
+    if (badges.length > 0) {
+      html += '<div class="design-section"><h4 class="design-section-title">Stack</h4><div class="design-chips">';
+      for (const b of badges) {
+        html += '<span class="design-stack-badge" style="background:' + b.color + '">' + escapeHtml(b.label) + '</span>';
+      }
+      html += '</div></div>';
     }
 
     // Spacing
@@ -302,6 +347,25 @@
       html += '<div class="design-section"><h4 class="design-section-title">Shadows <span class="design-count">' + inv.shadows.length + ' styles</span></h4><div class="design-shadows">';
       for (const s of inv.shadows.slice(0, 6)) {
         html += '<div class="shadow-chip"><div class="shadow-preview" style="box-shadow:' + s.value + '"></div><span class="swatch-count">' + s.count + '</span></div>';
+      }
+      html += '</div></div>';
+    }
+
+    // Image formats
+    if (inv.imageFormats && Object.keys(inv.imageFormats).length > 0) {
+      const total = Object.values(inv.imageFormats).reduce((a, b) => a + b, 0);
+      html += '<div class="design-section"><h4 class="design-section-title">Images <span class="design-count">' + total + ' found</span></h4><div class="design-img-formats">';
+      for (const [fmt, count] of Object.entries(inv.imageFormats).sort((a, b) => b[1] - a[1])) {
+        const pct = Math.round((count / total) * 100);
+        const isModern = ['webp', 'avif', 'svg'].includes(fmt);
+        html += '<div class="img-format-row">' +
+          '<span class="img-format-label' + (isModern ? ' modern' : '') + '">' + fmt.toUpperCase() + '</span>' +
+          '<div class="img-format-bar-wrap"><div class="img-format-bar" style="width:' + pct + '%"></div></div>' +
+          '<span class="img-format-count">' + count + '</span></div>';
+      }
+      if (inv.hasLazyLoading !== undefined) {
+        html += '<div class="design-meta-row" style="margin-top:6px"><span class="design-meta-label">Lazy loading</span>' +
+          '<span class="design-chip ' + (inv.hasLazyLoading ? 'chip-good' : 'chip-warn') + '">' + (inv.hasLazyLoading ? '✓ detected' : '✗ not detected') + '</span></div>';
       }
       html += '</div></div>';
     }
