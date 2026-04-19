@@ -367,7 +367,7 @@
 
   // ── Design Inventory ──
 
-  function captureDesignInventory() {
+  async function captureDesignInventory() {
     const allEls = document.body.querySelectorAll('*');
     const colors = {};        // hex → count
     const fonts = {};         // family → count
@@ -454,6 +454,9 @@
     }
 
     // ── Logo detection ──
+    // Tries each candidate selector in priority order. When the matched element
+    // is an <img src="*.svg">, fetches the SVG text so the results page can show
+    // an inline preview and offer "Download SVG" instead of a raster download.
     let logo = null;
     const logoSelectors = [
       'header a[href="/"] svg', 'header a[href="/"] img',
@@ -463,21 +466,57 @@
       'header svg', '.site-logo svg', '.site-logo img',
       '.navbar-brand img', '.navbar-brand svg',
     ];
+
+    function normalizeSvgEl(svgEl) {
+      svgEl.style.maxWidth = '160px';
+      svgEl.style.maxHeight = '60px';
+      svgEl.removeAttribute('width');
+      svgEl.removeAttribute('height');
+      if (!svgEl.getAttribute('viewBox')) {
+        svgEl.setAttribute('viewBox', '0 0 ' + (svgEl.getAttribute('width') || 100) + ' ' + (svgEl.getAttribute('height') || 40));
+      }
+      return svgEl.outerHTML;
+    }
+
     for (const sel of logoSelectors) {
       const el = document.querySelector(sel);
       if (!el) continue;
+
       if (el.tagName === 'svg') {
         const clone = el.cloneNode(true);
-        clone.style.maxWidth = '160px';
-        clone.style.maxHeight = '60px';
-        clone.removeAttribute('width');
-        clone.removeAttribute('height');
         clone.setAttribute('viewBox', el.getAttribute('viewBox') || '0 0 ' + (el.getAttribute('width') || 100) + ' ' + (el.getAttribute('height') || 40));
-        logo = { type: 'svg', content: clone.outerHTML };
+        logo = { type: 'svg', content: normalizeSvgEl(clone) };
         break;
       } else if (el.tagName === 'IMG') {
         const src = el.src || el.getAttribute('src');
-        if (src) { logo = { type: 'img', src }; break; }
+        if (!src) continue;
+
+        // If the img src points to an SVG file, fetch its content so we can
+        // provide inline display + "Download SVG" instead of a raster download.
+        const isSvgSrc = src.split('?')[0].toLowerCase().endsWith('.svg');
+        if (isSvgSrc) {
+          try {
+            const resp = await fetch(src, { credentials: 'omit' });
+            if (resp.ok) {
+              const svgText = await resp.text();
+              if (svgText.includes('<svg')) {
+                const parser = new DOMParser();
+                const parsed = parser.parseFromString(svgText, 'image/svg+xml');
+                const svgEl = parsed.querySelector('svg');
+                const parseErr = parsed.querySelector('parsererror');
+                if (svgEl && !parseErr) {
+                  logo = { type: 'svg', content: normalizeSvgEl(svgEl) };
+                  break;
+                }
+              }
+            }
+          } catch (_) {
+            // CORS block or parse failure — fall through to img type below
+          }
+        }
+
+        logo = { type: 'img', src };
+        break;
       }
     }
 
@@ -560,7 +599,7 @@
       headings: captureHeadings(),
       shopify: null,
       apiResponses: {},
-      designInventory: captureDesignInventory()
+      designInventory: await captureDesignInventory()
     };
 
     if (waitForShopify) {

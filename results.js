@@ -385,7 +385,7 @@
           const a = document.createElement('a');
           a.href = objUrl;
           const rawExt = url.split('?')[0].split('.').pop().toLowerCase();
-          a.download = 'logo.' + (['png','jpg','jpeg','gif','webp','avif'].includes(rawExt) ? rawExt : 'png');
+          a.download = 'logo.' + (['png','jpg','jpeg','gif','webp','avif','svg'].includes(rawExt) ? rawExt : 'png');
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
