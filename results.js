@@ -270,6 +270,37 @@
       html += '</div></div>';
     }
 
+    // SVG Inventory
+    if (inv.svgInventory && inv.svgInventory.length > 0) {
+      const svgs = inv.svgInventory;
+      html += '<div class="design-section">' +
+        '<h4 class="design-section-title">SVGs <span class="design-count">' + svgs.length + ' found</span></h4>' +
+        '<div class="design-svg-grid">';
+
+      svgs.forEach((s, i) => {
+        const dim = (s.w && s.h) ? s.w + '×' + s.h : '';
+        const sizeClass = Math.max(s.w || 0, s.h || 0) >= 80 ? 'svg-large' : '';
+        const labelHtml = s.label ? '<div class="svg-card-label">' + escapeHtml(s.label) + '</div>' : '';
+        const dimHtml = dim ? '<div class="svg-card-dim">' + dim + '</div>' : '';
+
+        if (s.source === 'inline') {
+          html += '<div class="design-svg-card ' + sizeClass + '">' +
+            '<div class="design-svg-preview">' + s.content + '</div>' +
+            '<div class="svg-card-meta">' + dimHtml + labelHtml + '</div>' +
+            '<button class="design-svg-dl" data-svg-index="' + i + '" data-svg-source="inline">↓ SVG</button>' +
+            '</div>';
+        } else {
+          html += '<div class="design-svg-card ' + sizeClass + '">' +
+            '<div class="design-svg-preview"><img src="' + escapeHtml(s.src) + '" loading="lazy"></div>' +
+            '<div class="svg-card-meta">' + dimHtml + labelHtml + '</div>' +
+            '<button class="design-svg-dl" data-svg-index="' + i + '" data-svg-source="img-url" data-svg-url="' + escapeHtml(s.src) + '">↓ SVG</button>' +
+            '</div>';
+        }
+      });
+
+      html += '</div></div>';
+    }
+
     // Typography
     if (inv.fontFamilies && inv.fontFamilies.length > 0) {
       html += '<div class="design-section"><h4 class="design-section-title">Typography <span class="design-count">' + inv.fontFamilies.length + ' families</span></h4><div class="design-type-list">';
@@ -395,6 +426,53 @@
           // Fallback: open in new tab if fetch fails (e.g. CORS block)
           window.open(url, '_blank');
         }
+      });
+    });
+
+    // SVG inventory download handlers
+    container.querySelectorAll('button[data-svg-index]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.svgIndex, 10);
+        const svgData = inv.svgInventory?.[idx];
+        if (!svgData) return;
+
+        const origText = btn.textContent;
+        btn.textContent = '…';
+        btn.disabled = true;
+
+        try {
+          let svgText = '';
+          let filename = (svgData.label || ('svg-' + (idx + 1))).replace(/[^a-z0-9_-]/gi, '-').toLowerCase() + '.svg';
+
+          if (svgData.source === 'inline') {
+            // Already have the serialized SVG
+            svgText = svgData.content;
+          } else {
+            // Fetch the SVG file from its URL
+            const resp = await fetch(btn.dataset.svgUrl);
+            if (!resp.ok) throw new Error('fetch failed');
+            svgText = await resp.text();
+            // Derive filename from URL path
+            const urlPath = btn.dataset.svgUrl.split('?')[0].split('/').pop();
+            if (urlPath) filename = urlPath;
+          }
+
+          const blob = new Blob([svgText], { type: 'image/svg+xml' });
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+          showToast('Downloaded ' + filename);
+        } catch {
+          showToast('Download failed — check CORS');
+        }
+
+        btn.textContent = origText;
+        btn.disabled = false;
       });
     });
 

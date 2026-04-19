@@ -555,8 +555,71 @@
     else if (iconLinks.some(u => u.includes('remix-icon') || u.includes('remixicon'))) iconLibrary = 'Remix Icons';
     else if (document.querySelector('.icon-tabler')) iconLibrary = 'Tabler Icons';
 
+    // ── SVG inventory ──
+    // Collect every visible inline <svg> and every <img src="*.svg"> on the page.
+    // Inline SVGs are serialized; img-based SVGs store only the URL (fetched at
+    // download time in the results page to avoid blocking capture).
+    const svgInventory = [];
+    const svgSeen = new Set();
+    const MAX_SVG_CONTENT = 12000; // ~12 KB per SVG — skip overly complex ones
+
+    // 1. Inline <svg> elements
+    for (const svgEl of document.querySelectorAll('svg')) {
+      const rect = svgEl.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) continue; // invisible / micro
+      const cs = getComputedStyle(svgEl);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+
+      const clone = svgEl.cloneNode(true);
+      if (!clone.getAttribute('viewBox')) {
+        clone.setAttribute('viewBox', '0 0 ' + Math.round(rect.width) + ' ' + Math.round(rect.height));
+      }
+      // Strip inline style so preview uses its own colours
+      clone.removeAttribute('style');
+      const content = clone.outerHTML;
+      if (content.length > MAX_SVG_CONTENT) continue;
+
+      const key = content.slice(0, 140); // dedup by first 140 chars
+      if (svgSeen.has(key)) continue;
+      svgSeen.add(key);
+
+      const label = (svgEl.getAttribute('aria-label') ||
+        svgEl.closest('[aria-label]')?.getAttribute('aria-label') ||
+        svgEl.closest('a')?.textContent?.trim() ||
+        svgEl.closest('button')?.textContent?.trim() || '').slice(0, 60);
+
+      svgInventory.push({
+        source: 'inline',
+        content,
+        w: Math.round(rect.width),
+        h: Math.round(rect.height),
+        label
+      });
+      if (svgInventory.length >= 60) break;
+    }
+
+    // 2. <img src="*.svg"> — URL only, preview via <img> tag
+    for (const imgEl of document.querySelectorAll('img')) {
+      const src = imgEl.src || '';
+      if (!src) continue;
+      if (!src.split('?')[0].toLowerCase().endsWith('.svg')) continue;
+      if (svgSeen.has(src)) continue;
+      svgSeen.add(src);
+
+      const rect = imgEl.getBoundingClientRect();
+      svgInventory.push({
+        source: 'img-url',
+        src,
+        w: Math.round(imgEl.naturalWidth || rect.width),
+        h: Math.round(imgEl.naturalHeight || rect.height),
+        label: (imgEl.alt || '').slice(0, 60)
+      });
+      if (svgInventory.length >= 60) break;
+    }
+
     return {
       logo,
+      svgInventory,
       colorPalette: toSorted(colors).slice(0, 30),
       fontFamilies: toSorted(fonts),
       fontSizes: toSorted(fontSizes),
