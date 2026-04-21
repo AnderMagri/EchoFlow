@@ -43,7 +43,7 @@ async function fetchApiEndpoints(origin, rules) {
   return responses;
 }
 
-// ── Screenshot Capture (local display only — never sent to AI) ──
+// ── Screenshot Capture (used by Vision Layer when size < 4MB) ──
 
 async function captureViewport(tabId, resolution) {
   const scale = resolution === '120' ? 1.2 : 1.0;
@@ -436,7 +436,7 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
   // Step 6: Fetch API endpoints if rules need them
   domData.apiResponses = await fetchApiEndpoints(origin, rules);
 
-  // Step 7: Capture screenshot (local proof only — never sent to AI)
+  // Step 7: Capture screenshot (sent to Claude Vision Layer if enabled and size < 4MB)
   const screenshot = await captureScreenshot(tabId, resolution, mode);
 
   // Step 8: Evaluate rules
@@ -1555,6 +1555,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'AI_SPECIALIST') {
+    // Specialist analyses (dark-patterns, copy-intelligence) — Claude only
+    runSpecialistAnalysis(message.mode, message.data, message.apiKey)
+      .then(result => sendResponse(result))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   // ── Project Management ──
 
   if (message.action === 'CREATE_PROJECT') {
@@ -1998,7 +2006,14 @@ Design inventory:
 - Shadows: ${shadowCount} unique styles`;
   }
 
-  prompt += `
+  // Check if screenshot will be included (vision layer active)
+  const hasScreenshot = auditData.screenshot && auditData.screenshot.startsWith('data:image/') &&
+    auditData.screenshot.length < 4_000_000;
+  const visionNote = hasScreenshot
+    ? '\nA screenshot of the page is attached — use it to assess visual hierarchy, CTA prominence, whitespace quality, image effectiveness, and layout balance. Reference what you observe visually.'
+    : '';
+
+  prompt += `${visionNote}
 
 Page sections:
 ${sectionsList || 'No sections detected'}
@@ -2013,7 +2028,7 @@ Provide a concise analysis considering this is a ${device} experience${pageType 
 2. Quick wins (high ease, high impact)
 3. Any patterns or issues the rules may have missed${meta.pageType ? ' — consider ' + meta.vertical + ' ' + meta.pageType.replace(/-/g, ' ') + ' best practices' : ''}
 4. Overall UX score (1-10) with brief justification
-5. Visual design assessment:
+5. Visual design assessment${hasScreenshot ? ' (use the screenshot to assess visually)' : ''}:
    - Color palette coherence (1-10)
    - Typography system quality (1-10)
    - Spacing consistency (1-10)
@@ -2034,6 +2049,31 @@ async function runClaudeAnalysis(auditData, apiKey, auditContext) {
 
   const prompt = buildAnalysisPrompt(auditData, auditContext);
 
+  // ── Vision Layer: include screenshot as image block if available ──
+  let messageContent;
+  const screenshot = auditData.screenshot;
+  if (screenshot && screenshot.startsWith('data:image/')) {
+    // Extract base64 data from data URL: data:image/jpeg;base64,<data>
+    const commaIdx = screenshot.indexOf(',');
+    const base64Data = screenshot.substring(commaIdx + 1);
+    const mediaType = screenshot.substring(5, screenshot.indexOf(';')); // e.g. "image/jpeg"
+
+    // Only include if reasonably sized (< 4MB base64 ≈ 3MB image)
+    if (base64Data.length < 4_000_000) {
+      messageContent = [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: mediaType, data: base64Data }
+        },
+        { type: 'text', text: prompt }
+      ];
+    } else {
+      messageContent = prompt;
+    }
+  } else {
+    messageContent = prompt;
+  }
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -2044,8 +2084,8 @@ async function runClaudeAnalysis(auditData, apiKey, auditContext) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
-      messages: [{ role: 'user', content: prompt }]
+      max_tokens: 1800,
+      messages: [{ role: 'user', content: messageContent }]
     })
   });
 
@@ -2058,6 +2098,203 @@ async function runClaudeAnalysis(auditData, apiKey, auditContext) {
   const text = data.content?.[0]?.text || 'No response';
 
   return { success: true, analysis: text };
+}
+
+// ── Dark Pattern Detector Prompt ──
+
+function buildDarkPatternPrompt(auditData) {
+  const meta = auditData.meta;
+  const raw = auditData.rawData;
+
+  const headingsText = (raw.headings || []).map(h => `H${h.level}: ${h.text}`).join('\n');
+  const linksText = (raw.links || [])
+    .filter(l => l.text && l.text.trim())
+    .map(l => `"${l.text.trim()}"`)
+    .slice(0, 60)
+    .join(', ');
+  const formsText = (raw.forms || []).map((f, i) => {
+    const fieldNames = (f.fields || []).map(fi => fi.label || fi.name || fi.type || '?').join(', ');
+    return `Form ${i + 1}: [${fieldNames}]`;
+  }).join('\n');
+
+  return `You are a dark pattern auditor and consumer protection specialist. Analyze this ${meta.vertical} page for manipulative UI patterns under EU and US regulations.
+
+URL: ${meta.url}
+Page type: ${(meta.pageType || 'unknown').replace(/-/g, ' ')}
+Page title: ${meta.title}
+
+PAGE HEADINGS:
+${headingsText || '(none)'}
+
+BUTTON / LINK TEXT (sample):
+${linksText || '(none)'}
+
+FORMS:
+${formsText || '(none)'}
+
+DARK PATTERNS CHECKLIST — evaluate each for evidence on this page:
+
+EU Regulatory Framework:
+- DSA Art. 25: Deceptive interface design prohibited
+- GDPR Art. 7: Freely given, specific, informed consent
+- EU Consumer Rights Directive: Clear pricing, no hidden fees
+
+US Regulatory Framework:
+- FTC Act Section 5: Unfair or deceptive acts
+- FTC "Bringing Dark Patterns to Light" (2022 report)
+- California CCPA/CPRA: Opt-out must be as easy as opt-in
+- FTC Endorsement Guides: Native ads must be clearly labeled
+
+PATTERNS TO ASSESS:
+1. Confirmshaming — dismiss/opt-out text uses guilt or shame ("No thanks, I hate saving money")
+2. Pre-checked consent boxes — consent/marketing opt-ins pre-selected
+3. Urgency/scarcity fabrication — fake countdown timers, unverifiable "Only N left!" claims
+4. Hidden unsubscribe / Roach Motel — easy to subscribe, difficult to cancel or opt out
+5. Forced continuity — free trial auto-converts to paid without clear notice
+6. Hidden costs — fees, taxes, or shipping revealed only at checkout
+7. Trick questions — confusing double-negative opt-in/out language in forms
+8. Disguised ads / native advertising — paid/sponsored content not clearly labeled
+9. Basket sneaking — items added to cart without explicit user action
+10. Bait-and-switch — advertised price or product differs from what's actually available
+11. Nagging / guilt-tripping — repeated requests after user declined
+12. Privacy Zuckering — burying or obscuring privacy settings / data collection scope
+
+RESPONSE FORMAT — return valid JSON only, no markdown wrapper:
+{
+  "summary": "1-2 sentence overall assessment",
+  "riskLevel": "low|medium|high|critical",
+  "patternsFound": [
+    {
+      "pattern": "Pattern name",
+      "evidence": "Specific text or element found on the page",
+      "severity": "low|medium|high|critical",
+      "euRegulation": "Relevant EU law/article or null",
+      "usRegulation": "Relevant US law/regulation or null",
+      "recommendation": "Specific fix"
+    }
+  ],
+  "patternsClear": ["List of patterns checked that appear clean"],
+  "complianceNotes": "Brief note on overall compliance posture"
+}`;
+}
+
+// ── Copy Intelligence Prompt ──
+
+function buildCopyPrompt(auditData) {
+  const meta = auditData.meta;
+  const raw = auditData.rawData;
+
+  const headingsText = (raw.headings || []).map(h => `H${h.level}: ${h.text}`).join('\n');
+  const ctasText = (raw.links || [])
+    .filter(l => {
+      const t = (l.text || '').trim().toLowerCase();
+      return t && t.length < 60 && (
+        l.isButton ||
+        /buy|shop|add|cart|checkout|get|start|try|sign|join|learn|discover|explore|view|see|read|download|book|order|reserve|claim|grab|save|unlock/i.test(t)
+      );
+    })
+    .map(l => `"${l.text.trim()}"`)
+    .slice(0, 30)
+    .join(', ');
+
+  const formLabels = (raw.forms || []).flatMap(f =>
+    (f.fields || []).map(fi => fi.label || fi.placeholder || fi.name).filter(Boolean)
+  ).slice(0, 20).join(', ');
+
+  return `You are an expert conversion copywriter and UX content strategist. Analyze the copy and messaging on this ${meta.vertical} page.
+
+URL: ${meta.url}
+Page type: ${(meta.pageType || 'unknown').replace(/-/g, ' ')}
+Page title: ${meta.title}
+
+PAGE HEADINGS (in order):
+${headingsText || '(none detected)'}
+
+CALLS TO ACTION (buttons and key links):
+${ctasText || '(none detected)'}
+
+FORM FIELDS / MICROCOPY:
+${formLabels || '(none detected)'}
+
+Evaluate the copy across these 7 dimensions. Score each 1–10 (10 = excellent):
+
+1. VALUE PROPOSITION CLARITY — Is the primary benefit/offer immediately clear within 5 seconds?
+2. CTA EFFECTIVENESS — Are CTAs specific, action-oriented, and benefit-led? Avoid generic "Click here" or "Submit"
+3. HEADLINE IMPACT — Do headlines communicate unique value or just describe features?
+4. READING LEVEL — Estimate Flesch-Kincaid grade level. Is it appropriate for the audience?
+5. TRUST SIGNALS — Social proof, guarantees, certifications, reviews — are they prominent and specific?
+6. MICROCOPY QUALITY — Form labels, placeholder text, error messages, helper text — clear and reassuring?
+7. EMOTIONAL RESONANCE — Does copy speak to user motivations, fears, or desires beyond functional benefits?
+
+RESPONSE FORMAT — return valid JSON only, no markdown wrapper:
+{
+  "overallScore": <number 1-10>,
+  "overallSummary": "2-3 sentence overall assessment",
+  "dimensions": [
+    {
+      "name": "Dimension name",
+      "score": <number 1-10>,
+      "finding": "What was found — quote specific copy when possible",
+      "recommendation": "Specific, actionable improvement"
+    }
+  ],
+  "topWins": ["List of 2-3 copy elements that are working well"],
+  "topFixes": ["List of 3 highest-priority copy improvements"],
+  "readingLevel": "Grade N — <description of who this suits>",
+  "rewriteSuggestions": [
+    {
+      "original": "exact text from page",
+      "rewrite": "improved version",
+      "reason": "why this works better"
+    }
+  ]
+}
+
+Provide up to 3 rewrite suggestions for the weakest copy elements.`;
+}
+
+// ── Specialist Analysis Runner ──
+
+async function runSpecialistAnalysis(mode, auditData, apiKey) {
+  if (!apiKey) {
+    return { success: false, error: 'No Claude API key configured. Go to Settings.' };
+  }
+
+  const prompt = mode === 'dark-patterns'
+    ? buildDarkPatternPrompt(auditData)
+    : buildCopyPrompt(auditData);
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    return { success: false, error: 'Claude API error: ' + response.status + ' — ' + err };
+  }
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text || '{}';
+
+  // Parse JSON response
+  try {
+    const parsed = JSON.parse(text);
+    return { success: true, mode, result: parsed };
+  } catch {
+    // If JSON parsing fails, return raw text
+    return { success: true, mode, result: { raw: text } };
+  }
 }
 
 // ── Gemini API ──

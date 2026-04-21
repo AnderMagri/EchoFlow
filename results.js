@@ -1378,6 +1378,214 @@
       .replace(/\n/g, '<br>');
   }
 
+  // ── Dark Pattern Detector ──
+
+  async function runDarkPatternsAnalysis() {
+    const stored = await chrome.storage.local.get(['echoflowClaudeKey']);
+    const apiKey = stored.echoflowClaudeKey;
+
+    if (!apiKey) {
+      openSettings();
+      showToast('Set your Claude API key first');
+      return;
+    }
+
+    document.getElementById('dark-pattern-loading').style.display = 'flex';
+    document.getElementById('dark-pattern-result').style.display = 'none';
+    document.getElementById('dark-pattern-error').style.display = 'none';
+    document.getElementById('btn-dark-patterns').disabled = true;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'AI_SPECIALIST',
+        mode: 'dark-patterns',
+        data: auditData,
+        apiKey: apiKey
+      });
+
+      document.getElementById('dark-pattern-loading').style.display = 'none';
+      document.getElementById('btn-dark-patterns').disabled = false;
+
+      if (response.success) {
+        const resultEl = document.getElementById('dark-pattern-result');
+        resultEl.innerHTML = renderDarkPatternResult(response.result);
+        resultEl.style.display = 'block';
+      } else {
+        const errorEl = document.getElementById('dark-pattern-error');
+        errorEl.textContent = response.error || 'Analysis failed';
+        errorEl.style.display = 'block';
+      }
+    } catch (err) {
+      document.getElementById('dark-pattern-loading').style.display = 'none';
+      document.getElementById('btn-dark-patterns').disabled = false;
+      const errorEl = document.getElementById('dark-pattern-error');
+      errorEl.textContent = 'Error: ' + err.message;
+      errorEl.style.display = 'block';
+    }
+  }
+
+  function renderDarkPatternResult(result) {
+    if (result.raw) {
+      return `<pre style="white-space:pre-wrap;font-size:12px;">${escapeHtml(result.raw)}</pre>`;
+    }
+
+    const riskColors = { low: '#43a047', medium: '#ffb300', high: '#fb8c00', critical: '#e53935' };
+    const sevLabels = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
+    const riskColor = riskColors[result.riskLevel] || '#888';
+    const patternsFound = result.patternsFound || [];
+    const patternsClear = result.patternsClear || [];
+
+    let html = `<div class="dp-summary">
+      <div class="dp-risk-row">
+        <span class="dp-risk-badge" style="background:${riskColor};">${(result.riskLevel || 'unknown').toUpperCase()} RISK</span>
+        <span class="dp-summary-text">${escapeHtml(result.summary || '')}</span>
+      </div>
+    </div>`;
+
+    if (patternsFound.length > 0) {
+      html += `<div class="dp-section-title">⚠ Patterns Detected (${patternsFound.length})</div>`;
+      patternsFound.forEach(p => {
+        const sevColor = riskColors[p.severity] || '#888';
+        const regTags = [
+          p.euRegulation ? `<span class="reg-badge reg-badge-eu">${escapeHtml(p.euRegulation)}</span>` : '',
+          p.usRegulation ? `<span class="reg-badge reg-badge-us">${escapeHtml(p.usRegulation)}</span>` : ''
+        ].filter(Boolean).join(' ');
+
+        html += `<div class="dp-pattern-card">
+          <div class="dp-pattern-header">
+            <span class="dp-severity-dot" style="background:${sevColor};"></span>
+            <strong class="dp-pattern-name">${escapeHtml(p.pattern)}</strong>
+            <span class="dp-sev-label" style="color:${sevColor};">${sevLabels[p.severity] || p.severity}</span>
+          </div>
+          ${regTags ? `<div class="dp-reg-tags">${regTags}</div>` : ''}
+          <div class="dp-evidence">Evidence: <em>${escapeHtml(p.evidence || '')}</em></div>
+          <div class="dp-recommendation">Fix: ${escapeHtml(p.recommendation || '')}</div>
+        </div>`;
+      });
+    } else {
+      html += `<div class="dp-clean-banner">✓ No dark patterns detected in scanned content</div>`;
+    }
+
+    if (patternsClear.length > 0) {
+      html += `<div class="dp-section-title dp-clean-title">✓ Patterns Checked — Clear (${patternsClear.length})</div>
+        <div class="dp-clean-list">${patternsClear.map(p => `<span class="dp-clean-tag">${escapeHtml(p)}</span>`).join('')}</div>`;
+    }
+
+    if (result.complianceNotes) {
+      html += `<div class="dp-compliance-note">${escapeHtml(result.complianceNotes)}</div>`;
+    }
+
+    return html;
+  }
+
+  // ── Copy Intelligence ──
+
+  async function runCopyIntelligence() {
+    const stored = await chrome.storage.local.get(['echoflowClaudeKey']);
+    const apiKey = stored.echoflowClaudeKey;
+
+    if (!apiKey) {
+      openSettings();
+      showToast('Set your Claude API key first');
+      return;
+    }
+
+    document.getElementById('copy-loading').style.display = 'flex';
+    document.getElementById('copy-result').style.display = 'none';
+    document.getElementById('copy-error').style.display = 'none';
+    document.getElementById('btn-copy-intel').disabled = true;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'AI_SPECIALIST',
+        mode: 'copy-intelligence',
+        data: auditData,
+        apiKey: apiKey
+      });
+
+      document.getElementById('copy-loading').style.display = 'none';
+      document.getElementById('btn-copy-intel').disabled = false;
+
+      if (response.success) {
+        const resultEl = document.getElementById('copy-result');
+        resultEl.innerHTML = renderCopyResult(response.result);
+        resultEl.style.display = 'block';
+      } else {
+        const errorEl = document.getElementById('copy-error');
+        errorEl.textContent = response.error || 'Analysis failed';
+        errorEl.style.display = 'block';
+      }
+    } catch (err) {
+      document.getElementById('copy-loading').style.display = 'none';
+      document.getElementById('btn-copy-intel').disabled = false;
+      const errorEl = document.getElementById('copy-error');
+      errorEl.textContent = 'Error: ' + err.message;
+      errorEl.style.display = 'block';
+    }
+  }
+
+  function renderCopyResult(result) {
+    if (result.raw) {
+      return `<pre style="white-space:pre-wrap;font-size:12px;">${escapeHtml(result.raw)}</pre>`;
+    }
+
+    const score = result.overallScore || 0;
+    const scoreColor = score >= 8 ? '#43a047' : score >= 6 ? '#ffb300' : score >= 4 ? '#fb8c00' : '#e53935';
+    const dims = result.dimensions || [];
+
+    let html = `<div class="copy-summary">
+      <div class="copy-score-row">
+        <div class="copy-score-ring" style="--score-color:${scoreColor};">
+          <span class="copy-score-num">${score}</span>
+          <span class="copy-score-label">/10</span>
+        </div>
+        <div class="copy-summary-text">${escapeHtml(result.overallSummary || '')}</div>
+      </div>`;
+
+    if (result.readingLevel) {
+      html += `<div class="copy-reading-level">📖 Reading Level: <strong>${escapeHtml(result.readingLevel)}</strong></div>`;
+    }
+    html += `</div>`;
+
+    if (dims.length > 0) {
+      html += `<div class="copy-dims-grid">`;
+      dims.forEach(d => {
+        const ds = d.score || 0;
+        const dc = ds >= 8 ? '#43a047' : ds >= 6 ? '#ffb300' : ds >= 4 ? '#fb8c00' : '#e53935';
+        const barW = Math.round(ds * 10);
+        html += `<div class="copy-dim-card">
+          <div class="copy-dim-header">
+            <span class="copy-dim-name">${escapeHtml(d.name)}</span>
+            <span class="copy-dim-score" style="color:${dc};">${ds}/10</span>
+          </div>
+          <div class="copy-dim-bar"><div class="copy-dim-bar-fill" style="width:${barW}%;background:${dc};"></div></div>
+          <div class="copy-dim-finding">${escapeHtml(d.finding || '')}</div>
+          ${d.recommendation ? `<div class="copy-dim-rec">→ ${escapeHtml(d.recommendation)}</div>` : ''}
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (result.topFixes && result.topFixes.length > 0) {
+      html += `<div class="copy-section-title">Top Priority Fixes</div><ul class="copy-fixes-list">`;
+      result.topFixes.forEach(f => { html += `<li>${escapeHtml(f)}</li>`; });
+      html += `</ul>`;
+    }
+
+    if (result.rewriteSuggestions && result.rewriteSuggestions.length > 0) {
+      html += `<div class="copy-section-title">Rewrite Suggestions</div>`;
+      result.rewriteSuggestions.forEach(rw => {
+        html += `<div class="copy-rewrite-card">
+          <div class="copy-rewrite-original"><span class="copy-rw-label">Original</span> "${escapeHtml(rw.original || '')}"</div>
+          <div class="copy-rewrite-new"><span class="copy-rw-label copy-rw-new">Rewrite</span> "${escapeHtml(rw.rewrite || '')}"</div>
+          ${rw.reason ? `<div class="copy-rewrite-reason">${escapeHtml(rw.reason)}</div>` : ''}
+        </div>`;
+      });
+    }
+
+    return html;
+  }
+
   // ── Settings Modal ──
 
   function openSettings() {
@@ -2838,6 +3046,10 @@
 
     // ── AI Button ──
     document.getElementById('btn-run-ai').addEventListener('click', runAIAnalysis);
+
+    // ── Specialist Analysis Buttons ──
+    document.getElementById('btn-dark-patterns').addEventListener('click', runDarkPatternsAnalysis);
+    document.getElementById('btn-copy-intel').addEventListener('click', runCopyIntelligence);
 
     // ── Settings Modal ──
     document.getElementById('provider-select').addEventListener('change', (e) => {

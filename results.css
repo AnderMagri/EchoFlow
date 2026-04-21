@@ -2561,3 +2561,421 @@ select.settings-input {
   padding-left: 22px;
   line-height: 1.4;
 }
+
+/* ── Specialist Analysis Panels ── */
+
+.ai-specialist-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 16px;
+}
+
+.ai-specialist-section {
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.ai-specialist-section:first-child {
+  border-top: 1px solid #e5e7eb;
+}
+
+.ai-specialist-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.ai-specialist-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #1a1a2e;
+  flex: 1;
+}
+
+.ai-specialist-desc {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.btn-specialist {
+  padding: 5px 14px;
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-specialist:hover {
+  background: #2d2d50;
+}
+
+.btn-specialist:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ai-specialist-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.spinner-ring-sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+.ai-specialist-result {
+  margin-top: 8px;
+}
+
+/* Regulation badges */
+.ai-specialist-reg-badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.reg-badge {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 0;
+}
+
+.reg-badge-eu {
+  background: #003399;
+  color: #ffd700;
+}
+
+.reg-badge-us {
+  background: #b22234;
+  color: #fff;
+}
+
+/* ── Dark Pattern Detector Result ── */
+
+.dp-summary {
+  margin-bottom: 12px;
+}
+
+.dp-risk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.dp-risk-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  padding: 3px 8px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.dp-summary-text {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.dp-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  padding: 10px 0 6px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 6px;
+}
+
+.dp-clean-title {
+  color: #43a047;
+}
+
+.dp-pattern-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.dp-pattern-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dp-severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dp-pattern-name {
+  font-size: 13px;
+  color: #1a1a2e;
+  flex: 1;
+}
+
+.dp-sev-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dp-reg-tags {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.dp-evidence {
+  font-size: 12px;
+  color: #444;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.dp-evidence em {
+  color: #e53935;
+  font-style: normal;
+  background: #fee2e2;
+  padding: 0 3px;
+}
+
+.dp-recommendation {
+  font-size: 12px;
+  color: #00695c;
+  line-height: 1.4;
+}
+
+.dp-clean-banner {
+  background: #f0faf5;
+  border: 1px solid #c8e6c9;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #2e7d32;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.dp-clean-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.dp-clean-tag {
+  background: #f0faf5;
+  border: 1px solid #c8e6c9;
+  color: #2e7d32;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.dp-compliance-note {
+  font-size: 12px;
+  color: #555;
+  background: #f8f9fa;
+  border-left: 3px solid #dee2e6;
+  padding: 8px 10px;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* ── Copy Intelligence Result ── */
+
+.copy-summary {
+  margin-bottom: 14px;
+}
+
+.copy-score-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.copy-score-ring {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  background: #f5f5f7;
+  border: 2px solid var(--score-color, #888);
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.copy-score-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--score-color, #888);
+  line-height: 1;
+}
+
+.copy-score-label {
+  font-size: 12px;
+  color: #999;
+  font-weight: 600;
+}
+
+.copy-summary-text {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.copy-reading-level {
+  font-size: 12px;
+  color: #555;
+  padding: 4px 0;
+}
+
+.copy-dims-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.copy-dim-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  padding: 10px 12px;
+}
+
+.copy-dim-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.copy-dim-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a2e;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.copy-dim-score {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.copy-dim-bar {
+  height: 3px;
+  background: #e9ecef;
+  margin-bottom: 6px;
+}
+
+.copy-dim-bar-fill {
+  height: 100%;
+  transition: width 0.3s;
+}
+
+.copy-dim-finding {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+
+.copy-dim-rec {
+  font-size: 12px;
+  color: #00695c;
+  line-height: 1.4;
+}
+
+.copy-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  padding: 10px 0 6px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 4px;
+}
+
+.copy-fixes-list {
+  padding-left: 18px;
+  margin-bottom: 8px;
+}
+
+.copy-fixes-list li {
+  font-size: 12px;
+  color: #333;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.copy-rewrite-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.copy-rewrite-original {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.copy-rewrite-new {
+  font-size: 12px;
+  color: #1a6e4a;
+  background: #f0faf5;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.copy-rewrite-reason {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+}
+
+.copy-rw-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+  margin-right: 4px;
+}
+
+.copy-rw-new {
+  color: #1a6e4a;
+}
