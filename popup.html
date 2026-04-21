@@ -78,17 +78,26 @@
         </section>
 
         <section class="section">
-          <label class="section-label">Screenshot Resolution</label>
-          <div class="mode-options">
-            <label class="mode-option">
-              <input type="radio" name="resolution" value="100" checked>
-              <span class="mode-label">100%</span>
-            </label>
-            <label class="mode-option">
-              <input type="radio" name="resolution" value="120">
-              <span class="mode-label">120% HD</span>
-            </label>
+          <label class="section-label">Device</label>
+          <div class="device-grid">
+            <button class="device-card active" data-device="desktop" title="Current browser viewport">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span>Desktop</span>
+            </button>
+            <button class="device-card" data-device="mobile" title="390×844 — iPhone 15 Pro">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              <span>Mobile</span>
+            </button>
+            <button class="device-card" data-device="tablet" title="820×1180 — iPad">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              <span>Tablet</span>
+            </button>
+            <button class="device-card device-card-compare" data-device="compare" title="Run desktop + mobile, view differences">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="8" height="12" rx="1"/><rect x="14" y="3" width="8" height="18" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              <span>Compare</span>
+            </button>
           </div>
+          <div id="device-info" class="device-info">Current browser viewport</div>
         </section>
 
         <button id="run-audit-btn" class="btn-primary">
@@ -111,35 +120,13 @@
       </div>
     </div>
 
-    <!-- ═══ Project Review Tab ═══ -->
     <!-- ═══ Explorer Tab ═══ -->
     <div id="tab-explorer" class="popup-tab-content">
-      <div class="section">
-        <label class="section-label">Recent Explorations</label>
-        <p class="section-hint">Sites you've crawled recently. Click any card to reload its discovery results.</p>
-        <div id="explorer-list"></div>
-      </div>
-    </div>
 
-    <div id="tab-project-review" class="popup-tab-content">
-      <div class="section">
-        <label class="section-label">Project</label>
-        <div class="project-selector">
-          <select id="project-select" class="page-type-select">
-            <option value="">Select a project...</option>
-            <option value="__new__">+ New Project</option>
-          </select>
-        </div>
-        <div id="new-project-row" class="new-project-row" style="display:none;">
-          <input type="text" id="new-project-name" class="text-input" placeholder="Project name...">
-          <button id="btn-create-project" class="btn-sm-primary">Create</button>
-        </div>
-      </div>
-
-      <!-- Discover Pages (always visible) -->
+      <!-- Discover Pages -->
       <div class="section">
         <label class="section-label">Discover Pages</label>
-        <p class="section-hint">Discover all pages, grouped by type. Select which types to audit.</p>
+        <p class="section-hint">Map every page of this site, grouped by template type.</p>
         <div id="platform-banner" style="display:none;"></div>
         <div class="discover-controls">
           <button id="btn-discover-sitemap" class="btn-sm-secondary btn-discover">Sitemap</button>
@@ -155,9 +142,36 @@
           <div class="discover-actions">
             <button id="btn-discover-use" class="btn-sm-primary">Use Selected for Batch</button>
             <button id="btn-discover-figjam" class="btn-sm-secondary">Copy for FigJam</button>
+            <button id="btn-discover-csv" class="btn-sm-secondary">Export CSV</button>
             <button id="btn-discover-nav-script" class="btn-sm-secondary" style="display:none;">Run it (FigJam Script)</button>
             <button id="btn-discover-nav-text" class="btn-sm-secondary" style="display:none;">Copy Text</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Recent Explorations -->
+      <div class="section">
+        <label class="section-label">Recent Explorations</label>
+        <p class="section-hint">Sites you've crawled recently. Click any card to reload its results.</p>
+        <div id="explorer-list"></div>
+      </div>
+
+      <div id="project-status" class="status"></div>
+    </div>
+
+    <!-- ═══ Project Review Tab (hidden — future use) ═══ -->
+    <div id="tab-project-review" class="popup-tab-content">
+      <div class="section">
+        <label class="section-label">Project</label>
+        <div class="project-selector">
+          <select id="project-select" class="page-type-select">
+            <option value="">Select a project...</option>
+            <option value="__new__">+ New Project</option>
+          </select>
+        </div>
+        <div id="new-project-row" class="new-project-row" style="display:none;">
+          <input type="text" id="new-project-name" class="text-input" placeholder="Project name...">
+          <button id="btn-create-project" class="btn-sm-primary">Create</button>
         </div>
       </div>
 
@@ -200,8 +214,6 @@
         <button id="btn-view-project" class="btn-secondary">View Project Results</button>
         <button id="btn-delete-project" class="btn-danger-sm">Delete Project</button>
       </div>
-
-      <div id="project-status" class="status"></div>
     </div>
 
     <!-- ═══ Shopify Migration Tab ═══ -->
@@ -214,13 +226,33 @@
       </div>
 
       <button id="btn-adapt-analyze" class="btn-primary btn-adapt">
-        <span class="btn-text">Analyze for Shopify</span>
+        <span class="btn-text">Analyze Current Page</span>
         <span class="btn-spinner" style="display:none;">
           <svg width="16" height="16" viewBox="0 0 16 16" class="spinner">
             <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30 10" stroke-linecap="round"/>
           </svg>
         </span>
       </button>
+
+      <div class="adapt-divider"></div>
+
+      <div class="section">
+        <label class="section-label">Whole-Site Analysis</label>
+        <p class="section-hint">Run the migration analysis across all page types discovered by the Explorer — gives a full component inventory and theme recommendation.</p>
+        <div id="adapt-whole-site-hint" class="adapt-whole-site-hint" style="display:none;"></div>
+        <button id="btn-adapt-whole-site" class="btn-secondary btn-adapt">
+          <span class="btn-text">Analyze Whole Site</span>
+          <span class="btn-spinner" style="display:none;">
+            <svg width="16" height="16" viewBox="0 0 16 16" class="spinner">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30 10" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </button>
+        <div id="adapt-whole-progress" class="discover-progress" style="display:none;">
+          <span id="adapt-whole-progress-text" class="progress-text">Analyzing page 0 of 0...</span>
+          <button id="btn-adapt-whole-stop" class="btn-sm-secondary" style="padding:2px 8px;font-size:10px;">Stop</button>
+        </div>
+      </div>
 
       <div id="adapt-status" class="status"></div>
     </div>

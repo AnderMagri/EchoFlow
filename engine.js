@@ -107,6 +107,94 @@ function checkElementExists(check, data) {
   return [];
 }
 
+// ── Mobile-specific check types ──
+
+function checkMetaTag(check, data) {
+  const metas = data.metaTags || [];
+  const tag = metas.find(m => (m.name || '').toLowerCase() === check.name.toLowerCase());
+
+  if (check.condition === 'missing') {
+    if (!tag) return [{ position: { x: 0, y: 0, width: 100, height: 30 }, selector: null }];
+    return [];
+  }
+  if (check.condition === 'contains') {
+    if (tag && (tag.content || '').includes(check.value)) {
+      return [{ position: { x: 0, y: 0, width: 100, height: 30 }, selector: null }];
+    }
+    return [];
+  }
+  if (check.condition === 'missing_initial_scale') {
+    if (!tag || !(tag.content || '').includes('initial-scale=1')) {
+      return [{ position: { x: 0, y: 0, width: 100, height: 30 }, selector: null }];
+    }
+    return [];
+  }
+  return [];
+}
+
+function checkTapTargetDensity(check, data) {
+  // Find interactive elements that are too close to each other
+  const matched = findMatchingElements(data, check.selectors);
+  const minSpacing = check.min_spacing || 8;
+  const issues = [];
+
+  for (let i = 0; i < matched.length; i++) {
+    const a = matched[i].bounds;
+    for (let j = i + 1; j < matched.length; j++) {
+      const b = matched[j].bounds;
+      // Check gap between bounding boxes
+      const gapX = Math.max(0, Math.max(a.left, b.left) - Math.min(a.left + a.width, b.left + b.width));
+      const gapY = Math.max(0, Math.max(a.top, b.top) - Math.min(a.top + a.height, b.top + b.height));
+      const gap = Math.sqrt(gapX * gapX + gapY * gapY);
+      if (gap > 0 && gap < minSpacing) {
+        issues.push({ position: buildPos(a), selector: matched[i].selector });
+        break;
+      }
+    }
+  }
+  return issues.slice(0, 3); // Cap at 3 to avoid noise
+}
+
+function checkFixedElementCoverage(check, data) {
+  const fixedEls = (data.elements || []).filter(el => {
+    const pos = (el.computedStyles?.position || '').toLowerCase();
+    return pos === 'fixed' || pos === 'sticky';
+  });
+  const vh = data.viewport?.height || 812;
+  const threshold = check.threshold || 0.2;
+
+  for (const el of fixedEls) {
+    const h = el.bounds?.height || 0;
+    if (h / vh > threshold) {
+      return [{ position: buildPos(el.bounds), selector: el.selector }];
+    }
+  }
+  return [];
+}
+
+function checkFormLabelCheck(check, data) {
+  // Look for inputs that only have placeholder and no associated label
+  const inputs = (data.forms || []).flatMap(f => f.fields || []);
+  const issues = [];
+  for (const field of inputs) {
+    if (field.placeholder && !field.label && !field.ariaLabel) {
+      const el = (data.elements || []).find(e => e.selector === field.selector);
+      if (el) issues.push({ position: buildPos(el.bounds), selector: el.selector });
+    }
+  }
+  // Also find from elements directly
+  if (issues.length === 0) {
+    const matched = findMatchingElements(data, check.selectors || []);
+    for (const el of matched) {
+      const attrs = el.attributes || {};
+      if (attrs.placeholder && !attrs['aria-label'] && !attrs['aria-labelledby'] && !attrs.id) {
+        issues.push({ position: buildPos(el.bounds), selector: el.selector });
+      }
+    }
+  }
+  return issues.slice(0, 3);
+}
+
 function checkElementMissing(check, data) {
   const matched = findMatchingElements(data, check.selectors);
   if (matched.length === 0) {
@@ -789,6 +877,18 @@ export function evaluateRules(rules, capturedData) {
         break;
       case 'design_scale':
         results = checkDesignScale(rule.check, capturedData);
+        break;
+      case 'meta_tag_check':
+        results = checkMetaTag(rule.check, capturedData);
+        break;
+      case 'tap_target_density':
+        results = checkTapTargetDensity(rule.check, capturedData);
+        break;
+      case 'fixed_element_coverage':
+        results = checkFixedElementCoverage(rule.check, capturedData);
+        break;
+      case 'form_label_check':
+        results = checkFormLabelCheck(rule.check, capturedData);
         break;
     }
 

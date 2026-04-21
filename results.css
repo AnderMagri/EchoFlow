@@ -72,7 +72,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-radius: 4px;
+  border-radius: 0;
   background: #00C9A7;
   color: #fff;
   flex-shrink: 0;
@@ -106,7 +106,7 @@ body {
   gap: 4px;
   padding: 6px 10px;
   border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: #ccc;
   font-size: 12px;
@@ -143,7 +143,7 @@ body {
   margin-top: 4px;
   background: #fff;
   border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
   z-index: 100;
   min-width: 200px;
@@ -166,7 +166,7 @@ body {
   font-family: inherit;
   color: #333;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 0;
   transition: background 0.12s;
   text-align: left;
 }
@@ -205,7 +205,7 @@ body {
   position: relative;
   display: inline-block;
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
 }
@@ -299,7 +299,7 @@ body {
   min-width: 20px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 10px;
+  border-radius: 0;
   background: #00C9A7;
   color: #fff;
   font-size: 11px;
@@ -334,7 +334,7 @@ body {
 .findings-header select {
   padding: 4px 8px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
   font-family: inherit;
   color: #555;
@@ -355,7 +355,7 @@ body {
   padding: 12px;
   margin-bottom: 6px;
   border: 1px solid #eee;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.15s ease;
   background: #fff;
@@ -401,7 +401,7 @@ body {
   width: 100%;
   padding: 4px 8px;
   border: 1px solid #00C9A7;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 13px;
   font-family: inherit;
   outline: none;
@@ -419,7 +419,7 @@ body {
   align-items: center;
   gap: 2px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 11px;
   font-weight: 600;
 }
@@ -430,7 +430,7 @@ body {
 
 .ice-total {
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 11px;
   font-weight: 700;
   background: #1a1a2e;
@@ -439,7 +439,7 @@ body {
 
 .category-tag {
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
@@ -457,7 +457,7 @@ body {
 .finding-action-btn {
   padding: 4px 8px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   background: #fff;
   color: #666;
   font-size: 11px;
@@ -526,7 +526,7 @@ body {
   width: 100%;
   padding: 10px 12px;
   border: 1.5px solid #e0e0e0;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 13px;
   font-family: inherit;
   color: #1a1a2e;
@@ -548,7 +548,7 @@ body {
 .btn-ai {
   padding: 10px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: #00C9A7;
   color: #fff;
   font-size: 14px;
@@ -624,7 +624,7 @@ body {
   padding: 16px;
   background: #fee2e2;
   border: 1px solid #fecaca;
-  border-radius: 8px;
+  border-radius: 0;
   color: #991b1b;
   font-size: 13px;
 }
@@ -649,7 +649,7 @@ body {
 .modal-content {
   position: relative;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 0;
   padding: 24px;
   width: 420px;
   max-width: 90vw;
@@ -675,7 +675,7 @@ body {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 13px;
   font-family: inherit;
   outline: none;
@@ -734,7 +734,7 @@ select.settings-input {
   width: 40px;
   height: 40px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 0;
   padding: 2px;
   cursor: pointer;
   flex-shrink: 0;
@@ -770,7 +770,7 @@ select.settings-input {
   height: 48px;
   padding: 4px;
   border: 2px solid #ddd;
-  border-radius: 6px;
+  border-radius: 0;
   transition: all 0.15s ease;
 }
 
@@ -780,7 +780,7 @@ select.settings-input {
 }
 
 .pres-col {
-  border-radius: 3px;
+  border-radius: 0;
   flex: 1;
 }
 
@@ -813,7 +813,7 @@ select.settings-input {
 .btn-primary-sm {
   padding: 8px 20px;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   background: #00C9A7;
   color: #fff;
   font-size: 13px;
@@ -829,7 +829,7 @@ select.settings-input {
 .btn-secondary-sm {
   padding: 8px 20px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 0;
   background: #fff;
   color: #666;
   font-size: 13px;
@@ -851,7 +851,7 @@ select.settings-input {
   padding: 10px 20px;
   background: #1a1a2e;
   color: #fff;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 13px;
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -894,7 +894,7 @@ select.settings-input {
   margin-top: 16px;
   padding: 20px;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 12px;
+  border-radius: 0;
   text-align: center;
 }
 
@@ -918,7 +918,7 @@ select.settings-input {
   flex: 1;
   padding: 12px;
   background: rgba(255,255,255,0.05);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .score-value {
@@ -988,7 +988,7 @@ select.settings-input {
 .swatch-color {
   width: 36px;
   height: 36px;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .swatch-label {
@@ -1016,7 +1016,7 @@ select.settings-input {
   align-items: center;
   padding: 6px 10px;
   background: #f8f8f8;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .type-family {
@@ -1040,7 +1040,7 @@ select.settings-input {
 .design-size-chip {
   padding: 2px 8px;
   background: #f0f0f0;
-  border-radius: 4px;
+  border-radius: 0;
   color: #555;
   line-height: 1.4;
   white-space: nowrap;
@@ -1055,7 +1055,7 @@ select.settings-input {
 
 .spacing-chip {
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 11px;
   font-family: 'SF Mono', 'Menlo', monospace;
 }
@@ -1111,7 +1111,7 @@ select.settings-input {
   width: 48px;
   height: 48px;
   background: #fff;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* Design category tag */
@@ -1213,7 +1213,7 @@ select.settings-input {
   color: #00C9A7;
   background: rgba(0,201,167,0.1);
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .sidebar-vertical {
@@ -1318,7 +1318,7 @@ select.settings-input {
   font-size: 10px;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   color: #fff;
 }
 
@@ -1366,7 +1366,7 @@ select.settings-input {
   text-align: center;
   padding: 24px;
   background: linear-gradient(135deg, #141422, #1e1e32);
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 16px;
 }
 
@@ -1423,7 +1423,7 @@ select.settings-input {
 .adapt-complexity-card {
   background: #f8f9fa;
   border: 1px solid #e0e0e0;
-  border-radius: 10px;
+  border-radius: 0;
   padding: 14px;
   margin-bottom: 12px;
 }
@@ -1468,7 +1468,7 @@ select.settings-input {
   color: #7c3aed;
   font-size: 10px;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .adapt-attention-title {
@@ -1481,7 +1481,7 @@ select.settings-input {
   display: flex;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: 0;
   margin-bottom: 4px;
   font-size: 12px;
   border-left: 3px solid transparent;
@@ -1555,7 +1555,7 @@ select.settings-input {
   padding: 14px 16px;
   background: linear-gradient(135deg, #fef2f2, #fee2e2);
   border: 1.5px solid #fca5a5;
-  border-radius: 10px;
+  border-radius: 0;
   margin: 12px 16px 4px;
 }
 
@@ -1604,7 +1604,7 @@ select.settings-input {
   padding: 14px 16px;
   background: linear-gradient(135deg, #eef2ff, #e0e7ff);
   border: 1.5px solid #a5b4fc;
-  border-radius: 10px;
+  border-radius: 0;
   margin-bottom: 12px;
 }
 
@@ -1666,7 +1666,7 @@ select.settings-input {
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   color: #fff;
 }
 
@@ -1681,7 +1681,7 @@ select.settings-input {
 .adapt-layout-card {
   padding: 8px 12px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 0;
   margin-bottom: 4px;
   border-left: 3px solid #cbd5e1;
 }
@@ -1713,7 +1713,7 @@ select.settings-input {
   font-weight: 600;
   background: #e2e8f0;
   color: #475569;
-  border-radius: 3px;
+  border-radius: 0;
   text-transform: capitalize;
 }
 
@@ -1726,7 +1726,7 @@ select.settings-input {
   padding: 14px 16px;
   background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
   border: 1.5px solid #86efac;
-  border-radius: 10px;
+  border-radius: 0;
   margin-bottom: 12px;
 }
 
@@ -1761,7 +1761,7 @@ select.settings-input {
 .adapt-dev-card {
   background: #fff;
   border: 1px solid #e0e0e0;
-  border-radius: 10px;
+  border-radius: 0;
   padding: 14px 16px;
   margin-bottom: 12px;
 }
@@ -1810,7 +1810,7 @@ select.settings-input {
   color: #555;
   font-size: 11px;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .adapt-dev-hint {
@@ -1834,7 +1834,7 @@ select.settings-input {
   color: #7c3aed;
   background: #ede9fe;
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 /* ── Adapt: Tech Tags ── */
@@ -1850,7 +1850,7 @@ select.settings-input {
   padding: 3px 10px;
   font-size: 11px;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: 0;
   white-space: nowrap;
 }
 
@@ -1887,7 +1887,7 @@ select.settings-input {
   justify-content: space-between;
   padding: 6px 10px;
   background: #f8f9fa;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 12px;
 }
 
@@ -1899,7 +1899,7 @@ select.settings-input {
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: #fff;
-  border-radius: 3px;
+  border-radius: 0;
   flex-shrink: 0;
   margin-left: 8px;
 }
@@ -1908,7 +1908,7 @@ select.settings-input {
 
 .adapt-ticket {
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   margin-top: 8px;
   border-left: 3px solid transparent;
 }
@@ -1943,7 +1943,7 @@ select.settings-input {
   color: #7c3aed;
   background: #ede9fe;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   white-space: nowrap;
 }
 
@@ -1972,7 +1972,7 @@ select.settings-input {
   color: #7c3aed;
   background: #ede9fe;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 @media (max-width: 900px) {
@@ -1997,7 +1997,7 @@ select.settings-input {
 .design-logo-preview {
   background: #f5f5f5;
   border: 1px solid #e8e8e8;
-  border-radius: 8px;
+  border-radius: 0;
   padding: 12px 20px;
   display: flex;
   align-items: center;
@@ -2018,7 +2018,7 @@ select.settings-input {
   font-weight: 600;
   padding: 5px 10px;
   border: 1px solid #00c9a7;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .design-logo-download:hover {
@@ -2068,7 +2068,7 @@ select.settings-input {
   background: #f0f0f0;
   color: #444;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 /* Stack badges (framework / icon library) */
@@ -2077,7 +2077,7 @@ select.settings-input {
   font-weight: 600;
   color: #fff;
   padding: 3px 10px;
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 /* Image formats */
@@ -2109,14 +2109,14 @@ select.settings-input {
   flex: 1;
   height: 6px;
   background: #f0f0f0;
-  border-radius: 3px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .img-format-bar {
   height: 100%;
   background: #00c9a7;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .img-format-count {
@@ -2153,7 +2153,7 @@ select.settings-input {
   padding: 8px 6px 6px;
   background: #f8f9fa;
   border: 1px solid #e9ecef;
-  border-radius: 8px;
+  border-radius: 0;
   text-align: center;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -2171,7 +2171,7 @@ select.settings-input {
   align-items: center;
   justify-content: center;
   background: repeating-conic-gradient(#e8e8e8 0% 25%, #f5f5f5 0% 50%) 0 0 / 10px 10px;
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -2217,7 +2217,7 @@ select.settings-input {
   border: 1px solid #00C9A7;
   background: transparent;
   color: #00816c;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   transition: background 0.12s, color 0.12s;
@@ -2232,4 +2232,332 @@ select.settings-input {
 .design-svg-dl:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ── v1.5: Theme Recommendations ── */
+
+.adapt-theme-reco { border-top: 2px solid #00C9A7; }
+
+.adapt-theme-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.adapt-theme-card {
+  background: #f8fafc;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
+  padding: 12px 14px;
+}
+
+.adapt-theme-card.adapt-theme-top {
+  border-color: #00C9A7;
+  background: linear-gradient(135deg, #f0fdf9, #e6faf5);
+}
+
+.adapt-theme-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.adapt-theme-medal { font-size: 18px; }
+
+.adapt-theme-name { font-weight: 700; font-size: 14px; color: #1a1a2e; flex: 1; }
+
+.adapt-theme-version { font-size: 11px; color: #888; }
+
+.adapt-tag-free {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 0;
+  background: #d1fae5; color: #059669;
+}
+
+.adapt-tag-premium {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 0;
+  background: #ede9fe; color: #7c3aed;
+}
+
+.adapt-theme-coverage { display: flex; align-items: center; gap: 8px; }
+
+.adapt-theme-bar {
+  flex: 1; height: 6px; background: #e0e0e0; border-radius: 0; overflow: hidden;
+}
+
+.adapt-theme-fill { height: 100%; background: #00C9A7; border-radius: 0; }
+
+.adapt-theme-pct { font-size: 12px; font-weight: 600; color: #00816c; white-space: nowrap; }
+
+.adapt-theme-missing { font-size: 11px; color: #f59e0b; margin-top: 6px; }
+
+.adapt-theme-missing code {
+  background: #fff4e5; border-radius: 0; padding: 1px 5px;
+  font-size: 10px; color: #b36b00;
+}
+
+/* ── v1.5: App Conflict Detection ── */
+
+.adapt-conflicts { border-top: 2px solid #f59e0b; }
+
+.adapt-conflict-row {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0;
+  padding: 10px 12px;
+  margin-top: 8px;
+}
+
+.adapt-conflict-cat { font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+.adapt-conflict-apps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+
+.adapt-tag-conflict {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a;
+}
+
+.adapt-conflict-hint { font-size: 11px; color: #92400e; font-style: italic; }
+
+/* ── v1.5: Export dropdown additions ── */
+
+.dropdown-item + .dropdown-item { border-top: 1px solid #f0f0f0; }
+
+/* ── Compare Mode ── */
+
+.compare-container {
+  padding: 12px 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.compare-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8f9fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 0;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+}
+
+.compare-stat-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.compare-stat-device { font-size: 13px; font-weight: 600; color: #444; }
+.compare-stat-num { font-size: 28px; font-weight: 800; color: #1a1a1a; line-height: 1; }
+.compare-stat-label { font-size: 11px; color: #888; }
+
+.compare-stat-vs {
+  font-size: 13px; font-weight: 700; color: #ccc;
+  padding: 0 16px;
+}
+
+.compare-error {
+  background: #fff4e5;
+  border: 1px solid #f6d28a;
+  border-radius: 0;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #8a4500;
+  margin-bottom: 14px;
+}
+
+.compare-section {
+  margin-bottom: 20px;
+}
+
+.compare-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-section-title.mobile-only-title { color: #6d28d9; }
+.compare-section-title.shared-title { color: #d97706; }
+.compare-section-title.desktop-only-title { color: #1e7fcc; }
+
+.compare-section-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(0,0,0,0.07);
+  color: #555;
+  padding: 1px 6px;
+  border-radius: 0;
+}
+
+.compare-section-hint {
+  font-size: 11px;
+  color: #888;
+  margin: 0 0 8px;
+}
+
+.compare-finding-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 0;
+  padding: 10px 12px;
+  margin-bottom: 7px;
+}
+
+.compare-finding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.compare-finding-cat {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #00816c;
+  background: #e8f5f3;
+  padding: 2px 6px;
+  border-radius: 0;
+}
+
+.compare-finding-text {
+  font-size: 12px;
+  color: #1a1a1a;
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.compare-finding-rec {
+  font-size: 11px;
+  color: #555;
+  margin: 0;
+  line-height: 1.35;
+}
+
+/* ── Design Health Score ── */
+
+.design-health-card {
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-top: 3px solid #1a1a1a;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.design-health-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.design-health-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #1a1a1a;
+}
+
+.design-health-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.design-health-score {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.design-health-denom {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+.design-health-label {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.design-health-pass {
+  font-size: 12px;
+  color: #00816c;
+  margin: 0;
+}
+
+.design-health-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.design-health-warn {
+  padding: 8px 10px;
+  border-left: 3px solid transparent;
+}
+
+.design-health-warn.dhw-error {
+  background: #fff5f5;
+  border-left-color: #ef4444;
+}
+
+.design-health-warn.dhw-warning {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+}
+
+.dhw-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.dhw-icon {
+  font-size: 10px;
+  font-weight: 900;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dhw-error .dhw-icon { color: #ef4444; }
+.dhw-warning .dhw-icon { color: #f59e0b; }
+
+.dhw-metric {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 90px;
+}
+
+.dhw-msg {
+  font-size: 11px;
+  font-weight: 600;
+  color: #444;
+}
+
+.dhw-detail {
+  font-size: 11px;
+  color: #666;
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.4;
 }

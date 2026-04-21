@@ -226,6 +226,84 @@
     list.appendChild(summary);
   }
 
+  // ── Design Health Score ──
+
+  function computeDesignHealth(inv) {
+    const warnings = [];
+    let score = 100;
+
+    // Font families
+    const fontCount = inv.fontFamilies?.length || 0;
+    if (fontCount > 5) {
+      score -= 20;
+      warnings.push({ level: 'error', metric: 'Font Families', message: `${fontCount} typefaces detected`, detail: 'More than 5 fonts signals no design system. Aim for 1–2 (one for headings, one for body).' });
+    } else if (fontCount > 3) {
+      score -= 10;
+      warnings.push({ level: 'warning', metric: 'Font Families', message: `${fontCount} typefaces in use`, detail: 'More than 3 fonts is unusual. A clean brand uses 2, occasionally 3.' });
+    }
+
+    // Font sizes
+    const sizeCount = inv.fontSizes?.length || 0;
+    if (sizeCount > 10) {
+      score -= 12;
+      warnings.push({ level: 'error', metric: 'Type Scale', message: `${sizeCount} distinct font sizes`, detail: 'Professional type scales use 5–7 sizes. Beyond 10 creates visual noise and broken hierarchy.' });
+    } else if (sizeCount > 7) {
+      score -= 5;
+      warnings.push({ level: 'warning', metric: 'Type Scale', message: `${sizeCount} font sizes`, detail: 'Consider trimming to 5–7 sizes for a tighter, more intentional scale.' });
+    }
+
+    // Color palette
+    const colorCount = inv.colorPalette?.length || 0;
+    if (colorCount > 16) {
+      score -= 15;
+      warnings.push({ level: 'error', metric: 'Color Palette', message: `${colorCount} unique colors`, detail: 'Color sprawl. A focused brand palette uses ≤12–16 colors (primaries + tints + neutrals). Consolidate similar shades.' });
+    } else if (colorCount > 12) {
+      score -= 7;
+      warnings.push({ level: 'warning', metric: 'Color Palette', message: `${colorCount} unique colors`, detail: 'Near the upper limit. Look for near-duplicates you can merge into a single token.' });
+    }
+
+    // Border radius variety
+    const radiiCount = inv.borderRadii?.length || 0;
+    if (radiiCount > 8) {
+      score -= 10;
+      warnings.push({ level: 'error', metric: 'Border Radii', message: `${radiiCount} corner-radius values`, detail: 'No consistent corner system. Define 3–5 radius tokens (none, small, medium, large, pill).' });
+    } else if (radiiCount > 5) {
+      score -= 4;
+      warnings.push({ level: 'warning', metric: 'Border Radii', message: `${radiiCount} radius values`, detail: 'Consider consolidating to ≤5 tokens for a more systematic approach.' });
+    }
+
+    // Spacing grid alignment
+    const gridRatio = inv.spacingGridRatio ?? 100;
+    if (gridRatio < 70) {
+      score -= 15;
+      warnings.push({ level: 'error', metric: 'Spacing Grid', message: `Only ${gridRatio}% on 4px grid`, detail: 'Most spacing values are arbitrary. Random spacing breaks visual rhythm — align to 4/8px increments.' });
+    } else if (gridRatio < 85) {
+      score -= 7;
+      warnings.push({ level: 'warning', metric: 'Spacing Grid', message: `${gridRatio}% on 4px grid`, detail: 'Several off-grid values detected. Tightening to the 4/8px scale will improve consistency.' });
+    }
+
+    // Heading hierarchy
+    if (inv.headings && inv.headings.length > 0) {
+      const levels = new Set(inv.headings.map(h => h.level || h.tag || '').map(l => l.toUpperCase()));
+      if (!levels.has('H1')) {
+        score -= 10;
+        warnings.push({ level: 'error', metric: 'Heading Hierarchy', message: 'No H1 found on page', detail: 'Every page needs exactly one H1 for SEO and screen-reader navigation.' });
+      } else if (levels.has('H3') && !levels.has('H2')) {
+        score -= 8;
+        warnings.push({ level: 'error', metric: 'Heading Hierarchy', message: 'H1 → H3 without H2 (skipped level)', detail: 'Heading levels must not be skipped. This breaks assistive technology navigation.' });
+      }
+    }
+
+    // Shadow variety
+    const shadowCount = inv.shadows?.length || 0;
+    if (shadowCount > 8) {
+      score -= 6;
+      warnings.push({ level: 'warning', metric: 'Shadows / Elevation', message: `${shadowCount} shadow styles`, detail: 'Too many elevations. A design system needs 3–4 levels (flat, subtle, raised, overlay).' });
+    }
+
+    return { score: Math.max(0, score), warnings };
+  }
+
   // ── Design Tab ──
 
   function renderDesignTab() {
@@ -243,6 +321,36 @@
     }
 
     let html = '';
+
+    // ── Design Health Score ──
+    const health = computeDesignHealth(inv);
+    const scoreColor = health.score >= 80 ? '#00C9A7' : health.score >= 60 ? '#f59e0b' : '#ef4444';
+    const scoreLabel = health.score >= 80 ? 'Good' : health.score >= 60 ? 'Needs Work' : 'Critical Issues';
+    html += `<div class="design-health-card">
+      <div class="design-health-header">
+        <span class="design-health-title">Design Health</span>
+        <div class="design-health-right">
+          <span class="design-health-score" style="color:${scoreColor}">${health.score}<span class="design-health-denom">/100</span></span>
+          <span class="design-health-label" style="background:${scoreColor}22;color:${scoreColor};border-color:${scoreColor}44">${scoreLabel}</span>
+        </div>
+      </div>`;
+    if (health.warnings.length === 0) {
+      html += `<p class="design-health-pass">✓ No major consistency issues detected</p>`;
+    } else {
+      html += `<div class="design-health-warnings">`;
+      for (const w of health.warnings) {
+        html += `<div class="design-health-warn dhw-${w.level}">
+          <div class="dhw-header">
+            <span class="dhw-icon">${w.level === 'error' ? '✕' : '!'}</span>
+            <span class="dhw-metric">${w.metric}</span>
+            <span class="dhw-msg">${w.message}</span>
+          </div>
+          <p class="dhw-detail">${w.detail}</p>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
 
     // Color palette
     if (inv.colorPalette && inv.colorPalette.length > 0) {
@@ -1344,6 +1452,539 @@
     return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // ── Export: Copy for Notion ──
+
+  function exportToNotion() {
+    if (!auditData) { showToast('No data to export'); return; }
+
+    const isAdapt = auditData.mode === 'shopify-adapt';
+    let md = '';
+
+    if (isAdapt) {
+      // ── Adapt / Migration Notion Export ──
+      const meta = auditData.meta;
+      const sections = auditData.sectionMappings || [];
+      const components = auditData.componentMappings || [];
+      const contentSections = sections.filter(s => !s.isLayout);
+      const allItems = [...contentSections, ...components];
+      const green = allItems.filter(i => i.shopifyMapping?.status === 'green').length;
+      const yellow = allItems.filter(i => i.shopifyMapping?.status === 'yellow').length;
+      const red = allItems.filter(i => i.shopifyMapping?.status === 'red').length;
+      const viability = allItems.length > 0 ? Math.round((green / allItems.length) * 100) : 0;
+      const dateStr = new Date(meta.timestamp).toLocaleDateString();
+
+      md += `# Shopify Migration Assessment\n`;
+      md += `**URL:** ${meta.url}\n`;
+      md += `**Date:** ${dateStr} | **Source Platform:** ${(meta.platform || 'unknown').replace(/-/g, ' ')} | **Page Type:** ${meta.pageType || 'unknown'}\n\n`;
+      md += `---\n\n`;
+      md += `## Viability: ${viability}%\n`;
+      md += `| Native (✅) | App / Custom (🟡) | Custom Dev (🔴) | Total |\n`;
+      md += `|---|---|---|---|\n`;
+      md += `| ${green} | ${yellow} | ${red} | ${allItems.length} |\n\n`;
+
+      if (contentSections.length > 0) {
+        md += `## Content Sections\n`;
+        md += `| Section Detected | Maps to Shopify Section | Status |\n`;
+        md += `|---|---|---|\n`;
+        contentSections.forEach(s => {
+          const m = s.shopifyMapping;
+          const emoji = m.status === 'green' ? '✅' : m.status === 'yellow' ? '🟡' : '🔴';
+          md += `| ${s.type.replace(/-/g, ' ')} | ${m.sectionName} | ${emoji} ${m.status === 'green' ? 'Native' : m.status === 'yellow' ? 'App/Custom' : 'Custom Dev'} |\n`;
+        });
+        md += `\n`;
+      }
+
+      if (components.length > 0) {
+        md += `## Components\n`;
+        md += `| Component | Status | Solution |\n`;
+        md += `|---|---|---|\n`;
+        components.forEach(c => {
+          const m = c.shopifyMapping;
+          const emoji = m.status === 'green' ? '✅' : m.status === 'yellow' ? '🟡' : '🔴';
+          const sol = m.apps?.length ? `Apps: ${m.apps.slice(0, 2).map(a => typeof a === 'string' ? a : a.name).join(', ')}` : (m.solution || m.notes || '—');
+          md += `| ${c.type.replace(/-/g, ' ')} | ${emoji} ${m.status === 'green' ? 'Native' : m.status === 'yellow' ? 'App/Custom' : 'Custom Dev'} | ${sol} |\n`;
+        });
+        md += `\n`;
+      }
+
+      // Tech stack
+      const tech = auditData.complexitySignals?.techStack || {};
+      const fwList = (tech.jsFrameworks || []).map(f => f.meta ? `${f.name} (${f.meta})` : f.name);
+      const payments = (tech.payments || []).map(p => p.name || p);
+      if (fwList.length || payments.length) {
+        md += `## Tech Stack\n`;
+        if (fwList.length) md += `- **JS Framework:** ${fwList.join(', ')}\n`;
+        if (payments.length) md += `- **Payments:** ${payments.join(', ')}\n`;
+        md += `\n`;
+      }
+
+      // Migration checklist
+      md += `## Migration Checklist\n\n`;
+      md += `### Phase 1 — Foundation\n`;
+      md += `- [ ] Select Shopify theme\n`;
+      md += `- [ ] Configure DNS + domain\n`;
+      md += `- [ ] Set up Shopify Payments\n`;
+      md += `- [ ] Import products (CSV or migration app)\n\n`;
+      md += `### Phase 2 — Content & Structure\n`;
+      md += `- [ ] Recreate page templates (${contentSections.length} section types detected)\n`;
+      contentSections.filter(s => s.shopifyMapping?.status === 'green').forEach(s => {
+        md += `  - [ ] ${(s.type || '').replace(/-/g, ' ')} → ${s.shopifyMapping.sectionName}\n`;
+      });
+      md += `\n### Phase 3 — Apps & Custom Work\n`;
+      if (yellow + red === 0) {
+        md += `- [ ] No apps or custom development required\n`;
+      } else {
+        const customWork = allItems.filter(i => i.shopifyMapping?.status === 'yellow' || i.shopifyMapping?.status === 'red');
+        customWork.forEach(item => {
+          const m = item.shopifyMapping;
+          const name = item.type.replace(/-/g, ' ');
+          const appNames = (m.apps || []).slice(0, 1).map(a => typeof a === 'string' ? a : a.name);
+          md += `- [ ] ${name}: ${appNames.length ? `Install ${appNames[0]}` : m.effort || 'custom dev needed'}\n`;
+        });
+      }
+      md += `\n### Phase 4 — QA & Launch\n`;
+      md += `- [ ] Test all page templates on mobile + desktop\n`;
+      md += `- [ ] Verify tracking (GA, Meta Pixel, etc.)\n`;
+      md += `- [ ] 301 redirects from old URLs\n`;
+      md += `- [ ] Performance check (Core Web Vitals)\n`;
+      md += `- [ ] UAT with client\n`;
+      md += `- [ ] Go live\n\n`;
+      md += `---\n*Generated by EchoFlow v1.5 — ${dateStr}*\n`;
+
+    } else {
+      // ── UX Audit Notion Export ──
+      if (!findings.length) { showToast('No findings to export'); return; }
+      const meta = auditData.meta;
+      const dateStr = new Date(meta.timestamp).toLocaleDateString();
+      const avgICE = (findings.reduce((s, f) => s + parseFloat(iceAverage(f.ice)), 0) / findings.length).toFixed(1);
+      const categories = findings.reduce((acc, f) => { acc[f.category] = (acc[f.category] || 0) + 1; return acc; }, {});
+
+      md += `# UX Audit — ${meta.url}\n`;
+      md += `**Date:** ${dateStr} | **Vertical:** ${meta.vertical} | **Device:** ${meta.device || 'desktop'} | **Findings:** ${findings.length} | **Avg ICE:** ${avgICE}\n\n`;
+      md += `---\n\n`;
+      md += `## Summary\n`;
+      md += `| Category | Count |\n|---|---|\n`;
+      Object.entries(categories).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
+        md += `| ${k} | ${v} |\n`;
+      });
+      md += `\n`;
+
+      // AI analysis if available
+      const aiText = document.getElementById('ai-result')?.textContent?.trim();
+      if (aiText) {
+        md += `## AI Analysis\n${aiText}\n\n`;
+      }
+
+      md += `## Findings\n\n`;
+      findings.forEach(f => {
+        const avg = parseFloat(iceAverage(f.ice));
+        const priority = avg >= 7 ? '🔴 High' : avg >= 5 ? '🟡 Medium' : '🟢 Low';
+        md += `### ${f.number}. ${f.description}\n`;
+        md += `**Category:** ${f.category} | **Priority:** ${priority} | **ICE:** I:${f.ice.impact} C:${f.ice.confidence} E:${f.ice.ease}\n\n`;
+        if (f.details) md += `${f.details}\n\n`;
+        if (f.recommendation) md += `> 💡 **Recommendation:** ${f.recommendation}\n\n`;
+        md += `---\n\n`;
+      });
+      md += `*Generated by EchoFlow v1.5 — ${dateStr}*\n`;
+    }
+
+    navigator.clipboard.writeText(md).then(() => {
+      showToast('Copied — paste directly into Notion');
+    }).catch(() => {
+      showToast('Copy failed — check browser permissions');
+    });
+  }
+
+  // ── Export: HTML Slide Deck ──
+
+  function exportAsSlides() {
+    if (!auditData) { showToast('No data to export'); return; }
+
+    const isAdapt = auditData.mode === 'shopify-adapt';
+    const meta = isAdapt ? auditData.meta : auditData.meta;
+    const dateStr = new Date(meta.timestamp).toLocaleDateString();
+    const url = meta.url;
+    const screenshot = auditData.screenshot || '';
+
+    const slideStyles = `
+      @page { size: 16in 9in; margin: 0; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; color: #fff; }
+      .slide { width: 1600px; min-height: 900px; padding: 80px; display: flex; flex-direction: column; justify-content: center; page-break-after: always; position: relative; overflow: hidden; background: #0f0f1a; }
+      .slide-accent { position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: #00C9A7; }
+      .slide-number { position: absolute; bottom: 30px; right: 40px; font-size: 12px; color: rgba(255,255,255,0.3); }
+      .slide-logo { position: absolute; top: 30px; right: 40px; font-size: 12px; color: rgba(255,255,255,0.3); font-weight: 600; letter-spacing: 1px; }
+      .slide h1 { font-size: 56px; font-weight: 700; line-height: 1.15; color: #fff; margin-bottom: 24px; }
+      .slide h2 { font-size: 36px; font-weight: 700; color: #fff; margin-bottom: 20px; }
+      .slide h3 { font-size: 22px; font-weight: 600; color: #00C9A7; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+      .slide p { font-size: 18px; color: rgba(255,255,255,0.7); line-height: 1.6; }
+      .slide .meta { font-size: 16px; color: rgba(255,255,255,0.45); margin-top: 16px; }
+      .cover-url { font-size: 20px; color: #00C9A7; margin-bottom: 10px; word-break: break-all; }
+      .stat-row { display: flex; gap: 40px; margin-top: 40px; }
+      .stat-box { flex: 1; background: rgba(255,255,255,0.06); border-radius: 16px; padding: 32px 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+      .stat-value { font-size: 52px; font-weight: 800; color: #00C9A7; }
+      .stat-label { font-size: 14px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
+      .two-col { display: flex; gap: 60px; align-items: flex-start; }
+      .col { flex: 1; }
+      .screenshot-wrap { flex: 1; }
+      .screenshot-wrap img { max-width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); }
+      .finding-row { display: flex; align-items: flex-start; gap: 20px; padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+      .finding-num { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; color: #fff; }
+      .finding-content { flex: 1; }
+      .finding-title { font-size: 17px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+      .finding-meta { font-size: 13px; color: rgba(255,255,255,0.4); }
+      .tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 6px; }
+      .tag-green { background: rgba(34,197,94,0.15); color: #22c55e; }
+      .tag-yellow { background: rgba(245,158,11,0.15); color: #f59e0b; }
+      .tag-red { background: rgba(239,68,68,0.15); color: #ef4444; }
+      .table-wrap { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      .table-wrap th { text-align: left; font-size: 13px; color: rgba(255,255,255,0.4); padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+      .table-wrap td { font-size: 15px; color: rgba(255,255,255,0.85); padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .checklist { list-style: none; margin-top: 16px; }
+      .checklist li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; font-size: 16px; color: rgba(255,255,255,0.75); border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .checklist li::before { content: "☐"; color: #00C9A7; flex-shrink: 0; font-size: 18px; }
+      @media print { .slide { page-break-after: always; } }
+    `;
+
+    let slides = '';
+    let slideNum = 0;
+
+    function slide(content, extraClass = '') {
+      slideNum++;
+      return `<div class="slide ${extraClass}">
+        <div class="slide-accent"></div>
+        <div class="slide-logo">ECHOFLOW</div>
+        <div class="slide-number">${slideNum}</div>
+        ${content}
+      </div>`;
+    }
+
+    if (isAdapt) {
+      const sections = auditData.sectionMappings || [];
+      const components = auditData.componentMappings || [];
+      const contentSections = sections.filter(s => !s.isLayout);
+      const allItems = [...contentSections, ...components];
+      const green = allItems.filter(i => i.shopifyMapping?.status === 'green').length;
+      const yellow = allItems.filter(i => i.shopifyMapping?.status === 'yellow').length;
+      const red = allItems.filter(i => i.shopifyMapping?.status === 'red').length;
+      const viability = allItems.length > 0 ? Math.round((green / allItems.length) * 100) : 0;
+
+      // Cover
+      slides += slide(`
+        <h3>Shopify Migration Assessment</h3>
+        <h1>Migration Feasibility Report</h1>
+        <div class="cover-url">${escapeHtml(url)}</div>
+        <p class="meta">${escapeHtml(meta.platform?.replace(/-/g, ' ') || 'Unknown platform')} &nbsp;·&nbsp; ${dateStr}</p>
+      `);
+
+      // Viability
+      slides += slide(`
+        <h3>Overall Score</h3>
+        <h2>Shopify Viability: ${viability}%</h2>
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-value" style="color:#22c55e">${green}</div><div class="stat-label">Native</div></div>
+          <div class="stat-box"><div class="stat-value" style="color:#f59e0b">${yellow}</div><div class="stat-label">App / Custom</div></div>
+          <div class="stat-box"><div class="stat-value" style="color:#ef4444">${red}</div><div class="stat-label">Custom Dev</div></div>
+          <div class="stat-box"><div class="stat-value">${allItems.length}</div><div class="stat-label">Total Items</div></div>
+        </div>
+      `);
+
+      // Screenshot + platform
+      if (screenshot) {
+        slides += slide(`
+          <h3>Page Analyzed</h3>
+          <div class="two-col" style="align-items:center;">
+            <div class="screenshot-wrap"><img src="${screenshot}" alt="screenshot"></div>
+            <div class="col">
+              <h2>${escapeHtml(meta.pageType || 'Page')}</h2>
+              <p>${escapeHtml(url)}</p>
+              <p class="meta" style="margin-top:12px;">Platform: ${escapeHtml(meta.platform?.replace(/-/g, ' ') || 'Unknown')}</p>
+            </div>
+          </div>
+        `);
+      }
+
+      // Content sections table
+      if (contentSections.length > 0) {
+        slides += slide(`
+          <h3>Content Sections</h3>
+          <h2>Page Structure Analysis</h2>
+          <table class="table-wrap">
+            <tr><th>Detected Section</th><th>Shopify Equivalent</th><th>Status</th></tr>
+            ${contentSections.slice(0, 10).map(s => {
+              const m = s.shopifyMapping;
+              const emoji = m.status === 'green' ? '✅' : m.status === 'yellow' ? '🟡' : '🔴';
+              const tagCls = 'tag-' + m.status;
+              return `<tr><td>${escapeHtml(s.type.replace(/-/g, ' '))}</td><td>${escapeHtml(m.sectionName)}</td><td><span class="tag ${tagCls}">${emoji} ${m.status === 'green' ? 'Native' : m.status === 'yellow' ? 'App/Custom' : 'Custom Dev'}</span></td></tr>`;
+            }).join('')}
+          </table>
+        `);
+      }
+
+      // Components table
+      if (components.length > 0) {
+        slides += slide(`
+          <h3>Components</h3>
+          <h2>Ecommerce Component Compatibility</h2>
+          <table class="table-wrap">
+            <tr><th>Component</th><th>Status</th><th>Solution</th></tr>
+            ${components.slice(0, 10).map(c => {
+              const m = c.shopifyMapping;
+              const emoji = m.status === 'green' ? '✅' : m.status === 'yellow' ? '🟡' : '🔴';
+              const tagCls = 'tag-' + m.status;
+              const apps = (m.apps || []).slice(0, 1).map(a => typeof a === 'string' ? a : a.name);
+              const sol = apps.length ? apps[0] : (m.solution ? m.solution.substring(0, 40) : m.notes?.substring(0, 40) || '—');
+              return `<tr><td>${escapeHtml(c.type.replace(/-/g, ' '))}</td><td><span class="tag ${tagCls}">${emoji} ${m.status === 'green' ? 'Native' : m.status === 'yellow' ? 'App/Custom' : 'Custom Dev'}</span></td><td>${escapeHtml(sol)}</td></tr>`;
+            }).join('')}
+          </table>
+        `);
+      }
+
+      // Migration checklist slide
+      const customWork = allItems.filter(i => i.shopifyMapping?.status === 'yellow' || i.shopifyMapping?.status === 'red');
+      slides += slide(`
+        <h3>Next Steps</h3>
+        <h2>Migration Checklist</h2>
+        <ul class="checklist">
+          <li>Select Shopify theme &amp; configure basic settings</li>
+          <li>Import products via CSV or migration app</li>
+          <li>Recreate ${contentSections.filter(s => s.shopifyMapping?.status === 'green').length} native section templates</li>
+          ${customWork.length ? `<li>Implement ${customWork.length} custom/app features</li>` : '<li>No custom development required ✅</li>'}
+          <li>Set up DNS, domain, and Shopify Payments</li>
+          <li>QA all page templates on mobile + desktop</li>
+          <li>Configure 301 redirects from old URLs</li>
+          <li>Performance check &amp; go live</li>
+        </ul>
+      `);
+
+    } else {
+      // ── UX Audit slides ──
+      if (!findings.length) { showToast('No findings to export'); return; }
+      const vertical = meta.vertical || 'ux';
+      const device = meta.device || 'desktop';
+      const avgICE = (findings.reduce((s, f) => s + parseFloat(iceAverage(f.ice)), 0) / findings.length).toFixed(1);
+      const high = findings.filter(f => parseFloat(iceAverage(f.ice)) >= 7).length;
+      const med  = findings.filter(f => { const v = parseFloat(iceAverage(f.ice)); return v >= 5 && v < 7; }).length;
+      const low  = findings.length - high - med;
+      const categories = findings.reduce((acc, f) => { acc[f.category] = (acc[f.category] || 0) + 1; return acc; }, {});
+
+      // Cover
+      slides += slide(`
+        <h3>${escapeHtml(vertical.replace('-', ' '))} Audit</h3>
+        <h1>UX Audit Report</h1>
+        <div class="cover-url">${escapeHtml(url)}</div>
+        <p class="meta">${device} &nbsp;·&nbsp; ${meta.viewport?.width}x${meta.viewport?.height} &nbsp;·&nbsp; ${dateStr}</p>
+      `);
+
+      // Stats
+      slides += slide(`
+        <h3>Executive Summary</h3>
+        <h2>${findings.length} Findings Identified</h2>
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-value" style="color:#ef4444">${high}</div><div class="stat-label">High Priority</div></div>
+          <div class="stat-box"><div class="stat-value" style="color:#f59e0b">${med}</div><div class="stat-label">Medium Priority</div></div>
+          <div class="stat-box"><div class="stat-value" style="color:#22c55e">${low}</div><div class="stat-label">Low Priority</div></div>
+          <div class="stat-box"><div class="stat-value">${avgICE}</div><div class="stat-label">Avg ICE Score</div></div>
+        </div>
+      `);
+
+      // Screenshot
+      if (screenshot) {
+        slides += slide(`
+          <h3>Page Analyzed</h3>
+          <div class="two-col" style="align-items:center;">
+            <div class="screenshot-wrap"><img src="${screenshot}" alt="screenshot"></div>
+            <div class="col">
+              <h2>${device.charAt(0).toUpperCase() + device.slice(1)}</h2>
+              <p>${escapeHtml(url)}</p>
+              <p class="meta" style="margin-top:12px;">${meta.viewport?.width}x${meta.viewport?.height} viewport</p>
+            </div>
+          </div>
+        `);
+      }
+
+      // Category breakdown
+      slides += slide(`
+        <h3>By Category</h3>
+        <h2>Findings Breakdown</h2>
+        <table class="table-wrap">
+          <tr><th>Category</th><th>Count</th></tr>
+          ${Object.entries(categories).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${v}</td></tr>`).join('')}
+        </table>
+      `);
+
+      // Top findings — one slide per 5 findings
+      const highFindings = [...findings].sort((a, b) => parseFloat(iceAverage(b.ice)) - parseFloat(iceAverage(a.ice)));
+      for (let i = 0; i < Math.min(highFindings.length, 15); i += 5) {
+        const batch = highFindings.slice(i, i + 5);
+        const slideContent = batch.map(f => {
+          const avg = parseFloat(iceAverage(f.ice));
+          const color = avg >= 7 ? '#ef4444' : avg >= 5 ? '#f59e0b' : '#22c55e';
+          return `<div class="finding-row">
+            <div class="finding-num" style="background:${color}">${f.number}</div>
+            <div class="finding-content">
+              <div class="finding-title">${escapeHtml(f.description)}</div>
+              <div class="finding-meta">${escapeHtml(f.category)} &nbsp;·&nbsp; ICE ${avg}</div>
+            </div>
+          </div>`;
+        }).join('');
+        slides += slide(`
+          <h3>Findings ${i + 1}–${Math.min(i + 5, highFindings.length)}</h3>
+          <h2>Priority Issues</h2>
+          ${slideContent}
+        `);
+      }
+    }
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>EchoFlow Slides</title><style>${slideStyles}</style></head><body>${slides}</body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+    showToast('Slide deck opened — use File → Print → Save as PDF');
+  }
+
+  // ── Shopify: Theme Recommendation ──
+
+  async function renderThemeRecommendations(container) {
+    let themesData;
+    try {
+      themesData = await fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/themes.json')).then(r => r.json());
+    } catch { return; }
+
+    const sections = (auditData.sectionMappings || []).filter(s => !s.isLayout);
+    const components = auditData.componentMappings || [];
+
+    // Required Shopify sections (sectionType is the knowledge-base key)
+    const neededSections = new Set(
+      sections
+        .filter(s => s.shopifyMapping?.status === 'green' && s.shopifyMapping?.sectionType)
+        .map(s => s.shopifyMapping.sectionType)
+    );
+
+    // Feature requirements
+    const needsMegaMenu  = components.some(c => c.type === 'mega-menu');
+    const needsQuickView = components.some(c => c.type === 'quick-view');
+    const needsSlideshow = sections.some(s => s.shopifyMapping?.shopifySection === 'slideshow');
+    const hasProductGrid = sections.some(s => s.shopifyMapping?.shopifySection === 'featured-collection');
+    const hasFeaturedProduct = sections.some(s => s.shopifyMapping?.shopifySection === 'featured-product');
+
+    const themes = Object.values(themesData.themes || {});
+    const scored = themes.map(theme => {
+      let score = 0;
+      // Section coverage
+      neededSections.forEach(sec => {
+        if (theme.sections?.includes(sec)) score += 2;
+      });
+      // Feature bonuses
+      if (needsMegaMenu && theme.features?.includes('mega-menu')) score += 4;
+      if (needsQuickView && (theme.features?.includes('quick-view') || theme.features?.includes('quick-add'))) score += 3;
+      if (needsSlideshow && theme.sections?.includes('slideshow')) score += 2;
+      if (hasProductGrid && theme.sections?.includes('featured-collection')) score += 1;
+      if (hasFeaturedProduct && theme.sections?.includes('featured-product')) score += 1;
+      // Free theme bonus (lower cost)
+      if (theme.free) score += 1;
+
+      const coverage = neededSections.size > 0
+        ? Math.round((Array.from(neededSections).filter(s => theme.sections?.includes(s)).length / neededSections.size) * 100)
+        : 100;
+
+      return { theme, score, coverage };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const top3 = scored.slice(0, 3);
+
+    if (top3.length === 0) return;
+
+    const card = document.createElement('div');
+    card.className = 'adapt-dev-card adapt-theme-reco';
+    card.innerHTML = `
+      <h4>Recommended Themes <span class="adapt-dev-count">${top3.length} matches</span></h4>
+      <p class="adapt-dev-hint">Ranked by section coverage and feature fit for the detected page structure.</p>
+      <div class="adapt-theme-list">
+        ${top3.map((entry, idx) => {
+          const t = entry.theme;
+          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉';
+          const price = t.free ? '<span class="adapt-tag-free">Free</span>' : '<span class="adapt-tag-premium">Premium</span>';
+          const missingFeatures = [];
+          if (needsMegaMenu && !t.features?.includes('mega-menu')) missingFeatures.push('mega menu');
+          if (needsQuickView && !t.features?.includes('quick-view') && !t.features?.includes('quick-add')) missingFeatures.push('quick view');
+          return `<div class="adapt-theme-card ${idx === 0 ? 'adapt-theme-top' : ''}">
+            <div class="adapt-theme-header">
+              <span class="adapt-theme-medal">${medal}</span>
+              <span class="adapt-theme-name">${escapeHtml(t.name)}</span>
+              ${price}
+              <span class="adapt-theme-version">v${escapeHtml(t.version || '—')}</span>
+            </div>
+            <div class="adapt-theme-coverage">
+              <div class="adapt-theme-bar"><div class="adapt-theme-fill" style="width:${entry.coverage}%"></div></div>
+              <span class="adapt-theme-pct">${entry.coverage}% section coverage</span>
+            </div>
+            ${missingFeatures.length ? `<div class="adapt-theme-missing">Missing: ${missingFeatures.map(f => '<code>' + f + '</code>').join(', ')}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+    container.appendChild(card);
+  }
+
+  // ── Shopify: App Conflict Detection ──
+
+  function renderAppConflicts(container) {
+    const components = auditData.componentMappings || [];
+
+    // Category buckets for conflict detection
+    const categories = {
+      reviews:    { label: 'Reviews & Ratings',      apps: [] },
+      email:      { label: 'Email Marketing',         apps: [] },
+      chat:       { label: 'Live Chat / Helpdesk',    apps: [] },
+      loyalty:    { label: 'Loyalty & Rewards',       apps: [] },
+      search:     { label: 'Search & Filters',        apps: [] },
+      upsell:     { label: 'Upsell / Cross-sell',     apps: [] },
+      pagebuilder:{ label: 'Page Builder',            apps: [] }
+    };
+
+    const catMap = {
+      'reviews':                   'reviews',
+      'back-in-stock':             'email',
+      'newsletter':                'email',
+      'live-chat':                 'chat',
+      'loyalty-program':           'loyalty',
+      'advanced-filters':          'search',
+      'product-bundles':           'upsell',
+      'sticky-add-to-cart':        'upsell'
+    };
+
+    components.forEach(c => {
+      const cat = catMap[c.type];
+      if (!cat) return;
+      const apps = (c.shopifyMapping?.apps || []).map(a => typeof a === 'string' ? a : a.name).filter(Boolean);
+      if (apps.length) categories[cat].apps.push(...apps);
+    });
+
+    const conflicts = Object.entries(categories).filter(([, v]) => {
+      const unique = [...new Set(v.apps)];
+      return unique.length >= 2;
+    });
+
+    if (conflicts.length === 0) return;
+
+    const card = document.createElement('div');
+    card.className = 'adapt-dev-card adapt-conflicts';
+    card.innerHTML = `
+      <h4>⚠️ Potential App Conflicts <span class="adapt-dev-count">${conflicts.length}</span></h4>
+      <p class="adapt-dev-hint">Multiple recommended apps overlap in the same category. Install only one per category to avoid conflicts and bloat.</p>
+      ${conflicts.map(([, v]) => `
+        <div class="adapt-conflict-row">
+          <div class="adapt-conflict-cat">${escapeHtml(v.label)}</div>
+          <div class="adapt-conflict-apps">${[...new Set(v.apps)].map(a => '<span class="adapt-tech-tag adapt-tag-conflict">' + escapeHtml(a) + '</span>').join('')}</div>
+          <div class="adapt-conflict-hint">Choose one — don't install both.</div>
+        </div>
+      `).join('')}
+    `;
+    container.appendChild(card);
+  }
+
   // ── Shopify Adapt Rendering ──
 
   function renderAdaptMode() {
@@ -1480,19 +2121,6 @@
       const contentYellow = contentItems.filter(m => m.shopifyMapping.status === 'yellow').length;
       const contentRed = contentItems.filter(m => m.shopifyMapping.status === 'red').length;
       const allContentGreen = contentYellow === 0 && contentRed === 0;
-
-      if (allContentGreen) {
-        const banner = document.createElement('div');
-        banner.className = 'adapt-all-native';
-        banner.innerHTML = `
-          <div class="adapt-all-native-icon">&#10003;</div>
-          <div class="adapt-all-native-text">
-            <strong>${isShopify ? 'All sections have native equivalents' : 'All content sections map to native Shopify'}</strong>
-            <p>All ${contentItems.length} content sections detected have direct Shopify section equivalents.</p>
-          </div>
-        `;
-        list.appendChild(banner);
-      }
 
       const sectionHeader = document.createElement('div');
       sectionHeader.className = 'adapt-section-header';
@@ -1668,7 +2296,8 @@
     const viabilityPct = totalItems > 0 ? Math.round((greenTotal / totalItems) * 100) : 0;
     const viabilityColor = viabilityPct >= 70 ? '#22c55e' : viabilityPct >= 40 ? '#f59e0b' : '#ef4444';
 
-    const summaryTitle = isShopify ? 'Shopify Store Audit' : 'Shopify Viability';
+    const isWholeSite = auditData.wholeSite === true;
+    const summaryTitle = isWholeSite ? `Whole-Site Analysis (${auditData.meta.pageCount || '?'} pages)` : isShopify ? 'Shopify Store Audit' : 'Shopify Viability';
     const summaryLabel = isShopify ? 'features using native Shopify' : 'native Shopify coverage';
 
     let html = `
@@ -1882,6 +2511,9 @@
     }
 
     container.innerHTML = html;
+
+    // App conflict detector
+    renderAppConflicts(container);
   }
 
   // ── Project Sidebar ──
@@ -2005,6 +2637,97 @@
     list.innerHTML = html;
   }
 
+  // ── Compare Mode Rendering ──
+
+  function renderCompareMode() {
+    // Show normal results panel (screenshot left + tabs right)
+    renderToolbar();
+    renderScreenshot();
+
+    // Update toolbar device badge
+    const deviceBadge = document.getElementById('audit-device');
+    if (deviceBadge) deviceBadge.textContent = '⚖️ compare';
+
+    // Show compare tab button and activate it
+    const compareTabBtn = document.getElementById('tab-compare-btn');
+    if (compareTabBtn) compareTabBtn.style.display = 'inline-block';
+    switchTab('compare');
+
+    // Update findings count badge on tab
+    const desktopFindings = auditData.desktop?.findings || [];
+    const mobileFindings = auditData.mobile?.findings || [];
+    const totalUniq = new Set([...desktopFindings.map(f => f.ruleId), ...mobileFindings.map(f => f.ruleId)]).size;
+    const countEl = document.getElementById('compare-count');
+    if (countEl) countEl.textContent = totalUniq;
+
+    const container = document.getElementById('compare-container');
+    if (!container) return;
+
+    const mobileAvailable = !!auditData.mobile;
+    const dIds = new Set(desktopFindings.map(f => f.ruleId));
+    const mIds = new Set(mobileFindings.map(f => f.ruleId));
+    const mobileOnly = mobileFindings.filter(f => !dIds.has(f.ruleId));
+    const desktopOnly = desktopFindings.filter(f => !mIds.has(f.ruleId));
+    const shared = desktopFindings.filter(f => mIds.has(f.ruleId));
+
+    function findingCard(f) {
+      const avg = ((f.ice.impact + f.ice.confidence + f.ice.ease) / 3).toFixed(1);
+      const level = avg >= 7 ? 'high' : avg >= 4 ? 'medium' : 'low';
+      return `<div class="compare-finding-card">
+        <div class="compare-finding-header">
+          <span class="compare-finding-cat">${f.category}</span>
+          <span class="ice-badge ice-${level}">ICE ${avg}</span>
+        </div>
+        <p class="compare-finding-text">${f.finding}</p>
+        <p class="compare-finding-rec">${f.recommendation}</p>
+      </div>`;
+    }
+
+    let html = `
+      <div class="compare-stats">
+        <div class="compare-stat-col">
+          <span class="compare-stat-device">🖥 Desktop</span>
+          <span class="compare-stat-num">${desktopFindings.length}</span>
+          <span class="compare-stat-label">findings</span>
+        </div>
+        <div class="compare-stat-vs">vs</div>
+        <div class="compare-stat-col">
+          <span class="compare-stat-device">📱 Mobile</span>
+          <span class="compare-stat-num">${mobileAvailable ? mobileFindings.length : '—'}</span>
+          <span class="compare-stat-label">${mobileAvailable ? 'findings' : 'emulation failed'}</span>
+        </div>
+      </div>`;
+
+    if (!mobileAvailable) {
+      html += `<div class="compare-error">Mobile emulation did not complete. Try again or check if the page blocks DevTools.</div>`;
+    }
+
+    if (mobileOnly.length > 0) {
+      html += `<div class="compare-section">
+        <h3 class="compare-section-title mobile-only-title">📱 Mobile-Only Issues <span class="compare-section-count">${mobileOnly.length}</span></h3>
+        <p class="compare-section-hint">These issues only appear on mobile — prioritize for your responsive design.</p>
+        ${mobileOnly.map(findingCard).join('')}
+      </div>`;
+    }
+
+    if (shared.length > 0) {
+      html += `<div class="compare-section">
+        <h3 class="compare-section-title shared-title">⚠️ Issues on Both Devices <span class="compare-section-count">${shared.length}</span></h3>
+        <p class="compare-section-hint">Cross-cutting problems — fix these first for maximum impact.</p>
+        ${shared.map(findingCard).join('')}
+      </div>`;
+    }
+
+    if (desktopOnly.length > 0) {
+      html += `<div class="compare-section">
+        <h3 class="compare-section-title desktop-only-title">🖥 Desktop-Only Issues <span class="compare-section-count">${desktopOnly.length}</span></h3>
+        ${desktopOnly.map(findingCard).join('')}
+      </div>`;
+    }
+
+    container.innerHTML = html;
+  }
+
   // ── Render All ──
 
   function renderAll() {
@@ -2031,9 +2754,12 @@
       return;
     }
 
-    // Shopify Adapt mode
+    // Route to correct render mode
     if (mode === 'shopify-adapt' || auditData.mode === 'shopify-adapt') {
       renderAdaptMode();
+    } else if (auditData.compareMode) {
+      findings = auditData.findings || [];
+      renderCompareMode();
     } else {
       findings = auditData.findings || [];
       renderAll();
@@ -2073,6 +2799,8 @@
 
     document.getElementById('btn-export-figma').addEventListener('click', () => { exportMenu.classList.remove('open'); exportToFigma(); });
     document.getElementById('btn-export-pdf').addEventListener('click', () => { exportMenu.classList.remove('open'); exportPDF(); });
+    document.getElementById('btn-export-notion').addEventListener('click', () => { exportMenu.classList.remove('open'); exportToNotion(); });
+    document.getElementById('btn-export-slides').addEventListener('click', () => { exportMenu.classList.remove('open'); exportAsSlides(); });
     const btnExportClaude = document.getElementById('btn-export-claude');
     if (btnExportClaude) {
       btnExportClaude.addEventListener('click', () => { exportMenu.classList.remove('open'); exportJSONForClaude(); });

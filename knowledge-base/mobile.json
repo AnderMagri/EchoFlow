@@ -1,0 +1,332 @@
+[
+  {
+    "id": "mob-viewport-meta-missing",
+    "category": "mobile",
+    "check": {
+      "type": "meta_tag_check",
+      "name": "viewport",
+      "condition": "missing"
+    },
+    "finding": "Missing <meta name=\"viewport\"> tag — page will not scale correctly on mobile devices",
+    "recommendation": "Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> inside <head>",
+    "ice": { "impact": 10, "confidence": 10, "ease": 10 }
+  },
+  {
+    "id": "mob-viewport-user-scalable-no",
+    "category": "mobile",
+    "check": {
+      "type": "meta_tag_check",
+      "name": "viewport",
+      "condition": "contains",
+      "value": "user-scalable=no"
+    },
+    "finding": "Viewport meta disables user zoom (user-scalable=no) — violates WCAG 1.4.4 and hurts accessibility",
+    "recommendation": "Remove user-scalable=no or user-scalable=0 from the viewport meta. Let users pinch-zoom.",
+    "ice": { "impact": 9, "confidence": 10, "ease": 9 }
+  },
+  {
+    "id": "mob-viewport-max-scale-1",
+    "category": "mobile",
+    "check": {
+      "type": "meta_tag_check",
+      "name": "viewport",
+      "condition": "contains",
+      "value": "maximum-scale=1"
+    },
+    "finding": "Viewport restricts zoom to 1x (maximum-scale=1) — blocks users who need to enlarge text",
+    "recommendation": "Remove maximum-scale=1 or increase it to at least 5. This violates WCAG 1.4.4 Resize Text.",
+    "ice": { "impact": 8, "confidence": 10, "ease": 9 }
+  },
+  {
+    "id": "mob-horizontal-scroll",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["body"],
+      "property": "overflowX",
+      "condition": "has_overflow"
+    },
+    "finding": "Page has horizontal scroll — content is wider than the mobile viewport",
+    "recommendation": "Find elements with fixed pixel widths wider than the viewport. Use max-width: 100%, overflow: hidden on containers, or width: 100vw carefully (accounting for scrollbar).",
+    "ice": { "impact": 9, "confidence": 9, "ease": 6 }
+  },
+  {
+    "id": "mob-touch-target-small",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a", "button", "[role='button']", "input[type='submit']", "input[type='checkbox']", "input[type='radio']", ".btn", ".button"],
+      "property": "minDimension",
+      "condition": "lt",
+      "threshold": 44
+    },
+    "finding": "Touch target is smaller than 44×44px — hard to tap accurately on mobile",
+    "recommendation": "Increase padding to make the tappable area at least 44×44px. Don't change visual size — use padding or ::after pseudo-elements to expand the hit area.",
+    "ice": { "impact": 8, "confidence": 9, "ease": 7 }
+  },
+  {
+    "id": "mob-touch-target-density",
+    "category": "mobile",
+    "check": {
+      "type": "tap_target_density",
+      "selectors": ["a", "button", "[role='button']", "input[type='submit']"],
+      "min_spacing": 8
+    },
+    "finding": "Interactive elements are too close together — risk of mis-taps on mobile",
+    "recommendation": "Ensure at least 8px gap between adjacent tap targets. Group related actions with clear visual separation.",
+    "ice": { "impact": 7, "confidence": 7, "ease": 6 }
+  },
+  {
+    "id": "mob-font-size-body",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["body"],
+      "property": "fontSize",
+      "condition": "lt",
+      "threshold": 16
+    },
+    "finding": "Body font size is below 16px — iOS will auto-zoom form inputs, disrupting the layout",
+    "recommendation": "Set body font-size to at least 16px. This prevents iOS Safari from automatically zooming in when users tap on inputs.",
+    "ice": { "impact": 8, "confidence": 9, "ease": 8 }
+  },
+  {
+    "id": "mob-font-size-paragraph",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["p", "li", "td"],
+      "property": "fontSize",
+      "condition": "lt",
+      "threshold": 14
+    },
+    "finding": "Paragraph/list text is below 14px — difficult to read on mobile without zooming",
+    "recommendation": "Use at least 14px (ideally 16px) for body copy on mobile. Small text forces users to pinch-zoom, increasing reading friction.",
+    "ice": { "impact": 7, "confidence": 8, "ease": 8 }
+  },
+  {
+    "id": "mob-input-email-type",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[placeholder*='email' i]", "input[name*='email' i]", "input[id*='email' i]", "input[autocomplete='email']"],
+      "attribute": "type",
+      "condition": "not_equals",
+      "expected": "email"
+    },
+    "finding": "Email input does not use type=\"email\" — mobile keyboard won't show @ symbol by default",
+    "recommendation": "Add type=\"email\" to email inputs. This triggers the mobile email keyboard (with @ and .com keys) and enables basic validation.",
+    "ice": { "impact": 7, "confidence": 8, "ease": 10 }
+  },
+  {
+    "id": "mob-input-tel-type",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[placeholder*='phone' i]", "input[placeholder*='mobile' i]", "input[name*='phone' i]", "input[name*='tel' i]", "input[id*='phone' i]"],
+      "attribute": "type",
+      "condition": "not_equals",
+      "expected": "tel"
+    },
+    "finding": "Phone/tel input does not use type=\"tel\" — mobile keyboard shows QWERTY instead of number pad",
+    "recommendation": "Add type=\"tel\" to telephone inputs. This shows the numeric dial pad keyboard on iOS and Android, making number entry much faster.",
+    "ice": { "impact": 7, "confidence": 8, "ease": 10 }
+  },
+  {
+    "id": "mob-input-number-type",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[placeholder*='quantity' i]", "input[placeholder*='amount' i]", "input[name*='quantity' i]", "input[name*='amount' i]", "input[name*='qty' i]"],
+      "attribute": "type",
+      "condition": "not_equals",
+      "expected": "number"
+    },
+    "finding": "Numeric input does not use type=\"number\" or type=\"tel\" — mobile shows QWERTY keyboard for number entry",
+    "recommendation": "Use type=\"number\" for numeric-only values, or type=\"tel\" if you want the dial pad without the increment/decrement arrows.",
+    "ice": { "impact": 6, "confidence": 7, "ease": 10 }
+  },
+  {
+    "id": "mob-input-autocomplete",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["input[type='text']", "input[type='email']", "input[type='tel']", "input[name*='name' i]", "input[name*='address' i]"],
+      "attribute": "autocomplete",
+      "condition": "missing"
+    },
+    "finding": "Form inputs lack autocomplete attributes — mobile users can't use saved data to fill forms faster",
+    "recommendation": "Add autocomplete attributes: name, email, tel, address-line1, postal-code, etc. Dramatically reduces typing effort on mobile.",
+    "ice": { "impact": 7, "confidence": 8, "ease": 9 }
+  },
+  {
+    "id": "mob-input-no-label",
+    "category": "mobile",
+    "check": {
+      "type": "form_label_check",
+      "selectors": ["input[type='text']", "input[type='email']", "input[type='tel']", "input[type='password']", "textarea"],
+      "condition": "placeholder_only"
+    },
+    "finding": "Form field relies on placeholder text as label — placeholder disappears when user starts typing on mobile",
+    "recommendation": "Add a visible <label> element to every input. Placeholder text should hint at format/example, not replace the label. When typing starts, the label is gone and users lose context.",
+    "ice": { "impact": 8, "confidence": 8, "ease": 7 }
+  },
+  {
+    "id": "mob-input-field-size",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["input[type='text']", "input[type='email']", "input[type='tel']", "input[type='password']", "textarea", "select"],
+      "property": "minDimension",
+      "condition": "lt",
+      "threshold": 44
+    },
+    "finding": "Form field is shorter than 44px — hard to tap on mobile and may trigger iOS auto-zoom",
+    "recommendation": "Set min-height: 44px on all form fields. This satisfies touch target guidelines and prevents iOS zoom. A common pattern is padding: 12px 16px.",
+    "ice": { "impact": 8, "confidence": 9, "ease": 8 }
+  },
+  {
+    "id": "mob-image-no-max-width",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["img", "video"],
+      "property": "maxWidth",
+      "condition": "no_overflow_constraint"
+    },
+    "finding": "Images or videos may overflow the mobile viewport — no max-width constraint detected",
+    "recommendation": "Add img, video { max-width: 100%; height: auto; } globally. This single rule prevents most image overflow issues on mobile.",
+    "ice": { "impact": 8, "confidence": 7, "ease": 10 }
+  },
+  {
+    "id": "mob-nav-hamburger-missing",
+    "category": "mobile",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='hamburger']", "[class*='burger']", "[class*='menu-toggle']", "[class*='nav-toggle']", "[aria-label*='menu' i]", "[aria-label*='navigation' i]", "button[aria-controls]", ".mobile-menu", "#mobile-menu", ".nav-mobile"]
+    },
+    "finding": "No mobile navigation toggle detected — desktop navigation may be hidden with no mobile alternative",
+    "recommendation": "Ensure a hamburger/menu button is present and functional on mobile. Verify the desktop nav collapses and a clear toggle appears.",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 }
+  },
+  {
+    "id": "mob-fixed-element-large",
+    "category": "mobile",
+    "check": {
+      "type": "fixed_element_coverage",
+      "selectors": ["[style*='position: fixed']", "[style*='position:fixed']"],
+      "threshold": 0.2
+    },
+    "finding": "A fixed/sticky element covers more than 20% of the mobile viewport height — reduces usable screen space",
+    "recommendation": "Fixed elements (headers, chat widgets, cookie banners) should be as compact as possible on mobile. A sticky header should collapse to ≤60px. Avoid fixed footers unless they're the primary CTA.",
+    "ice": { "impact": 7, "confidence": 6, "ease": 5 }
+  },
+  {
+    "id": "mob-tap-cta-above-fold",
+    "category": "mobile",
+    "check": {
+      "type": "element_position",
+      "selectors": ["[class*='cta']", "[class*='add-to-cart']", "[class*='buy']", "[class*='checkout']", "form [type='submit']", ".btn-primary"],
+      "condition": "below_fold"
+    },
+    "finding": "Primary CTA button is not visible above the fold on mobile — users must scroll to take action",
+    "recommendation": "Place the primary CTA within the first viewport on mobile. If content is long, use a sticky CTA bar at the bottom or a floating action button.",
+    "ice": { "impact": 8, "confidence": 7, "ease": 5 }
+  },
+  {
+    "id": "mob-search-missing",
+    "category": "mobile",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["input[type='search']", "[class*='search']", "[placeholder*='search' i]", "[aria-label*='search' i]", "[role='search']"]
+    },
+    "finding": "No search functionality detected on mobile — users on small screens rely heavily on search to navigate",
+    "recommendation": "Ensure search is prominently accessible on mobile. A search icon in the header (opens full-screen search) is the standard mobile pattern.",
+    "ice": { "impact": 7, "confidence": 6, "ease": 6 }
+  },
+  {
+    "id": "mob-table-no-scroll",
+    "category": "mobile",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["table"]
+    },
+    "finding": "Data table found — tables often cause horizontal scroll on mobile if not wrapped in a scrollable container",
+    "recommendation": "Wrap tables in a div with overflow-x: auto. Consider converting tables to card-based layouts for complex data on mobile.",
+    "ice": { "impact": 6, "confidence": 7, "ease": 7 }
+  },
+  {
+    "id": "mob-tap-targets-close",
+    "category": "mobile",
+    "check": {
+      "type": "element_exists",
+      "selectors": ["nav a", "nav li", ".nav-links a", ".menu a", ".menu-item"]
+    },
+    "finding": "Navigation links detected — verify they have enough vertical padding for mobile tapping (minimum 44px height)",
+    "recommendation": "Set padding: 12px 16px on navigation links minimum. Stacked mobile nav items should have clear visual dividers and generous tap areas.",
+    "ice": { "impact": 7, "confidence": 6, "ease": 7 }
+  },
+  {
+    "id": "mob-font-scaling",
+    "category": "mobile",
+    "check": {
+      "type": "meta_tag_check",
+      "name": "viewport",
+      "condition": "missing_initial_scale"
+    },
+    "finding": "Viewport meta does not set initial-scale=1 — page may render at wrong scale on some browsers",
+    "recommendation": "Use <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> for consistent rendering across all mobile browsers.",
+    "ice": { "impact": 6, "confidence": 8, "ease": 10 }
+  },
+  {
+    "id": "mob-passive-scroll-listeners",
+    "category": "mobile",
+    "check": {
+      "type": "script_detection",
+      "pattern": "addEventListener.*scroll",
+      "condition": "exists"
+    },
+    "finding": "Scroll event listeners detected — if not marked passive, they can block scrolling and cause jank on mobile",
+    "recommendation": "Add { passive: true } to all scroll/touch event listeners: element.addEventListener('scroll', fn, { passive: true }). This eliminates 60fps scroll jank on mobile.",
+    "ice": { "impact": 7, "confidence": 5, "ease": 8 }
+  },
+  {
+    "id": "mob-no-tap-highlight",
+    "category": "mobile",
+    "check": {
+      "type": "computed_style",
+      "selectors": ["a", "button", "[role='button']"],
+      "property": "webkitTapHighlightColor",
+      "condition": "not_transparent"
+    },
+    "finding": "Default tap highlight color may create visual flash on tap — no -webkit-tap-highlight-color override found",
+    "recommendation": "Add -webkit-tap-highlight-color: transparent to interactive elements if using custom tap feedback. Or ensure the default highlight matches your brand colors.",
+    "ice": { "impact": 4, "confidence": 5, "ease": 9 }
+  },
+  {
+    "id": "mob-media-autoplay",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["video[autoplay]", "audio[autoplay]"],
+      "attribute": "muted",
+      "condition": "missing"
+    },
+    "finding": "Video/audio with autoplay lacks muted attribute — will be blocked by iOS/Android and may surprise users",
+    "recommendation": "Always add muted to autoplaying videos. Mobile browsers block unmuted autoplay. The pattern video[autoplay][muted][playsinline] works cross-platform.",
+    "ice": { "impact": 8, "confidence": 9, "ease": 9 }
+  },
+  {
+    "id": "mob-video-no-playsinline",
+    "category": "mobile",
+    "check": {
+      "type": "attribute_check",
+      "selectors": ["video"],
+      "attribute": "playsinline",
+      "condition": "missing"
+    },
+    "finding": "Video element lacks playsinline attribute — will open fullscreen player on iOS instead of playing inline",
+    "recommendation": "Add playsinline to all video elements. Without it, iOS forces videos into fullscreen mode, breaking the intended layout.",
+    "ice": { "impact": 7, "confidence": 9, "ease": 10 }
+  }
+]

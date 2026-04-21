@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSpinner = runBtn.querySelector('.btn-spinner');
 
   let selectedVertical = 'generic-ux';
+  let selectedDevice = 'desktop';
 
   // ══════════════════════════════════════════════
   //  Tab Switching
@@ -108,10 +109,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return checked ? checked.value : 'viewport';
   }
 
-  function getSelectedResolution() {
-    const checked = document.querySelector('input[name="resolution"]:checked');
-    return checked ? checked.value : '100';
+  function getSelectedDevice() {
+    return selectedDevice;
   }
+
+  // Device card selection
+  const DEVICE_INFO_TEXT = {
+    desktop: 'Current browser viewport',
+    mobile: '390×844 — iPhone 15 Pro',
+    tablet: '820×1180 — iPad',
+    compare: 'Desktop + Mobile — side-by-side comparison'
+  };
+
+  const deviceInfoEl = document.getElementById('device-info');
+  document.querySelectorAll('.device-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.device-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      selectedDevice = card.dataset.device;
+      if (deviceInfoEl) deviceInfoEl.textContent = DEVICE_INFO_TEXT[selectedDevice] || '';
+    });
+  });
 
   // Run Audit
   runBtn.addEventListener('click', async () => {
@@ -134,17 +152,22 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if there's an active project to auto-save
       const { activeProjectId } = await chrome.storage.local.get('activeProjectId');
 
+      const device = getSelectedDevice();
       const result = await chrome.runtime.sendMessage({
         action: 'START_AUDIT',
         vertical: selectedVertical,
         pageType: pageType,
         mode: mode,
-        resolution: getSelectedResolution(),
+        device: device,
         projectId: activeProjectId || null
       });
 
       if (result?.success) {
-        statusEl.textContent = result.findingCount + ' findings detected';
+        if (device === 'compare') {
+          statusEl.textContent = `Compare: ${result.desktopCount} desktop / ${result.mobileCount} mobile findings`;
+        } else {
+          statusEl.textContent = result.findingCount + ' findings detected';
+        }
         statusEl.className = 'status success';
       } else {
         statusEl.textContent = result?.error || 'Audit failed';
@@ -1709,7 +1732,173 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnAdapt.disabled = false;
-    btnAdapt.querySelector('.btn-text').textContent = 'Analyze for Shopify';
+    btnAdapt.querySelector('.btn-text').textContent = 'Analyze Current Page';
     btnAdapt.querySelector('.btn-spinner').style.display = 'none';
   });
+
+  // ── Whole-Site Shopify Analysis ──
+
+  const btnWholeSite = document.getElementById('btn-adapt-whole-site');
+  const wholeSiteHint = document.getElementById('adapt-whole-site-hint');
+  const wholeProgress = document.getElementById('adapt-whole-progress');
+  const wholeProgressText = document.getElementById('adapt-whole-progress-text');
+  const btnWholeSiteStop = document.getElementById('btn-adapt-whole-stop');
+  let wholeSiteStopped = false;
+
+  // Show sample-URL count when Shopify Migration tab is activated
+  function updateWholeSiteHint() {
+    if (!discoveredGroups || Object.keys(discoveredGroups).length === 0) {
+      wholeSiteHint.textContent = 'Run Explorer → Discover Pages first to find sample URLs for each template type.';
+      wholeSiteHint.className = 'adapt-whole-site-hint warn';
+      wholeSiteHint.style.display = 'block';
+      if (btnWholeSite) btnWholeSite.disabled = true;
+    } else {
+      const skipTypes = ['asset', 'feed'];
+      const sampleCount = Object.entries(discoveredGroups)
+        .filter(([t, g]) => !skipTypes.includes(t) && g.sample)
+        .length;
+      wholeSiteHint.textContent = `${sampleCount} page templates ready — will analyze one sample URL per type.`;
+      wholeSiteHint.className = 'adapt-whole-site-hint';
+      wholeSiteHint.style.display = 'block';
+      if (btnWholeSite) btnWholeSite.disabled = false;
+    }
+  }
+
+  // Update hint whenever Shopify Migration tab is shown
+  document.querySelectorAll('.popup-tab[data-popup-tab="shopify-adapt"]').forEach(t => {
+    t.addEventListener('click', updateWholeSiteHint);
+  });
+  updateWholeSiteHint();
+
+  if (btnWholeSiteStop) {
+    btnWholeSiteStop.addEventListener('click', () => { wholeSiteStopped = true; });
+  }
+
+  if (btnWholeSite) {
+    btnWholeSite.addEventListener('click', async () => {
+      if (!discoveredGroups || Object.keys(discoveredGroups).length === 0) {
+        adaptStatus.textContent = 'Run Explorer first to discover page templates';
+        adaptStatus.className = 'status error';
+        return;
+      }
+
+      const skipTypes = ['asset', 'feed', '__collapsed__'];
+      const sampleEntries = Object.entries(discoveredGroups)
+        .filter(([t, g]) => !skipTypes.includes(t) && g.sample)
+        .slice(0, 20); // Cap at 20 pages
+
+      if (sampleEntries.length === 0) {
+        adaptStatus.textContent = 'No sample URLs available';
+        adaptStatus.className = 'status error';
+        return;
+      }
+
+      wholeSiteStopped = false;
+      btnWholeSite.disabled = true;
+      btnWholeSite.querySelector('.btn-text').textContent = 'Analyzing...';
+      btnWholeSite.querySelector('.btn-spinner').style.display = 'inline-flex';
+      wholeProgress.style.display = 'flex';
+      adaptStatus.textContent = '';
+      adaptStatus.className = 'status';
+
+      try {
+        const sampleUrls = sampleEntries.map(([type, group]) => ({
+          type,
+          label: group.label,
+          url: group.sample
+        }));
+
+        // Run analysis page by page, reporting progress
+        const pageResults = [];
+        for (let i = 0; i < sampleUrls.length; i++) {
+          if (wholeSiteStopped) break;
+          wholeProgressText.textContent = `Analyzing page ${i + 1} of ${sampleUrls.length}: ${sampleUrls[i].label}...`;
+
+          const result = await chrome.runtime.sendMessage({
+            action: 'RUN_WHOLE_SITE_ADAPT_PAGE',
+            url: sampleUrls[i].url,
+            templateType: sampleUrls[i].type,
+            templateLabel: sampleUrls[i].label
+          });
+
+          if (result?.success) {
+            pageResults.push(result.data);
+          }
+        }
+
+        wholeProgress.style.display = 'none';
+
+        if (pageResults.length > 0) {
+          // Store aggregated results and open results page
+          await chrome.runtime.sendMessage({
+            action: 'OPEN_WHOLE_SITE_RESULTS',
+            pages: pageResults,
+            origin: discoveredOrigin || ''
+          });
+          adaptStatus.textContent = `Whole-site analysis complete — ${pageResults.length} page types analyzed`;
+          adaptStatus.className = 'status success';
+        } else {
+          adaptStatus.textContent = wholeSiteStopped ? 'Stopped' : 'No results collected';
+          adaptStatus.className = 'status error';
+        }
+      } catch (err) {
+        adaptStatus.textContent = err.message || 'Analysis failed';
+        adaptStatus.className = 'status error';
+        wholeProgress.style.display = 'none';
+      }
+
+      btnWholeSite.disabled = false;
+      btnWholeSite.querySelector('.btn-text').textContent = 'Analyze Whole Site';
+      btnWholeSite.querySelector('.btn-spinner').style.display = 'none';
+    });
+  }
+
+  // ── Explorer: CSV Export ──
+
+  const btnDiscoverCsv = document.getElementById('btn-discover-csv');
+  if (btnDiscoverCsv) {
+    btnDiscoverCsv.addEventListener('click', () => {
+      if (!discoveredGroups || Object.keys(discoveredGroups).length === 0) {
+        projectStatus.textContent = 'No discovery data to export';
+        projectStatus.className = 'status error';
+        return;
+      }
+
+      const rows = ['Type,Label,Template,URL Count,Sample URL'];
+      Object.entries(discoveredGroups).forEach(([type, group]) => {
+        if (type === '__collapsed__') return;
+        const template = group.template || 'unique';
+        const count = group.urls?.length || 0;
+        const sample = group.sample || '';
+        rows.push(`"${type}","${group.label}","${template}",${count},"${sample}"`);
+      });
+
+      // Also include all individual URLs if available
+      const allRows = ['URL,Type,Label'];
+      Object.entries(discoveredGroups).forEach(([type, group]) => {
+        if (type === '__collapsed__') return;
+        (group.urls || []).forEach(url => {
+          allRows.push(`"${url}","${type}","${group.label}"`);
+        });
+      });
+
+      const csv = rows.join('\n') + '\n\n' + allRows.join('\n');
+      navigator.clipboard.writeText(csv).then(() => {
+        projectStatus.textContent = `CSV copied — ${rows.length - 1} template rows + all URLs`;
+        projectStatus.className = 'status success';
+      }).catch(() => {
+        projectStatus.textContent = 'Clipboard copy failed';
+        projectStatus.className = 'status error';
+      });
+    });
+
+    // Show CSV button whenever discover summary is visible
+    const discoverSummaryEl = document.getElementById('discover-summary');
+    if (discoverSummaryEl) {
+      const observer = new MutationObserver(() => {
+        btnDiscoverCsv.style.display = discoverSummaryEl.style.display === 'none' ? 'none' : '';
+      });
+      observer.observe(discoverSummaryEl, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
 });

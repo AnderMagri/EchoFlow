@@ -749,25 +749,34 @@
     }
 
     if (message.action === 'HIDE_FIXED_ELEMENTS') {
-      // Hide sticky/fixed elements (headers, navs, chat widgets) to avoid duplication in stitched screenshots
-      const fixed = document.querySelectorAll('*');
+      // Hide sticky/fixed elements (headers, navs, chat widgets) to avoid duplication in stitched screenshots.
+      // We save original inline styles and forcibly override with display:none.
+      // A double requestAnimationFrame ensures the browser has fully painted before we respond,
+      // so captureVisibleTab sees the hidden state and not a stale frame.
       const hidden = [];
-      for (const el of fixed) {
+      for (const el of document.querySelectorAll('*')) {
         const pos = getComputedStyle(el).position;
         if ((pos === 'fixed' || pos === 'sticky') && el.tagName !== 'HTML' && el.tagName !== 'BODY') {
-          hidden.push({ el, display: el.style.display });
+          hidden.push({ el, display: el.style.display, visibility: el.style.visibility });
           el.style.setProperty('display', 'none', 'important');
+          el.style.setProperty('visibility', 'hidden', 'important');
         }
       }
       window.__echoflowHiddenFixed = hidden;
-      sendResponse({ success: true, count: hidden.length });
-      return true;
+      // Force layout recalculation synchronously, then wait two rAF cycles
+      // so the compositor has flushed the new frame before we respond.
+      void document.body.getBoundingClientRect();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        sendResponse({ success: true, count: hidden.length });
+      }));
+      return true; // keep channel open for async response
     }
 
     if (message.action === 'RESTORE_FIXED_ELEMENTS') {
       const hidden = window.__echoflowHiddenFixed || [];
       for (const item of hidden) {
         item.el.style.display = item.display;
+        item.el.style.visibility = item.visibility;
       }
       window.__echoflowHiddenFixed = [];
       sendResponse({ success: true });

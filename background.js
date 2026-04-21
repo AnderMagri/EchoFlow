@@ -159,7 +159,7 @@ async function captureFullPage(tabId) {
   // Hide fixed/sticky elements for remaining strips to avoid duplication
   if (totalHeight > viewportHeight) {
     await chrome.tabs.sendMessage(tabId, { action: 'HIDE_FIXED_ELEMENTS' });
-    await sleep(200); // Wait for layout to settle after hiding fixed elements
+    await sleep(400); // Content script uses double-rAF + we add extra buffer for compositor flush
   }
 
   // Capture remaining strips — scroll in viewport-sized steps
@@ -266,6 +266,61 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function waitForTabLoad(tabId, timeoutMs = 30000) {
+  return new Promise(resolve => {
+    const listener = (id, changeInfo) => {
+      if (id === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+    setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve(); }, timeoutMs);
+  });
+}
+
+// ── Device Profiles for Mobile Emulation (via Chrome DevTools Protocol) ──
+
+const DEVICE_PROFILES = {
+  mobile: {
+    width: 390, height: 844, deviceScaleFactor: 3, mobile: true,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+  },
+  tablet: {
+    width: 820, height: 1180, deviceScaleFactor: 2, mobile: true,
+    userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+  }
+};
+
+/**
+ * Attach the Chrome debugger to `tabId`, apply a device metrics override,
+ * reload the page so media queries re-evaluate, run `fn(tabId)`, then
+ * restore the emulation and detach — regardless of success or failure.
+ */
+async function withMobileEmulation(tabId, profile, fn) {
+  const target = { tabId };
+  try {
+    await chrome.debugger.attach(target, '1.3');
+    await chrome.debugger.sendCommand(target, 'Emulation.setDeviceMetricsOverride', {
+      width: profile.width,
+      height: profile.height,
+      deviceScaleFactor: profile.deviceScaleFactor,
+      mobile: profile.mobile
+    });
+    await chrome.debugger.sendCommand(target, 'Emulation.setUserAgentOverride', {
+      userAgent: profile.userAgent
+    });
+    // Reload so the page receives the correct UA + viewport from the start
+    await chrome.tabs.reload(tabId);
+    await waitForTabLoad(tabId);
+    await sleep(1000); // extra settle for JS-driven layouts
+    return await fn(tabId);
+  } finally {
+    await chrome.debugger.sendCommand(target, 'Emulation.clearDeviceMetricsOverride').catch(() => {});
+    await chrome.debugger.detach(target).catch(() => {});
+  }
+}
+
 // ── Content Script Injection ──
 
 async function injectContentScript(tabId) {
@@ -285,11 +340,15 @@ async function injectShopifyMainWorld(tabId) {
 
 // ── Main Audit Orchestration ──
 
-async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType) {
+async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, device = 'desktop') {
   const origin = new URL(tabUrl).origin;
 
-  // Step 1: Load rules
+  // Step 1: Load rules — merge mobile rules when running a mobile/tablet audit
   const rules = await loadRules(vertical);
+  if (device === 'mobile' || device === 'tablet') {
+    const mobileRules = await loadRules('mobile');
+    rules.push(...mobileRules);
+  }
   const selectors = extractSelectors(rules);
 
   // Step 2: Inject content script
@@ -344,7 +403,7 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType) {
       title: domData.title,
       vertical: vertical,
       pageType: pageType || null,
-      device: domData.viewport.width <= 480 ? 'mobile' : domData.viewport.width <= 1024 ? 'tablet' : 'desktop',
+      device: device || (domData.viewport.width <= 480 ? 'mobile' : domData.viewport.width <= 1024 ? 'tablet' : 'desktop'),
       captureMode: mode,
       timestamp: Date.now(),
       viewport: domData.viewport,
@@ -379,9 +438,13 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType) {
 
 // ── Silent Audit (for batch — doesn't open results page) ──
 
-async function runAuditSilent(tabId, tabUrl, vertical, mode, resolution, pageType) {
+async function runAuditSilent(tabId, tabUrl, vertical, mode, resolution, pageType, device = 'desktop') {
   const origin = new URL(tabUrl).origin;
   const rules = await loadRules(vertical);
+  if (device === 'mobile' || device === 'tablet') {
+    const mobileRules = await loadRules('mobile');
+    rules.push(...mobileRules);
+  }
   const selectors = extractSelectors(rules);
 
   await injectContentScript(tabId);
@@ -417,7 +480,7 @@ async function runAuditSilent(tabId, tabUrl, vertical, mode, resolution, pageTyp
       title: domData.title,
       vertical: vertical,
       pageType: pageType || null,
-      device: domData.viewport.width <= 480 ? 'mobile' : domData.viewport.width <= 1024 ? 'tablet' : 'desktop',
+      device: device || (domData.viewport.width <= 480 ? 'mobile' : domData.viewport.width <= 1024 ? 'tablet' : 'desktop'),
       captureMode: mode,
       timestamp: Date.now(),
       viewport: domData.viewport,
@@ -1331,18 +1394,81 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // ── Page Review ──
 
   if (message.action === 'START_AUDIT') {
-    const { vertical, pageType, mode, resolution, projectId } = message;
+    const { vertical, pageType, mode, device = 'desktop', projectId } = message;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs[0]) {
         sendResponse({ success: false, error: 'No active tab' });
         return;
       }
+
+      const tabId = tabs[0].id;
+      const tabUrl = tabs[0].url;
+
       try {
-        const result = await runAudit(tabs[0].id, tabs[0].url, vertical, mode, resolution, pageType);
+        let result;
+
+        if (device === 'compare') {
+          // ── Compare mode: desktop audit first, then mobile emulation ──
+          const desktopResult = await runAuditSilent(tabId, tabUrl, vertical, mode, '100', pageType);
+          if (!desktopResult.success) {
+            sendResponse(desktopResult);
+            return;
+          }
+
+          let mobileResult = { success: false, findings: [], results: null };
+          try {
+            mobileResult = await withMobileEmulation(tabId, DEVICE_PROFILES.mobile, (tid) =>
+              runAuditSilent(tid, tabUrl, vertical, 'viewport', '100', pageType, 'mobile')
+            );
+          } catch (e) {
+            // Mobile emulation failed — still show desktop results
+            mobileResult = { success: false, error: e.message, results: null };
+          }
+
+          const compareResults = {
+            version: '1.0',
+            compareMode: true,
+            meta: {
+              url: desktopResult.results.meta.url,
+              title: desktopResult.results.meta.title,
+              vertical,
+              pageType: pageType || null,
+              device: 'compare',
+              captureMode: mode,
+              timestamp: Date.now()
+            },
+            desktop: desktopResult.results,
+            mobile: mobileResult.success ? mobileResult.results : null,
+            screenshot: desktopResult.results.screenshot,
+            findings: desktopResult.results.findings
+          };
+
+          await chrome.storage.local.set({ echoflowResults: compareResults });
+          await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') });
+
+          sendResponse({
+            success: true,
+            findingCount: desktopResult.results.findings.length,
+            desktopCount: desktopResult.results.findings.length,
+            mobileCount: mobileResult.success ? mobileResult.results.findings.length : 0
+          });
+          return;
+
+        } else if (device === 'mobile' || device === 'tablet') {
+          // ── Mobile / Tablet emulation mode ──
+          const profile = DEVICE_PROFILES[device];
+          result = await withMobileEmulation(tabId, profile, (tid) =>
+            runAudit(tid, tabUrl, vertical, mode, '100', pageType, device)
+          );
+
+        } else {
+          // ── Desktop: current tab, current viewport ──
+          result = await runAudit(tabId, tabUrl, vertical, mode, '100', pageType, 'desktop');
+        }
 
         // Auto-save to project if one is active
-        if (projectId && result.success && result.results) {
+        if (projectId && result?.success && result.results) {
           try {
             await saveAudit(projectId, {
               url: result.results.meta.url,
@@ -1353,7 +1479,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               designInventory: result.results.designInventory,
               screenshot: result.results.screenshot
             });
-          } catch (_) {} // Don't fail the audit if save fails
+          } catch (_) {}
         }
 
         sendResponse(result);
@@ -1627,6 +1753,149 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err.message });
       }
     });
+    return true;
+  }
+
+  // ── Whole-Site Adapt: analyze one page (called per-page from popup) ──
+
+  if (message.action === 'RUN_WHOLE_SITE_ADAPT_PAGE') {
+    (async () => {
+      try {
+        const { url, templateType, templateLabel } = message;
+
+        // Get the active tab to reuse for navigation
+        const tabs = await new Promise(resolve =>
+          chrome.tabs.query({ active: true, currentWindow: true }, resolve)
+        );
+        if (!tabs[0]) {
+          sendResponse({ success: false, error: 'No active tab' });
+          return;
+        }
+        const tabId = tabs[0].id;
+
+        // Navigate to the sample URL
+        await chrome.tabs.update(tabId, { url });
+        await waitForTabLoad(tabId);
+        await sleep(600);
+
+        // Inject and run adapt analysis
+        await chrome.scripting.executeScript({ target: { tabId }, files: ['shopify-adapt.js'] });
+        await sleep(300);
+
+        const adaptResult = await chrome.tabs.sendMessage(tabId, { action: 'SHOPIFY_ADAPT_ANALYZE' });
+        if (!adaptResult?.success) {
+          sendResponse({ success: false, error: adaptResult?.error || 'Analysis failed' });
+          return;
+        }
+
+        const adaptData = adaptResult.data;
+
+        // Load knowledge base (cached after first call via module-level const)
+        const [sectionsData, componentsData] = await Promise.all([
+          fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/sections.json')).then(r => r.json()),
+          fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/components.json')).then(r => r.json())
+        ]);
+
+        const sectionMappings  = mapRegionsToShopify(adaptData.regions, sectionsData.sections);
+        const componentMappings = mapComponentsToShopify(adaptData.components, componentsData.components);
+
+        sendResponse({
+          success: true,
+          data: {
+            templateType,
+            templateLabel,
+            url: adaptData.url,
+            pageType: adaptData.pageType,
+            platform: adaptData.platform,
+            sectionMappings,
+            componentMappings,
+            complexitySignals: adaptData.complexitySignals,
+            shopifyDetails: adaptData.shopifyDetails || null
+          }
+        });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // ── Whole-Site Adapt: aggregate + open results ──
+
+  if (message.action === 'OPEN_WHOLE_SITE_RESULTS') {
+    (async () => {
+      try {
+        const { pages, origin } = message;
+
+        // Aggregate unique sections and components across all pages
+        const allSections   = new Map();  // shopifySection → {count, pages[], status}
+        const allComponents = new Map();  // type → {count, pages[], mapping}
+        let dominantPlatform = 'custom-ecommerce';
+        let shopifyDetails = null;
+
+        for (const page of pages) {
+          if (page.platform && page.platform !== 'custom-ecommerce') dominantPlatform = page.platform;
+          if (page.shopifyDetails) shopifyDetails = page.shopifyDetails;
+
+          for (const sm of (page.sectionMappings || [])) {
+            if (sm.isLayout) continue;
+            const key = sm.shopifyMapping?.shopifySection || sm.type;
+            if (!allSections.has(key)) {
+              allSections.set(key, { ...sm, count: 0, pages: [] });
+            }
+            const entry = allSections.get(key);
+            entry.count++;
+            entry.pages.push(page.templateLabel);
+          }
+
+          for (const cm of (page.componentMappings || [])) {
+            if (!allComponents.has(cm.type)) {
+              allComponents.set(cm.type, { ...cm, count: 0, pages: [] });
+            }
+            const entry = allComponents.get(cm.type);
+            entry.count++;
+            entry.pages.push(page.templateLabel);
+          }
+        }
+
+        // Load platform/migration data
+        const [platformData, migrationData] = await Promise.all([
+          fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/platform.json')).then(r => r.json()),
+          fetch(chrome.runtime.getURL('knowledge-base/shopify-adapt/migration-patterns.json')).then(r => r.json())
+        ]);
+
+        const results = {
+          version: '1.5',
+          mode: 'shopify-adapt',
+          wholeSite: true,
+          meta: {
+            url: origin,
+            title: `Whole-Site Analysis — ${origin}`,
+            pageType: 'multi-page',
+            platform: dominantPlatform,
+            timestamp: Date.now(),
+            pageCount: pages.length
+          },
+          screenshot: null,
+          regions: [],
+          components: [],
+          sectionMappings:  Array.from(allSections.values()),
+          componentMappings: Array.from(allComponents.values()),
+          complexitySignals: pages[0]?.complexitySignals || {},
+          shopifyDetails,
+          platformMigration: migrationData.platforms[dominantPlatform] || migrationData.platforms['custom-ecommerce'],
+          platformConstraints: platformData,
+          pages // raw per-page data for drill-down
+        };
+
+        await chrome.storage.local.set({ echoflowResults: results });
+        await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') + '?mode=shopify-adapt' });
+
+        sendResponse({ success: true, pageCount: pages.length });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
     return true;
   }
 });
