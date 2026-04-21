@@ -95,6 +95,9 @@
     const scaleX = img.clientWidth / sourceWidth;
     const scaleY = img.clientHeight / sourceHeight;
 
+    const vw = auditData.meta.viewport?.width  || img.naturalWidth;
+    const vh = auditData.meta.viewport?.height || img.naturalHeight;
+
     findings.forEach((finding) => {
       const pos = finding.position || { x: 0, y: 0 };
       const hasRealPosition = (pos.x !== 0 || pos.y !== 0) || (pos.width > 100 || pos.height > 30);
@@ -102,19 +105,34 @@
       // Only show markers for findings that point to a real element on the page
       if (!hasRealPosition) return;
 
+      const px = isFullPage ? (pos.absoluteX ?? pos.x) : pos.x;
+      const py = isFullPage ? (pos.absoluteY ?? pos.y) : pos.y;
+      const pw = pos.width  || 0;
+      const ph = pos.height || 0;
+
+      // In viewport mode, skip elements that are completely outside the captured frame.
+      // (Below-fold or above-fold elements have no visible representation in the screenshot.)
+      if (!isFullPage) {
+        if (py > vh || py + ph < 0) return;   // vertically out of frame
+        if (px > vw || px + pw < 0) return;   // horizontally out of frame
+      }
+
+      // Clamp the element's effective size to the visible viewport so that
+      // full-page-height elements (e.g. body) don't push the midpoint below the fold.
+      const visibleW = isFullPage ? pw : Math.min(pw, vw - px);
+      const visibleH = isFullPage ? ph : Math.min(ph, vh - py);
+
       const marker = document.createElement('div');
       marker.className = 'marker';
       marker.dataset.number = finding.number;
       marker.textContent = finding.number;
       marker.style.backgroundColor = getMarkerColor(finding.number - 1);
 
-      const px = isFullPage ? (pos.absoluteX ?? pos.x) : pos.x;
-      const py = isFullPage ? (pos.absoluteY ?? pos.y) : pos.y;
-      const cx = (px + (pos.width || 0) / 2) * scaleX;
-      const cy = (py + (pos.height || 0) / 2) * scaleY;
+      const cx = (px + visibleW / 2) * scaleX;
+      const cy = (py + visibleH / 2) * scaleY;
 
-      marker.style.left = Math.max(13, Math.min(cx, img.clientWidth - 13)) + 'px';
-      marker.style.top = Math.max(13, Math.min(cy, img.clientHeight - 13)) + 'px';
+      marker.style.left = Math.max(13, Math.min(cx, img.clientWidth  - 13)) + 'px';
+      marker.style.top  = Math.max(13, Math.min(cy, img.clientHeight - 13)) + 'px';
 
       marker.addEventListener('click', () => setActiveFinding(finding.number));
       container.appendChild(marker);
