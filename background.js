@@ -156,33 +156,71 @@ async function captureFullPage(tabId) {
 
   let coveredUpTo = viewportHeight; // we've captured content from 0 to viewportHeight
 
-  // Hide fixed/sticky elements for remaining strips.
-  // We use executeScript (runs synchronously in the page context) rather than sendMessage
-  // to avoid async round-trip latency.  A CSS class + injected <style> approach is used
-  // so that page JavaScript resetting inline styles cannot undo the hide.
+  // ── Install persistent fixed-element suppressor ──
+  // Strategy: use inline style.setProperty('display','none','important') which beats
+  // any CSS rule including 3rd-party !important declarations. A MutationObserver
+  // re-hides anything that page JS tries to show back (scroll-triggered promo bars,
+  // cookie banners, chat widgets that fire AFTER our hide pass).
+  // Infinite-loop guard: before re-hiding we check if display is already 'none !important';
+  // if it is, we know WE set it and skip — so our own setProperty calls don't retrigger.
   if (totalHeight > viewportHeight) {
     await chrome.scripting.executeScript({
       target: { tabId },
       func: () => {
-        // Inject a stylesheet that keeps the class hidden for the entire capture session
-        const styleEl = document.createElement('style');
-        styleEl.id = '__echoflow-hide-fixed-style';
-        styleEl.textContent = '.__echoflow-fixed-hidden { display: none !important; visibility: hidden !important; opacity: 0 !important; }';
-        document.head.appendChild(styleEl);
+        // Apply inline !important hide to one element
+        function efHide(el) {
+          el.style.setProperty('display',    'none',   'important');
+          el.style.setProperty('visibility', 'hidden', 'important');
+          el.style.setProperty('opacity',    '0',      'important');
+          el.dataset.efHidden = '1';
+        }
 
-        // Tag every currently fixed/sticky element with the class
-        for (const el of document.querySelectorAll('*')) {
-          if (el.tagName === 'HTML' || el.tagName === 'BODY') continue;
-          const pos = getComputedStyle(el).position;
-          if (pos === 'fixed' || pos === 'sticky') {
-            el.classList.add('__echoflow-fixed-hidden');
+        // Scan and hide all fixed/sticky elements in the current DOM
+        function efScan() {
+          for (const el of document.querySelectorAll('*')) {
+            if (el.tagName === 'HTML' || el.tagName === 'BODY') continue;
+            const pos = getComputedStyle(el).position;
+            if (pos === 'fixed' || pos === 'sticky') efHide(el);
           }
         }
-        // Force a synchronous layout recalculation
+        efScan();
+
+        // MutationObserver: catch scroll-triggered shows and lazy-injected overlays
+        window.__efObserver = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            if (m.type === 'childList') {
+              // New element injected into DOM — check if it's an overlay
+              m.addedNodes.forEach(node => {
+                if (node.nodeType !== 1) return;
+                if (getComputedStyle(node).position === 'fixed' ||
+                    getComputedStyle(node).position === 'sticky') efHide(node);
+                node.querySelectorAll('*').forEach(child => {
+                  const cp = getComputedStyle(child).position;
+                  if (cp === 'fixed' || cp === 'sticky') efHide(child);
+                });
+              });
+            } else if (m.type === 'attributes') {
+              const el = m.target;
+              // Guard: if display is already 'none !important' we set it — skip to avoid loop
+              if (el.style.getPropertyValue('display') === 'none' &&
+                  el.style.getPropertyPriority('display') === 'important') continue;
+              // Something changed style/class — re-evaluate if this element should be hidden
+              const pos = getComputedStyle(el).position;
+              if (pos === 'fixed' || pos === 'sticky') efHide(el);
+            }
+          }
+        });
+
+        window.__efObserver.observe(document.documentElement, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: ['style', 'class']
+        });
+
         void document.body.getBoundingClientRect();
       }
     });
-    // Give the compositor two full vsync cycles (≈33 ms each) plus margin
     await sleep(600);
   }
 
@@ -190,10 +228,11 @@ async function captureFullPage(tabId) {
   let targetY = viewportHeight;
   while (coveredUpTo < totalHeight) {
     const scrollResult = await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: targetY });
-    await sleep(500); // Wait for scroll and render to settle
+    await sleep(400); // Wait for scroll, lazy loads, and scroll-triggered JS to settle
 
-    // Re-hide any fixed/sticky elements that page JS may have added or un-hidden since
-    // the initial hide pass (e.g. chat widgets injected lazily, scroll-triggered headers)
+    // Extra synchronous re-hide sweep: catches anything the MutationObserver missed
+    // (e.g. inline style changes that don't go through style/class attributes).
+    // Runs immediately before captureVisibleTab with no sleep gap.
     await chrome.scripting.executeScript({
       target: { tabId },
       func: () => {
@@ -201,13 +240,16 @@ async function captureFullPage(tabId) {
           if (el.tagName === 'HTML' || el.tagName === 'BODY') continue;
           const pos = getComputedStyle(el).position;
           if (pos === 'fixed' || pos === 'sticky') {
-            el.classList.add('__echoflow-fixed-hidden');
+            el.style.setProperty('display',    'none',   'important');
+            el.style.setProperty('visibility', 'hidden', 'important');
+            el.style.setProperty('opacity',    '0',      'important');
+            el.dataset.efHidden = '1';
           }
         }
         void document.body.getBoundingClientRect();
       }
     });
-    await sleep(200); // Short extra wait after re-hide before capture
+    // No sleep between this re-hide and captureVisibleTab — minimise window for JS re-show
 
     // The browser clamps scrollY to the maximum scrollable position
     const actualScrollY = scrollResult.scrollY;
@@ -242,11 +284,17 @@ async function captureFullPage(tabId) {
     await chrome.scripting.executeScript({
       target: { tabId },
       func: () => {
-        // Remove the injected stylesheet
-        document.getElementById('__echoflow-hide-fixed-style')?.remove();
-        // Remove the class from all tagged elements
-        for (const el of document.querySelectorAll('.__echoflow-fixed-hidden')) {
-          el.classList.remove('__echoflow-fixed-hidden');
+        // Stop the observer first so it doesn't fight the restore
+        if (window.__efObserver) {
+          window.__efObserver.disconnect();
+          window.__efObserver = null;
+        }
+        // Remove inline styles we injected and clear our data attribute
+        for (const el of document.querySelectorAll('[data-ef-hidden="1"]')) {
+          el.style.removeProperty('display');
+          el.style.removeProperty('visibility');
+          el.style.removeProperty('opacity');
+          delete el.dataset.efHidden;
         }
       }
     });
