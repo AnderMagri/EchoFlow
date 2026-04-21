@@ -156,10 +156,34 @@ async function captureFullPage(tabId) {
 
   let coveredUpTo = viewportHeight; // we've captured content from 0 to viewportHeight
 
-  // Hide fixed/sticky elements for remaining strips to avoid duplication
+  // Hide fixed/sticky elements for remaining strips.
+  // We use executeScript (runs synchronously in the page context) rather than sendMessage
+  // to avoid async round-trip latency.  A CSS class + injected <style> approach is used
+  // so that page JavaScript resetting inline styles cannot undo the hide.
   if (totalHeight > viewportHeight) {
-    await chrome.tabs.sendMessage(tabId, { action: 'HIDE_FIXED_ELEMENTS' });
-    await sleep(400); // Content script uses double-rAF + we add extra buffer for compositor flush
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        // Inject a stylesheet that keeps the class hidden for the entire capture session
+        const styleEl = document.createElement('style');
+        styleEl.id = '__echoflow-hide-fixed-style';
+        styleEl.textContent = '.__echoflow-fixed-hidden { display: none !important; visibility: hidden !important; opacity: 0 !important; }';
+        document.head.appendChild(styleEl);
+
+        // Tag every currently fixed/sticky element with the class
+        for (const el of document.querySelectorAll('*')) {
+          if (el.tagName === 'HTML' || el.tagName === 'BODY') continue;
+          const pos = getComputedStyle(el).position;
+          if (pos === 'fixed' || pos === 'sticky') {
+            el.classList.add('__echoflow-fixed-hidden');
+          }
+        }
+        // Force a synchronous layout recalculation
+        void document.body.getBoundingClientRect();
+      }
+    });
+    // Give the compositor two full vsync cycles (≈33 ms each) plus margin
+    await sleep(600);
   }
 
   // Capture remaining strips — scroll in viewport-sized steps
@@ -168,15 +192,28 @@ async function captureFullPage(tabId) {
     const scrollResult = await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: targetY });
     await sleep(500); // Wait for scroll and render to settle
 
+    // Re-hide any fixed/sticky elements that page JS may have added or un-hidden since
+    // the initial hide pass (e.g. chat widgets injected lazily, scroll-triggered headers)
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        for (const el of document.querySelectorAll('*')) {
+          if (el.tagName === 'HTML' || el.tagName === 'BODY') continue;
+          const pos = getComputedStyle(el).position;
+          if (pos === 'fixed' || pos === 'sticky') {
+            el.classList.add('__echoflow-fixed-hidden');
+          }
+        }
+        void document.body.getBoundingClientRect();
+      }
+    });
+    await sleep(200); // Short extra wait after re-hide before capture
+
     // The browser clamps scrollY to the maximum scrollable position
     const actualScrollY = scrollResult.scrollY;
 
-    // This capture shows content from actualScrollY to actualScrollY + viewportHeight
-    const captureTop = actualScrollY;
-    const captureBottom = actualScrollY + viewportHeight;
-
     // How much of this capture overlaps with what we already have?
-    const overlap = Math.max(0, coveredUpTo - captureTop);
+    const overlap = Math.max(0, coveredUpTo - actualScrollY);
 
     // Only use the non-overlapping portion
     const usableHeight = Math.min(viewportHeight - overlap, totalHeight - coveredUpTo);
@@ -202,7 +239,17 @@ async function captureFullPage(tabId) {
 
   // ── Phase 4: Restore page to original state ──
   if (totalHeight > viewportHeight) {
-    await chrome.tabs.sendMessage(tabId, { action: 'RESTORE_FIXED_ELEMENTS' });
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        // Remove the injected stylesheet
+        document.getElementById('__echoflow-hide-fixed-style')?.remove();
+        // Remove the class from all tagged elements
+        for (const el of document.querySelectorAll('.__echoflow-fixed-hidden')) {
+          el.classList.remove('__echoflow-fixed-hidden');
+        }
+      }
+    });
   }
 
   // Unfreeze animations and restore scrollbar/scroll-behavior
