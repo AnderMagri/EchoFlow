@@ -381,6 +381,23 @@
     const letterSpacings = {};// value → count
     let processed = 0;
 
+    // ── Extra inventory buckets (features 1-6) ──
+    const zIndexMap     = {};   // value → count
+    const transitionMap = {};   // "duration|easing" → count
+    const animationMap  = {};   // name → { duration, count }
+    const contrastPairs = [];   // WCAG pairs (capped at 15)
+    const seenPairs     = new Set();
+
+    function relativeLuminance(rgb) {
+      const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (!m) return 1;
+      const [r, g, b] = [m[1], m[2], m[3]].map(v => {
+        const s = parseInt(v) / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
     for (const el of allEls) {
       if (processed >= 1000) break;
       const rect = el.getBoundingClientRect();
@@ -439,6 +456,74 @@
       // Text align
       const ta = cs.textAlign;
       if (ta) aligns[ta] = (aligns[ta] || 0) + 1;
+
+      // ── Z-index ──
+      const zi = cs.zIndex;
+      if (zi && zi !== 'auto') {
+        const zn = parseInt(zi);
+        if (!isNaN(zn)) zIndexMap[zn] = (zIndexMap[zn] || 0) + 1;
+      }
+
+      // ── Motion: transitions ──
+      const td = cs.transitionDuration;
+      if (td && td !== '0s') {
+        const te = cs.transitionTimingFunction || 'ease';
+        const durs = td.split(',').map(s => s.trim());
+        const eases = te.split(',').map(s => {
+          const t = s.trim();
+          if (t === 'ease' || t.includes('0.25, 0.1, 0.25, 1')) return 'ease';
+          if (t === 'linear' || t.includes('0, 0, 1, 1')) return 'linear';
+          if (t === 'ease-in-out') return 'ease-in-out';
+          if (t === 'ease-in') return 'ease-in';
+          if (t === 'ease-out') return 'ease-out';
+          return t.slice(0, 30);
+        });
+        for (let i = 0; i < durs.length; i++) {
+          const d = durs[i];
+          if (!d || d === '0s' || d === '0ms') continue;
+          const key = d + '|' + (eases[i] || 'ease');
+          transitionMap[key] = (transitionMap[key] || 0) + 1;
+        }
+      }
+
+      // ── Motion: animations ──
+      const an = cs.animationName;
+      if (an && an !== 'none') {
+        const aDur = cs.animationDuration || '0s';
+        animationMap[an] = { duration: aDur, count: (animationMap[an]?.count || 0) + 1 };
+      }
+
+      // ── Contrast Sampling ──
+      if (contrastPairs.length < 15 && el.textContent?.trim() && el.children.length <= 4) {
+        const textRgb = cs.color;
+        const bgRgb   = getResolvedBackground(el);
+        if (textRgb && bgRgb) {
+          const pKey = textRgb + '|' + bgRgb;
+          if (!seenPairs.has(pKey)) {
+            seenPairs.add(pKey);
+            const lT = relativeLuminance(textRgb);
+            const lB = relativeLuminance(bgRgb);
+            const lighter = Math.max(lT, lB);
+            const darker  = Math.min(lT, lB);
+            const ratio   = (lighter + 0.05) / (darker + 0.05);
+            const fsPx    = parseFloat(cs.fontSize) || 16;
+            const fw      = parseInt(cs.fontWeight) || 400;
+            const isLarge = fsPx >= 18 || (fsPx >= 14 && fw >= 700);
+            const aaThresh  = isLarge ? 3 : 4.5;
+            const aaaThresh = isLarge ? 4.5 : 7;
+            contrastPairs.push({
+              textHex: rgbToHex(textRgb) || textRgb,
+              bgHex:   rgbToHex(bgRgb)   || bgRgb,
+              textRgb, bgRgb,
+              ratio:   Math.round(ratio * 100) / 100,
+              level:   ratio >= aaaThresh ? 'AAA' : ratio >= aaThresh ? 'AA' : 'FAIL',
+              fontSize: Math.round(fsPx),
+              isLarge,
+              tag: el.tagName.toLowerCase()
+            });
+          }
+        }
+      }
     }
 
     const toSorted = obj => Object.entries(obj)
@@ -726,6 +811,105 @@
       }
     }
 
+    // ── Stylesheet scan: CSS Custom Properties + Breakpoints + Focus States ──
+    const cssVarDefs   = {};   // name → value (definition only)
+    const bpMin        = {};   // px → count
+    const bpMax        = {};   // px → count
+    const focusRulesList = [];
+    let hasFocusVisible      = false;
+    let outlineRemovedNoFV   = 0;
+    let prefersColorScheme   = false;
+    let prefersReducedMotion = false;
+    let mediaRuleTotal       = 0;
+
+    function scanSheetRules(rules) {
+      for (const rule of rules || []) {
+        if (rule.type === 1) { // CSSStyleRule
+          const sel = rule.selectorText || '';
+          // CSS custom properties
+          const st = rule.style;
+          for (let i = 0; i < st.length; i++) {
+            const prop = st[i];
+            if (prop.startsWith('--') && !cssVarDefs[prop]) {
+              cssVarDefs[prop] = st.getPropertyValue(prop).trim().slice(0, 80);
+            }
+          }
+          // Focus rules
+          if (sel.includes(':focus')) {
+            const outlineVal = (rule.style.outline || '').trim();
+            const isOutlineOff = outlineVal === 'none' || outlineVal === '0' || outlineVal === '0px';
+            if (sel.includes(':focus-visible')) hasFocusVisible = true;
+            if (isOutlineOff && !sel.includes(':focus-visible')) outlineRemovedNoFV++;
+            if (focusRulesList.length < 12) {
+              focusRulesList.push({
+                selector: sel.slice(0, 80),
+                outline: outlineVal,
+                boxShadow: (rule.style.boxShadow || '').slice(0, 60),
+                outlineOffset: rule.style.outlineOffset || ''
+              });
+            }
+          }
+        } else if (rule.type === 4) { // CSSMediaRule
+          mediaRuleTotal++;
+          const text = rule.conditionText || rule.media?.mediaText || '';
+          if (text.includes('prefers-color-scheme'))    prefersColorScheme   = true;
+          if (text.includes('prefers-reduced-motion')) prefersReducedMotion = true;
+          const minM = text.match(/min-width:\s*(\d+(?:\.\d+)?)px/);
+          const maxM = text.match(/max-width:\s*(\d+(?:\.\d+)?)px/);
+          if (minM) { const v = Math.round(parseFloat(minM[1])); bpMin[v] = (bpMin[v] || 0) + 1; }
+          if (maxM) { const v = Math.round(parseFloat(maxM[1])); bpMax[v] = (bpMax[v] || 0) + 1; }
+          try { scanSheetRules(rule.cssRules); } catch(_) {}
+        } else if (rule.type === 12) { // CSSSupportsRule
+          try { scanSheetRules(rule.cssRules); } catch(_) {}
+        }
+      }
+    }
+    for (const sheet of document.styleSheets) {
+      try { scanSheetRules(sheet.cssRules); } catch(_) { /* cross-origin — skip */ }
+    }
+
+    // Assemble the 6 new inventory objects
+    const cssTokens = {
+      variables: Object.entries(cssVarDefs)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 80),
+      total: Object.keys(cssVarDefs).length,
+    };
+
+    const breakpoints = {
+      minWidth: Object.entries(bpMin).map(([v, c]) => ({ value: parseInt(v), count: c })).sort((a, b) => a.value - b.value),
+      maxWidth: Object.entries(bpMax).map(([v, c]) => ({ value: parseInt(v), count: c })).sort((a, b) => a.value - b.value),
+      prefersColorScheme,
+      prefersReducedMotion,
+      totalMediaRules: mediaRuleTotal,
+    };
+
+    const focusStates = {
+      hasFocusVisible,
+      outlineRemovedWithoutReplacement: outlineRemovedNoFV,
+      rules: focusRulesList,
+    };
+
+    const zIndexAudit = {
+      values: Object.entries(zIndexMap)
+        .map(([v, c]) => ({ value: parseInt(v), count: c }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 15),
+      uniqueCount: Object.keys(zIndexMap).length,
+      maxValue: Object.keys(zIndexMap).reduce((m, v) => Math.max(m, parseInt(v)), -Infinity),
+    };
+
+    const motion = {
+      transitions: Object.entries(transitionMap)
+        .map(([key, count]) => { const [duration, easing] = key.split('|'); return { duration, easing, count }; })
+        .sort((a, b) => b.count - a.count).slice(0, 10),
+      animations: Object.entries(animationMap)
+        .map(([name, { duration, count }]) => ({ name: name.slice(0, 50), duration, count }))
+        .sort((a, b) => b.count - a.count).slice(0, 10),
+      reducedMotionRespected: prefersReducedMotion,
+    };
+
     const layoutTotal = flexCount + gridCount + blockCount || 1;
     const spacingBase = detectSpacingBase(spacings);
 
@@ -769,6 +953,12 @@
       uiFramework,
       iconLibrary,
       layoutSystem,
+      cssTokens,
+      breakpoints,
+      focusStates,
+      zIndexAudit,
+      motion,
+      contrastPairs,
     };
   }
 

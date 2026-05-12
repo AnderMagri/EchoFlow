@@ -419,6 +419,55 @@
       }
     }
 
+    // CSS Tokens / Design System
+    const tokTotal = inv.cssTokens?.total || 0;
+    if (tokTotal === 0) {
+      score -= 10;
+      warnings.push({ level: 'warning', metric: 'Design Tokens', message: 'No CSS custom properties found', detail: 'CSS variables (--color-primary, --spacing-md, etc.) are the foundation of a scalable design system. None were detected.' });
+    }
+
+    // Focus States
+    const noFV = inv.focusStates?.outlineRemovedWithoutReplacement || 0;
+    if (noFV > 0) {
+      score -= 15;
+      warnings.push({ level: 'error', metric: 'Focus Accessibility', message: `outline:none on ${noFV} rule${noFV > 1 ? 's' : ''} without :focus-visible`, detail: 'Removing the focus ring without a :focus-visible replacement makes the site unusable for keyboard users. WCAG 2.1 AA requires visible focus indicators.' });
+    } else if (!(inv.focusStates?.hasFocusVisible)) {
+      score -= 5;
+      warnings.push({ level: 'warning', metric: 'Focus States', message: 'No :focus-visible rules detected', detail: ':focus-visible provides focus rings for keyboard users only (not mouse). Preferred over :focus for visual polish without accessibility cost.' });
+    }
+
+    // Breakpoints / Responsive
+    const bpCount = (inv.breakpoints?.minWidth?.length || 0) + (inv.breakpoints?.maxWidth?.length || 0);
+    if (bpCount === 0) {
+      score -= 12;
+      warnings.push({ level: 'error', metric: 'Responsive Design', message: 'No breakpoints found in stylesheets', detail: 'No @media width queries detected. The layout may not adapt to mobile screens — a critical usability gap.' });
+    }
+
+    // Contrast
+    const failPairs = (inv.contrastPairs || []).filter(p => p.level === 'FAIL');
+    if (failPairs.length > 0) {
+      score -= Math.min(20, failPairs.length * 5);
+      warnings.push({ level: 'error', metric: 'Contrast (WCAG)', message: `${failPairs.length} failing text/background pair${failPairs.length > 1 ? 's' : ''}`, detail: 'Text contrast below WCAG AA minimums (4.5:1 normal, 3:1 large). Fails accessibility and can result in legal exposure.' });
+    }
+
+    // Motion / reduced-motion
+    const hasAnimations = (inv.motion?.animations?.length || 0) > 0 || (inv.motion?.transitions?.length || 0) > 2;
+    if (hasAnimations && !inv.motion?.reducedMotionRespected) {
+      score -= 8;
+      warnings.push({ level: 'warning', metric: 'Reduced Motion', message: 'Animations detected but no prefers-reduced-motion', detail: '@media (prefers-reduced-motion) is not handled. Users who need reduced motion (vestibular disorders, epilepsy) will see all animations. WCAG 2.1 SC 2.3.3.' });
+    }
+
+    // Z-index chaos
+    const ziCount = inv.zIndexAudit?.uniqueCount || 0;
+    const ziMax   = inv.zIndexAudit?.maxValue || 0;
+    if (ziMax >= 9999) {
+      score -= 6;
+      warnings.push({ level: 'warning', metric: 'Z-index', message: `z-index reaches ${ziMax}`, detail: 'Extreme z-index values (9999, 99999) are a code smell — they signal stacking context problems being "fixed" with escalation rather than proper structure.' });
+    } else if (ziCount > 8) {
+      score -= 4;
+      warnings.push({ level: 'warning', metric: 'Z-index', message: `${ziCount} unique z-index values`, detail: 'Many unique z-index values suggest an unmanaged stacking order. Define a z-index scale as tokens (--z-dropdown: 100, --z-modal: 200, etc.).' });
+    }
+
     return { score: Math.max(0, score), warnings };
   }
 
@@ -705,6 +754,140 @@
           '<span class="design-chip ' + (inv.hasLazyLoading ? 'chip-good' : 'chip-warn') + '">' + (inv.hasLazyLoading ? '✓ detected' : '✗ not detected') + '</span></div>';
       }
       html += '</div></div>';
+    }
+
+    // ── 1. CSS Tokens ──
+    const tok = inv.cssTokens;
+    if (tok) {
+      const catColors  = tok.variables.filter(v => /color|colour|bg\b|text\b/.test(v.name));
+      const catSpacing = tok.variables.filter(v => /spacing|space|gap|padding|margin/.test(v.name));
+      const catOther   = tok.variables.filter(v => !catColors.includes(v) && !catSpacing.includes(v));
+      html += `<div class="design-section"><h4 class="design-section-title">CSS Custom Properties <span class="design-count">${tok.total} tokens</span></h4>`;
+      if (tok.total === 0) {
+        html += `<div class="tok-empty">No CSS variables found — styles are hard-coded rather than token-based.</div>`;
+      } else {
+        html += `<div class="tok-grid">`;
+        for (const [label, vars] of [['Colors', catColors], ['Spacing', catSpacing], ['Other', catOther]]) {
+          if (!vars.length) continue;
+          html += `<div class="tok-group"><div class="tok-group-label">${label} <span class="tok-group-count">${vars.length}</span></div>`;
+          for (const v of vars.slice(0, 12)) {
+            const isColor = /^(#[0-9a-f]{3,8}|rgb|hsl)/i.test(v.value.trim());
+            const swatch = isColor ? `<span class="tok-swatch" style="background:${v.value.trim()}"></span>` : '';
+            html += `<div class="tok-row">${swatch}<span class="tok-name">${escapeHtml(v.name)}</span><span class="tok-val">${escapeHtml(v.value.slice(0, 40))}</span></div>`;
+          }
+          if (vars.length > 12) html += `<div class="tok-more">+${vars.length - 12} more</div>`;
+          html += `</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+
+    // ── 2. Breakpoints ──
+    const bp = inv.breakpoints;
+    if (bp) {
+      const allBpCount = (bp.minWidth?.length || 0) + (bp.maxWidth?.length || 0);
+      html += `<div class="design-section"><h4 class="design-section-title">Breakpoints <span class="design-count">${allBpCount} widths</span></h4>`;
+      if (allBpCount === 0) {
+        html += `<div class="tok-empty">No @media width queries found. Layout may not be responsive.</div>`;
+      } else {
+        if (bp.minWidth?.length) {
+          html += `<div class="bp-group-label">min-width (mobile-first)</div><div class="bp-chips">`;
+          for (const b of bp.minWidth) html += `<span class="bp-chip bp-min">${b.value}px</span>`;
+          html += `</div>`;
+        }
+        if (bp.maxWidth?.length) {
+          html += `<div class="bp-group-label">max-width (desktop-first)</div><div class="bp-chips">`;
+          for (const b of bp.maxWidth) html += `<span class="bp-chip bp-max">${b.value}px</span>`;
+          html += `</div>`;
+        }
+      }
+      html += `<div class="bp-flags">
+        <span class="bp-flag ${bp.prefersColorScheme   ? 'bp-flag-on' : 'bp-flag-off'}">${bp.prefersColorScheme   ? '✓' : '✗'} prefers-color-scheme</span>
+        <span class="bp-flag ${bp.prefersReducedMotion ? 'bp-flag-on' : 'bp-flag-off'}">${bp.prefersReducedMotion ? '✓' : '✗'} prefers-reduced-motion</span>
+      </div></div>`;
+    }
+
+    // ── 3. Contrast Sampling ──
+    const cp = inv.contrastPairs || [];
+    if (cp.length) {
+      const fails = cp.filter(p => p.level === 'FAIL').length;
+      const cntBadge = fails > 0 ? `<span class="design-count contrast-fail-badge">${fails} failing</span>` : `<span class="design-count">all pass</span>`;
+      html += `<div class="design-section"><h4 class="design-section-title">Contrast Sampling ${cntBadge}</h4><div class="contrast-grid">`;
+      for (const pair of cp) {
+        const bc = pair.level === 'AAA' ? 'contrast-aaa' : pair.level === 'AA' ? 'contrast-aa' : 'contrast-fail';
+        html += `<div class="contrast-pair">
+          <div class="contrast-preview" style="background:${escapeHtml(pair.bgHex||pair.bgRgb)};color:${escapeHtml(pair.textHex||pair.textRgb)}">Aa</div>
+          <div class="contrast-info">
+            <div class="contrast-colors"><span class="contrast-hex">${escapeHtml(pair.textHex||'?')}</span> on <span class="contrast-hex">${escapeHtml(pair.bgHex||'?')}</span></div>
+            <div class="contrast-ratio-row"><span class="contrast-ratio">${pair.ratio}:1</span><span class="contrast-badge ${bc}">${pair.level}</span><span class="contrast-size">${pair.fontSize}px${pair.isLarge?' large':''}</span></div>
+          </div>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    // ── 4. Focus & Interaction States ──
+    const fst = inv.focusStates;
+    if (fst) {
+      const isOk  = fst.hasFocusVisible && fst.outlineRemovedWithoutReplacement === 0;
+      const isBad = fst.outlineRemovedWithoutReplacement > 0;
+      const icon  = isOk ? '✓' : isBad ? '✕' : '!';
+      const cls   = isOk ? 'focus-ok' : isBad ? 'focus-bad' : 'focus-warn';
+      html += `<div class="design-section"><h4 class="design-section-title">Focus & Interaction States</h4>
+        <div class="focus-status ${cls}"><span class="focus-status-icon">${icon}</span>
+          <div>
+            <div class="focus-status-main">${isOk ? ':focus-visible in use — keyboard nav handled' : isBad ? `outline removed on ${fst.outlineRemovedWithoutReplacement} rule(s) without :focus-visible` : ':focus-visible not detected — keyboard users may miss focus'}</div>
+            <div class="focus-status-sub">${fst.rules.length} focus-related rule${fst.rules.length !== 1 ? 's' : ''} in stylesheets</div>
+          </div>
+        </div>`;
+      if (fst.rules.length > 0) {
+        html += `<details class="focus-rules-details"><summary class="focus-rules-toggle">Show rules (${fst.rules.length})</summary><div class="focus-rules-list">`;
+        for (const r of fst.rules) {
+          const rc = (r.outline === 'none' || r.outline === '0') ? 'focus-rule-bad' : 'focus-rule-ok';
+          html += `<div class="focus-rule ${rc}"><code class="focus-rule-sel">${escapeHtml(r.selector)}</code>`;
+          if (r.outline)    html += ` <span class="focus-rule-prop">outline: ${escapeHtml(r.outline)}</span>`;
+          if (r.boxShadow)  html += ` <span class="focus-rule-prop">box-shadow: ${escapeHtml(r.boxShadow.slice(0,40))}</span>`;
+          html += `</div>`;
+        }
+        html += `</div></details>`;
+      }
+      html += `</div>`;
+    }
+
+    // ── 5. Z-index Audit ──
+    const zia = inv.zIndexAudit;
+    if (zia && zia.uniqueCount > 0) {
+      const chaotic = zia.maxValue >= 9999 || zia.uniqueCount > 8;
+      html += `<div class="design-section"><h4 class="design-section-title">Z-index Stack <span class="design-count">${zia.uniqueCount} value${zia.uniqueCount !== 1 ? 's' : ''}</span></h4>`;
+      if (chaotic) html += `<div class="zi-warning">Max z-index: ${zia.maxValue >= 0 ? zia.maxValue : '–'} — consider a z-index token scale</div>`;
+      const maxZ = Math.max(...zia.values.map(v => Math.abs(v.value)), 1);
+      html += `<div class="zi-scale">`;
+      for (const v of zia.values) {
+        const pct  = Math.min(100, Math.round((Math.abs(v.value) / maxZ) * 100));
+        const high = v.value >= 9999;
+        html += `<div class="zi-row"><span class="zi-val ${high ? 'zi-high' : ''}">${v.value}</span><div class="zi-bar-wrap"><div class="zi-bar" style="width:${pct}%"></div></div><span class="zi-count">${v.count}×</span></div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    // ── 6. Motion & Animation ──
+    const mot = inv.motion;
+    if (mot && (mot.transitions.length > 0 || mot.animations.length > 0)) {
+      const motCount = mot.transitions.length + mot.animations.length;
+      html += `<div class="design-section"><h4 class="design-section-title">Motion & Animation <span class="design-count">${motCount} pattern${motCount !== 1 ? 's' : ''}</span></h4>`;
+      html += `<div class="mot-rm-badge ${mot.reducedMotionRespected ? 'mot-rm-ok' : 'mot-rm-warn'}">${mot.reducedMotionRespected ? '✓ prefers-reduced-motion handled' : '⚠ prefers-reduced-motion not detected'}</div>`;
+      if (mot.transitions.length) {
+        html += `<div class="mot-group-label">Transitions</div><div class="mot-list">`;
+        for (const t of mot.transitions) html += `<div class="mot-row"><span class="mot-dur">${escapeHtml(t.duration)}</span><span class="mot-ease">${escapeHtml(t.easing)}</span><span class="mot-uses">${t.count}×</span></div>`;
+        html += `</div>`;
+      }
+      if (mot.animations.length) {
+        html += `<div class="mot-group-label">Keyframe Animations</div><div class="mot-list">`;
+        for (const a of mot.animations) html += `<div class="mot-row"><span class="mot-dur">${escapeHtml(a.duration)}</span><span class="mot-ease">${escapeHtml(a.name)}</span><span class="mot-uses">${a.count}×</span></div>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
     }
 
     container.innerHTML = html;
