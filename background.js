@@ -1998,6 +1998,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ── Frame-options check (can this URL be embedded in an iframe?) ──
+  if (message.action === 'CHECK_FRAME_OPTIONS') {
+    (async () => {
+      try {
+        const resp = await fetch(message.url, { method: 'HEAD', redirect: 'follow' });
+        const xfo = resp.headers.get('x-frame-options') || '';
+        const csp = resp.headers.get('content-security-policy') || '';
+        const xfoDenied = /deny|sameorigin/i.test(xfo);
+        // frame-ancestors 'none' or frame-ancestors that doesn't include * / chrome-extension:
+        const cspDenied = csp.includes('frame-ancestors') &&
+          !csp.includes('frame-ancestors *') &&
+          !csp.includes('frame-ancestors \'*\'');
+        sendResponse({ blocked: xfoDenied || cspDenied, xfo, csp });
+      } catch (_) {
+        // Network error or CORS — assume not blocked, let the iframe try
+        sendResponse({ blocked: false });
+      }
+    })();
+    return true;
+  }
+
   // ── On-demand Screenshot ──
   if (message.action === 'TAKE_SCREENSHOT') {
     (async () => {

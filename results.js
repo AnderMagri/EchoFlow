@@ -68,14 +68,141 @@
     document.getElementById('audit-time').textContent = date.toLocaleString();
   }
 
-  // ── Render Screenshot + Markers ──
+  // ── Preview Mode State ──
 
-  function renderScreenshot() {
-    const img = document.getElementById('screenshot-img');
-    const panel = document.getElementById('screenshot-panel');
+  let previewMode = 'live'; // 'live' | 'screenshot'
+
+  function setPreviewMode(mode) {
+    previewMode = mode;
+    document.getElementById('btn-mode-live')?.classList.toggle('preview-mode-btn--active', mode === 'live');
+    document.getElementById('btn-mode-screenshot')?.classList.toggle('preview-mode-btn--active', mode === 'screenshot');
+  }
+
+  // ── Render Preview (dispatches to live or screenshot mode) ──
+
+  function renderScreenshot() { renderPreview(); }  // alias for legacy call sites
+
+  function renderPreview() {
+    if (previewMode === 'live') {
+      renderLivePreview();
+    } else {
+      renderStaticScreenshot();
+    }
+  }
+
+  // ── Live Preview (iframe) ──
+
+  async function renderLivePreview() {
+    const wrap     = document.getElementById('live-preview-wrap');
+    const iframe   = document.getElementById('live-preview-iframe');
+    const loading  = document.getElementById('live-preview-loading');
+    const img      = document.getElementById('screenshot-img');
+    const ph       = document.getElementById('screenshot-placeholder');
+    const liveStatus = document.getElementById('live-status');
+
+    // Hide screenshot elements
+    img.style.display = 'none';
+    if (ph) ph.style.display = 'none';
+
+    // Compute scaled dimensions
+    const vw      = auditData.meta.viewport?.width  || 1280;
+    const vh      = auditData.meta.viewport?.height || 800;
+    const panel   = document.getElementById('screenshot-panel');
+    const padded  = (panel?.clientWidth || 600) - 32;  // 16px padding each side
+    const scale   = padded / vw;
+    const dispW   = Math.round(vw * scale);
+    const dispH   = Math.round(vh * scale);
+
+    // Size the container and wrap
+    const container = document.getElementById('screenshot-container');
+    container.style.width  = dispW + 'px';
+    container.style.height = dispH + 'px';
+    container.style.display = 'block';
+
+    wrap.style.width  = dispW + 'px';
+    wrap.style.height = dispH + 'px';
+    wrap.style.display = 'block';
+
+    // Stash for renderMarkers
+    wrap.dataset.dispW  = dispW;
+    wrap.dataset.dispH  = dispH;
+    wrap.dataset.srcW   = vw;
+    wrap.dataset.srcH   = vh;
+
+    // Don't reload if already showing the same URL
+    if (iframe.dataset.loadedUrl === auditData.meta.url) {
+      loading.style.display = 'none';
+      iframe.style.display  = 'block';
+      renderMarkers();
+      return;
+    }
+
+    // Check if the site allows embedding
+    if (liveStatus) liveStatus.textContent = '';
+    loading.style.display = 'flex';
+    iframe.style.display  = 'none';
+
+    let blocked = false;
+    try {
+      const check = await chrome.runtime.sendMessage({ action: 'CHECK_FRAME_OPTIONS', url: auditData.meta.url });
+      blocked = check?.blocked || false;
+    } catch (_) { /* bg not reachable — try anyway */ }
+
+    if (blocked) {
+      loading.style.display = 'none';
+      if (liveStatus) {
+        liveStatus.textContent = 'Site blocks embedding — use Screenshot mode';
+        liveStatus.className = 'live-status live-status--blocked';
+      }
+      // Gracefully fall back: auto-switch to screenshot mode
+      setTimeout(() => {
+        setPreviewMode('screenshot');
+        renderStaticScreenshot();
+      }, 1800);
+      return;
+    }
+
+    // Load the iframe
+    iframe.style.width  = vw + 'px';
+    iframe.style.height = Math.max(vh, auditData.meta.scrollHeight || vh * 3) + 'px';
+    iframe.style.transform       = `scale(${scale})`;
+    iframe.style.transformOrigin = 'top left';
+
+    iframe.onload = () => {
+      loading.style.display = 'none';
+      iframe.style.display  = 'block';
+      iframe.dataset.loadedUrl = auditData.meta.url;
+      if (liveStatus) { liveStatus.textContent = ''; liveStatus.className = 'live-status'; }
+      renderMarkers();
+    };
+
+    iframe.onerror = () => {
+      loading.style.display = 'none';
+      if (liveStatus) {
+        liveStatus.textContent = 'Failed to load — switch to Screenshot';
+        liveStatus.className = 'live-status live-status--blocked';
+      }
+    };
+
+    if (liveStatus) { liveStatus.textContent = 'Loading…'; liveStatus.className = 'live-status live-status--loading'; }
+    iframe.src = auditData.meta.url;
+  }
+
+  // ── Static Screenshot ──
+
+  function renderStaticScreenshot() {
+    const wrap    = document.getElementById('live-preview-wrap');
+    const img     = document.getElementById('screenshot-img');
+    const panel   = document.getElementById('screenshot-panel');
+    const container = document.getElementById('screenshot-container');
+
+    // Hide live preview, reset container to auto-size
+    wrap.style.display = 'none';
+    container.style.width  = '';
+    container.style.height = '';
+    container.style.display = '';
 
     if (!auditData.screenshot) {
-      // Show placeholder with capture buttons
       img.style.display = 'none';
       let ph = document.getElementById('screenshot-placeholder');
       if (!ph) {
@@ -89,28 +216,28 @@
             <polyline points="21 15 16 10 5 21"/>
           </svg>
           <p class="screenshot-ph-label">No screenshot yet</p>
-          <p class="screenshot-ph-hint">Capture the page to see visual markers and AI vision analysis</p>
+          <p class="screenshot-ph-hint">Capture the page to overlay all finding markers on a static image</p>
           <div class="screenshot-ph-btns">
-            <button class="btn-ph-capture" data-mode="viewport" id="btn-capture-viewport">
+            <button class="btn-ph-capture" id="btn-capture-viewport">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
               Viewport
             </button>
-            <button class="btn-ph-capture btn-ph-capture--secondary" data-mode="full_page" id="btn-capture-fullpage">
+            <button class="btn-ph-capture btn-ph-capture--secondary" id="btn-capture-fullpage">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
               Full Page
             </button>
           </div>
           <div id="screenshot-ph-status" class="screenshot-ph-status"></div>
         `;
-        panel.appendChild(ph);
-
+        container.appendChild(ph);
         ph.querySelector('#btn-capture-viewport').addEventListener('click', () => takeScreenshot('viewport'));
         ph.querySelector('#btn-capture-fullpage').addEventListener('click', () => takeScreenshot('full_page'));
+      } else {
+        ph.style.display = '';
       }
       return;
     }
 
-    // Screenshot available — hide placeholder, show image
     const ph = document.getElementById('screenshot-placeholder');
     if (ph) ph.style.display = 'none';
     img.style.display = '';
@@ -120,7 +247,7 @@
 
   async function takeScreenshot(mode) {
     const status = document.getElementById('screenshot-ph-status');
-    const btns = document.querySelectorAll('.btn-ph-capture');
+    const btns   = document.querySelectorAll('.btn-ph-capture');
 
     btns.forEach(b => { b.disabled = true; });
     if (status) {
@@ -136,9 +263,9 @@
       });
 
       if (response?.success) {
-        auditData.screenshot = response.screenshot;
+        auditData.screenshot  = response.screenshot;
         auditData.meta.captureMode = mode;
-        renderScreenshot();
+        renderStaticScreenshot();
         renderMarkers();
       } else {
         if (status) {
@@ -149,36 +276,49 @@
       }
     } catch (err) {
       if (status) {
-        status.textContent = 'Could not reach extension background. Try reloading the extension.';
+        status.textContent = 'Could not reach extension background. Try reloading.';
         status.className = 'screenshot-ph-status error';
       }
       btns.forEach(b => { b.disabled = false; });
     }
   }
 
+  // ── Markers (works for both live-preview and screenshot modes) ──
+
   function renderMarkers() {
     const container = document.getElementById('markers-layer');
-    const img = document.getElementById('screenshot-img');
     container.innerHTML = '';
 
-    if (!img.naturalWidth) return;
+    let displayW, displayH, sourceW, sourceH, isFullPage;
 
-    const isFullPage = auditData.meta.captureMode === 'full_page';
-    const sourceWidth = auditData.meta.viewport?.width || img.naturalWidth;
-    const sourceHeight = isFullPage
-      ? (auditData.meta.scrollHeight || img.naturalHeight)
-      : (auditData.meta.viewport?.height || img.naturalHeight);
-    const scaleX = img.clientWidth / sourceWidth;
-    const scaleY = img.clientHeight / sourceHeight;
+    if (previewMode === 'live') {
+      const wrap = document.getElementById('live-preview-wrap');
+      if (!wrap || wrap.style.display === 'none') return;
+      displayW = parseInt(wrap.dataset.dispW) || wrap.clientWidth;
+      displayH = parseInt(wrap.dataset.dispH) || wrap.clientHeight;
+      sourceW  = parseInt(wrap.dataset.srcW)  || auditData.meta.viewport?.width  || displayW;
+      sourceH  = parseInt(wrap.dataset.srcH)  || auditData.meta.viewport?.height || displayH;
+      isFullPage = false;   // live preview always shows viewport slice
+    } else {
+      const img = document.getElementById('screenshot-img');
+      if (!img || !img.naturalWidth) return;
+      isFullPage = auditData.meta.captureMode === 'full_page';
+      displayW   = img.clientWidth;
+      displayH   = img.clientHeight;
+      sourceW    = auditData.meta.viewport?.width  || img.naturalWidth;
+      sourceH    = isFullPage
+        ? (auditData.meta.scrollHeight || img.naturalHeight)
+        : (auditData.meta.viewport?.height || img.naturalHeight);
+    }
 
-    const vw = auditData.meta.viewport?.width  || img.naturalWidth;
-    const vh = auditData.meta.viewport?.height || img.naturalHeight;
+    const scaleX = displayW / sourceW;
+    const scaleY = displayH / sourceH;
+    const vw     = auditData.meta.viewport?.width  || sourceW;
+    const vh     = auditData.meta.viewport?.height || sourceH;
 
     findings.forEach((finding) => {
       const pos = finding.position || { x: 0, y: 0 };
       const hasRealPosition = (pos.x !== 0 || pos.y !== 0) || (pos.width > 100 || pos.height > 30);
-
-      // Only show markers for findings that point to a real element on the page
       if (!hasRealPosition) return;
 
       const px = isFullPage ? (pos.absoluteX ?? pos.x) : pos.x;
@@ -186,29 +326,27 @@
       const pw = pos.width  || 0;
       const ph = pos.height || 0;
 
-      // In viewport mode, skip elements that are completely outside the captured frame.
-      // (Below-fold or above-fold elements have no visible representation in the screenshot.)
+      // Skip elements outside the visible frame
       if (!isFullPage) {
-        if (py > vh || py + ph < 0) return;   // vertically out of frame
-        if (px > vw || px + pw < 0) return;   // horizontally out of frame
+        if (py > vh || py + ph < 0) return;
+        if (px > vw || px + pw < 0) return;
       }
 
-      // Clamp the element's effective size to the visible viewport so that
-      // full-page-height elements (e.g. body) don't push the midpoint below the fold.
       const visibleW = isFullPage ? pw : Math.min(pw, vw - px);
       const visibleH = isFullPage ? ph : Math.min(ph, vh - py);
 
       const marker = document.createElement('div');
       marker.className = 'marker';
       marker.dataset.number = finding.number;
-      marker.textContent = finding.number;
+      marker.textContent    = finding.number;
       marker.style.backgroundColor = getMarkerColor(finding.number - 1);
+      marker.title = finding.description;
 
       const cx = (px + visibleW / 2) * scaleX;
       const cy = (py + visibleH / 2) * scaleY;
 
-      marker.style.left = Math.max(13, Math.min(cx, img.clientWidth  - 13)) + 'px';
-      marker.style.top  = Math.max(13, Math.min(cy, img.clientHeight - 13)) + 'px';
+      marker.style.left = Math.max(13, Math.min(cx, displayW - 13)) + 'px';
+      marker.style.top  = Math.max(13, Math.min(cy, displayH - 13)) + 'px';
 
       marker.addEventListener('click', () => setActiveFinding(finding.number));
       container.appendChild(marker);
@@ -3363,12 +3501,25 @@
       loadProjectSidebar(projectId);
     }
 
-    // Resize observer for marker repositioning
-    const img = document.getElementById('screenshot-img');
-    if (img) {
-      const observer = new ResizeObserver(() => renderMarkers());
-      observer.observe(img);
+    // Resize observer — re-render markers when panel resizes (handles both live + screenshot)
+    const resizeTarget = document.getElementById('screenshot-panel');
+    if (resizeTarget) {
+      const observer = new ResizeObserver(() => {
+        if (previewMode === 'live') renderLivePreview();
+        else renderMarkers();
+      });
+      observer.observe(resizeTarget);
     }
+
+    // ── Preview mode toggle ──
+    document.getElementById('btn-mode-live')?.addEventListener('click', () => {
+      setPreviewMode('live');
+      renderLivePreview();
+    });
+    document.getElementById('btn-mode-screenshot')?.addEventListener('click', () => {
+      setPreviewMode('screenshot');
+      renderStaticScreenshot();
+    });
 
     // ── Tabs ──
     document.querySelectorAll('.tab-btn').forEach(btn => {
