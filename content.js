@@ -617,6 +617,139 @@
       if (svgInventory.length >= 60) break;
     }
 
+    // ── Layout System Detection ──
+
+    // Helper: count top-level space-separated tokens in a CSS value string,
+    // respecting parentheses (so minmax(200px, 1fr) counts as one token).
+    function countCssTokens(val) {
+      if (!val || val === 'none') return 0;
+      let depth = 0, count = 0, inToken = false;
+      for (const ch of val) {
+        if (ch === '(') { depth++; inToken = true; }
+        else if (ch === ')') { depth--; inToken = true; }
+        else if (ch === ' ' && depth === 0) { if (inToken) { count++; inToken = false; } }
+        else { inToken = true; }
+      }
+      if (inToken) count++;
+      return count;
+    }
+
+    // Helper: find the best-fit spacing base unit (4, 5, 6, 8, 10…)
+    function detectSpacingBase(spacingObj) {
+      const vals = Object.keys(spacingObj)
+        .map(v => Math.round(parseFloat(v)))
+        .filter(v => v > 0 && v <= 80);
+      if (vals.length < 4) return null;
+      const candidates = [4, 5, 6, 8, 10, 12];
+      let bestBase = null, bestScore = 0;
+      for (const base of candidates) {
+        const score = vals.filter(v => v % base === 0).length / vals.length;
+        if (score > bestScore) { bestScore = score; bestBase = base; }
+      }
+      return bestScore >= 0.55 ? bestBase : null;
+    }
+
+    // Scan layout containers
+    let flexCount = 0, gridCount = 0, blockCount = 0;
+    const gapMap = {};
+    const maxWidthMap = {};
+    const colPatternMap = {};
+    const layoutEls = document.querySelectorAll(
+      'div, section, article, main, header, footer, nav, aside, ul, ol, form'
+    );
+
+    for (const el of layoutEls) {
+      const cs = getComputedStyle(el);
+      const disp = cs.display;
+
+      if (disp === 'flex' || disp === 'inline-flex') {
+        flexCount++;
+
+        // Detect equal-width flex column layouts
+        if (cs.flexWrap !== 'nowrap') {
+          const kids = Array.from(el.children).filter(c => {
+            const kcs = getComputedStyle(c);
+            return kcs.display !== 'none' && c.offsetWidth > 0;
+          });
+          if (kids.length >= 2 && kids.length <= 8) {
+            const pw = el.offsetWidth;
+            if (pw >= 300) {
+              const widths = kids.map(k => k.offsetWidth);
+              const avg = widths.reduce((a, b) => a + b, 0) / widths.length;
+              const maxDev = Math.max(...widths.map(w => Math.abs(w - avg)));
+              if (avg > 0 && maxDev < avg * 0.2) {
+                const key = kids.length + '-col';
+                colPatternMap[key] = (colPatternMap[key] || 0) + 1;
+              }
+            }
+          }
+        }
+      } else if (disp === 'grid' || disp === 'inline-grid') {
+        gridCount++;
+
+        // Detect column count from gridTemplateColumns
+        const gtc = cs.gridTemplateColumns;
+        if (gtc && gtc !== 'none') {
+          // Try explicit repeat() first
+          const repeatMatch = gtc.match(/repeat\(\s*(\d+)/);
+          const colCount = repeatMatch ? parseInt(repeatMatch[1]) : countCssTokens(gtc);
+          if (colCount >= 2 && colCount <= 12) {
+            const key = colCount + '-col';
+            colPatternMap[key] = (colPatternMap[key] || 0) + 1;
+          }
+        }
+      } else if (disp === 'block') {
+        blockCount++;
+      }
+
+      // Gap values (flex and grid)
+      if (disp === 'flex' || disp === 'inline-flex' || disp === 'grid' || disp === 'inline-grid') {
+        const gap = cs.gap;
+        const colGap = cs.columnGap;
+        const rowGap = cs.rowGap;
+        const gapVal = (gap && gap !== 'normal' && gap !== '0px') ? gap
+          : (colGap && colGap !== 'normal' && colGap !== '0px') ? colGap : null;
+        if (gapVal) gapMap[gapVal] = (gapMap[gapVal] || 0) + 1;
+        if (rowGap && rowGap !== 'normal' && rowGap !== '0px' && rowGap !== colGap) {
+          gapMap[rowGap] = (gapMap[rowGap] || 0) + 1;
+        }
+      }
+
+      // Container max-widths (meaningful range only)
+      const mw = cs.maxWidth;
+      if (mw && mw !== 'none') {
+        const px = parseFloat(mw);
+        if (px >= 600 && px <= 2560) {
+          const rounded = Math.round(px / 20) * 20; // group ±10px together
+          maxWidthMap[rounded] = (maxWidthMap[rounded] || 0) + 1;
+        }
+      }
+    }
+
+    const layoutTotal = flexCount + gridCount + blockCount || 1;
+    const spacingBase = detectSpacingBase(spacings);
+
+    const layoutSystem = {
+      spacingBase,
+      layoutEngines: {
+        flex:  Math.round((flexCount  / layoutTotal) * 100),
+        grid:  Math.round((gridCount  / layoutTotal) * 100),
+        block: Math.round((blockCount / layoutTotal) * 100),
+      },
+      columnPatterns: Object.entries(colPatternMap)
+        .map(([pattern, count]) => ({ pattern, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 6),
+      gapValues: Object.entries(gapMap)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8),
+      containerWidths: Object.entries(maxWidthMap)
+        .map(([value, count]) => ({ value: parseInt(value), count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5),
+    };
+
     return {
       logo,
       svgInventory,
@@ -635,6 +768,7 @@
       hasLazyLoading,
       uiFramework,
       iconLibrary,
+      layoutSystem,
     };
   }
 

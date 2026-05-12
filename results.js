@@ -319,6 +319,30 @@
       warnings.push({ level: 'warning', metric: 'Shadows / Elevation', message: `${shadowCount} shadow styles`, detail: 'Too many elevations. A design system needs 3–4 levels (flat, subtle, raised, overlay).' });
     }
 
+    // Layout system
+    const layout = inv.layoutSystem;
+    if (layout) {
+      // No detectable spacing base unit
+      if (layout.spacingBase === null && (inv.spacingValues?.length || 0) > 5) {
+        score -= 8;
+        warnings.push({ level: 'warning', metric: 'Spacing Base Unit', message: 'No consistent base unit found', detail: 'Spacing values don\'t align to a common grid (4px, 8px, etc.). Arbitrary spacing breaks visual rhythm.' });
+      }
+
+      // Too many unique gap values
+      const gapCount = layout.gapValues?.length || 0;
+      if (gapCount > 6) {
+        score -= 5;
+        warnings.push({ level: 'warning', metric: 'Gap / Gutter', message: `${gapCount} unique gap values`, detail: 'Too many gap values across flex/grid containers. Standardise to 3–4 gutter sizes.' });
+      }
+
+      // Competing container widths
+      const cwCount = layout.containerWidths?.length || 0;
+      if (cwCount > 3) {
+        score -= 5;
+        warnings.push({ level: 'warning', metric: 'Container Widths', message: `${cwCount} different max-widths`, detail: 'Multiple max-width values suggest no single layout grid. One canonical container width keeps columns aligned across sections.' });
+      }
+    }
+
     return { score: Math.max(0, score), warnings };
   }
 
@@ -484,6 +508,81 @@
         html += '<span class="spacing-chip' + (onGrid ? ' on-grid' : ' off-grid') + '" title="' + s.count + ' uses">' + px + '</span>';
       }
       html += '</div></div>';
+    }
+
+    // Layout System
+    const layout = inv.layoutSystem;
+    if (layout) {
+      html += '<div class="design-section layout-section"><h4 class="design-section-title">Layout System</h4>';
+      html += '<div class="layout-grid">';
+
+      // Spacing base unit
+      const baseLabel = layout.spacingBase ? layout.spacingBase + 'px base' : 'No base unit';
+      const baseColor = layout.spacingBase ? '#00C9A7' : '#ef4444';
+      html += `<div class="layout-stat">
+        <div class="layout-stat-value" style="color:${baseColor}">${baseLabel}</div>
+        <div class="layout-stat-label">Spacing unit</div>
+      </div>`;
+
+      // Layout engine breakdown
+      const eng = layout.layoutEngines || {};
+      html += `<div class="layout-stat">
+        <div class="layout-engine-bars">
+          ${eng.flex  ? `<div class="layout-engine-bar" style="width:${eng.flex}%;background:#5e35b1" title="Flexbox ${eng.flex}%"></div>` : ''}
+          ${eng.grid  ? `<div class="layout-engine-bar" style="width:${eng.grid}%;background:#1e88e5" title="CSS Grid ${eng.grid}%"></div>` : ''}
+          ${eng.block ? `<div class="layout-engine-bar" style="width:${eng.block}%;background:#e0e0e0" title="Block ${eng.block}%"></div>` : ''}
+        </div>
+        <div class="layout-engine-legend">
+          ${eng.flex  ? `<span class="layout-eng-dot" style="background:#5e35b1"></span><span>${eng.flex}% Flex</span>` : ''}
+          ${eng.grid  ? `<span class="layout-eng-dot" style="background:#1e88e5"></span><span>${eng.grid}% Grid</span>` : ''}
+          ${eng.block ? `<span class="layout-eng-dot" style="background:#aaa"></span><span>${eng.block}% Block</span>` : ''}
+        </div>
+        <div class="layout-stat-label">Layout engines</div>
+      </div>`;
+
+      html += '</div>'; // layout-grid
+
+      // Column patterns
+      if (layout.columnPatterns && layout.columnPatterns.length > 0) {
+        html += '<div class="layout-subsection-title">Column Patterns</div><div class="layout-col-chips">';
+        for (const p of layout.columnPatterns) {
+          const n = parseInt(p.pattern);
+          html += `<div class="layout-col-chip" title="${p.count} occurrences">
+            <div class="layout-col-visual">${Array.from({ length: Math.min(n, 6) }).map(() => '<span class="layout-col-bar"></span>').join('')}</div>
+            <span class="layout-col-label">${p.pattern}</span>
+            <span class="layout-col-count">${p.count}</span>
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // Gap / gutter values
+      if (layout.gapValues && layout.gapValues.length > 0) {
+        html += '<div class="layout-subsection-title">Gaps & Gutters <span class="design-count">' + layout.gapValues.length + ' values</span></div>';
+        html += '<div class="design-chips">';
+        for (const g of layout.gapValues) {
+          html += `<span class="spacing-chip on-grid" title="${g.count} uses">${g.value}</span>`;
+        }
+        html += '</div>';
+      }
+
+      // Container max-widths
+      if (layout.containerWidths && layout.containerWidths.length > 0) {
+        html += '<div class="layout-subsection-title">Container Max-widths <span class="design-count">' + layout.containerWidths.length + '</span></div>';
+        html += '<div class="layout-widths">';
+        const maxW = layout.containerWidths[0]?.value || 1;
+        for (const cw of layout.containerWidths) {
+          const barW = Math.round((cw.value / maxW) * 100);
+          html += `<div class="layout-width-row">
+            <span class="layout-width-px">${cw.value}px</span>
+            <div class="layout-width-bar-wrap"><div class="layout-width-bar" style="width:${barW}%"></div></div>
+            <span class="layout-width-count">${cw.count}</span>
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>'; // design-section
     }
 
     // Border radius

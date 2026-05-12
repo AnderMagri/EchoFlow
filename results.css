@@ -964,6 +964,160 @@ select.settings-input {
   margin-bottom: 10px;
 }
 
+/* ── Layout System Card ── */
+
+.layout-section {
+  padding: 0;
+}
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.layout-stat {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 10px 12px;
+}
+
+.layout-stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.layout-stat-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 4px;
+}
+
+.layout-engine-bars {
+  display: flex;
+  height: 8px;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.layout-engine-bar {
+  height: 100%;
+  min-width: 3px;
+}
+
+.layout-engine-legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #555;
+  align-items: center;
+}
+
+.layout-eng-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.layout-subsection-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #888;
+  margin: 12px 0 6px;
+}
+
+/* Column pattern chips */
+.layout-col-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.layout-col-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  cursor: default;
+}
+
+.layout-col-visual {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+}
+
+.layout-col-bar {
+  width: 10px;
+  height: 20px;
+  background: #1a1a2e;
+  display: block;
+}
+
+.layout-col-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.layout-col-count {
+  font-size: 10px;
+  color: #999;
+}
+
+/* Container width bars */
+.layout-widths {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.layout-width-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layout-width-px {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a2e;
+  width: 54px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.layout-width-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #e9ecef;
+}
+
+.layout-width-bar {
+  height: 100%;
+  background: #1a1a2e;
+}
+
+.layout-width-count {
+  font-size: 11px;
+  color: #999;
+  width: 20px;
+  flex-shrink: 0;
+}
+
 .design-count {
   font-weight: 400;
   color: #999;

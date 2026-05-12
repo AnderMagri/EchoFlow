@@ -2043,6 +2043,14 @@ Device: ${device} (${meta.viewport.width}x${meta.viewport.height})`;
     const shadowCount = (inv.shadows || []).length;
     const gridRatio = inv.spacingGridRatio || 0;
 
+    const layout = inv.layoutSystem;
+    const layoutSection = layout ? `
+- Layout engines: ${layout.layoutEngines?.flex || 0}% Flex, ${layout.layoutEngines?.grid || 0}% Grid, ${layout.layoutEngines?.block || 0}% Block
+- Spacing base unit: ${layout.spacingBase ? layout.spacingBase + 'px' : 'not detected'}
+- Column patterns: ${(layout.columnPatterns || []).map(p => p.pattern + ' (×' + p.count + ')').join(', ') || 'none'}
+- Gap/gutter values: ${(layout.gapValues || []).map(g => g.value).slice(0, 5).join(', ') || 'none'}
+- Container max-widths: ${(layout.containerWidths || []).map(c => c.value + 'px').join(', ') || 'none'}` : '';
+
     designSection = `
 
 Design inventory:
@@ -2051,7 +2059,7 @@ Design inventory:
 - Color palette: ${topColors || 'none'}
 - Spacing: ${gridRatio}% on 4px grid, ${(inv.spacingValues || []).length} unique values
 - Border-radius: ${radii || 'none'}
-- Shadows: ${shadowCount} unique styles`;
+- Shadows: ${shadowCount} unique styles${layoutSection}`;
   }
 
   // Check if screenshot will be included (vision layer active)
