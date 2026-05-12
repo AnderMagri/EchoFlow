@@ -355,9 +355,9 @@
     if (!container || !findingsList) return;
 
     const designFindings = findings.filter(f => f.category === 'design');
-    document.getElementById('design-count').textContent = designFindings.length;
 
     if (!inv) {
+      document.getElementById('design-count').textContent = designFindings.length;
       container.innerHTML = '<div class="empty-state"><p>No design data captured</p></div>';
       return;
     }
@@ -368,6 +368,10 @@
     const health = computeDesignHealth(inv);
     const scoreColor = health.score >= 80 ? '#00C9A7' : health.score >= 60 ? '#f59e0b' : '#ef4444';
     const scoreLabel = health.score >= 80 ? 'Good' : health.score >= 60 ? 'Needs Work' : 'Critical Issues';
+
+    // Badge = rule-based design findings + health warnings (both are real issues on this page)
+    const totalDesignIssues = designFindings.length + health.warnings.length;
+    document.getElementById('design-count').textContent = totalDesignIssues || '';
     html += `<div class="design-health-card">
       <div class="design-health-header">
         <span class="design-health-title">Design Health</span>
