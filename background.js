@@ -48,6 +48,10 @@ async function fetchApiEndpoints(origin, rules) {
 async function captureViewport(tabId, resolution) {
   const scale = resolution === '120' ? 1.2 : 1.0;
 
+  // Resolve the window that owns this tab so captureVisibleTab is explicit
+  const tabInfo   = await chrome.tabs.get(tabId);
+  const windowId  = tabInfo.windowId;
+
   // Hide scrollbar before capture
   await chrome.scripting.executeScript({
     target: { tabId },
@@ -64,13 +68,13 @@ async function captureViewport(tabId, resolution) {
     const originalZoom = await chrome.tabs.getZoom(tabId);
     await chrome.tabs.setZoom(tabId, scale);
     await sleep(400);
-    dataUrl = await chrome.tabs.captureVisibleTab(null, {
+    dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
       format: 'jpeg',
       quality: 95
     });
     await chrome.tabs.setZoom(tabId, originalZoom);
   } else {
-    dataUrl = await chrome.tabs.captureVisibleTab(null, {
+    dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
       format: 'jpeg',
       quality: 90
     });
@@ -89,6 +93,10 @@ async function captureViewport(tabId, resolution) {
 }
 
 async function captureFullPage(tabId) {
+  // Resolve window once so all captureVisibleTab calls are explicit
+  const tabInfo  = await chrome.tabs.get(tabId);
+  const windowId = tabInfo.windowId;
+
   // Get page dimensions
   const scrollInfo = await chrome.tabs.sendMessage(tabId, { action: 'GET_SCROLL_INFO' });
   if (!scrollInfo?.success) {
@@ -143,7 +151,7 @@ async function captureFullPage(tabId) {
   // Capture first viewport (keep fixed/sticky elements visible for first strip)
   await chrome.tabs.sendMessage(tabId, { action: 'SCROLL_TO', y: 0 });
   await sleep(500);
-  const firstStrip = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 90 });
+  const firstStrip = await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 90 });
   await sleep(500); // Rate limit: ~1 capture/sec max
 
   // Each strip tracks: actual scroll position, how much to crop from top, and output Y
@@ -262,7 +270,7 @@ async function captureFullPage(tabId) {
 
     if (usableHeight <= 0) break;
 
-    const stripDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 90 });
+    const stripDataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 90 });
     await sleep(500); // Rate limit buffer (~1 capture/sec)
 
     strips.push({
@@ -2022,26 +2030,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // ── On-demand Screenshot ──
   if (message.action === 'TAKE_SCREENSHOT') {
     (async () => {
+      // The results page IS the sender tab — we must exclude it when searching
+      // for the audited page, then temporarily switch to it so captureVisibleTab
+      // captures the right thing.
+      const senderTabId = sender.tab?.id;
+
       try {
         const { url, mode } = message;
-        // Find the tab that is showing the audited URL
         const allTabs = await chrome.tabs.query({});
-        const baseUrl = url.split('?')[0].split('#')[0];
-        let targetTab = allTabs.find(t => t.url && (t.url.startsWith(baseUrl) || t.url === url));
+        const baseUrl  = url.split('?')[0].split('#')[0];
+
+        // Find the audited page tab (never the results page itself)
+        const targetTab = allTabs.find(t =>
+          t.id !== senderTabId &&
+          t.url && (t.url === url || t.url.startsWith(baseUrl))
+        );
+
         if (!targetTab) {
-          // Fall back to the last focused window's active tab
-          const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-          targetTab = activeTab;
-        }
-        if (!targetTab) {
-          sendResponse({ success: false, error: 'Could not find a tab with the audited page. Please navigate to the page and try again.' });
+          sendResponse({ success: false, error: 'The audited page is no longer open. Navigate back to it and try again.' });
           return;
         }
+
+        // Remember which tab/window to return to
+        const returnTabId    = senderTabId;
+        const returnWindowId = sender.tab?.windowId;
+
+        // Switch focus to the audited page so captureVisibleTab picks it up
+        await chrome.windows.update(targetTab.windowId, { focused: true });
+        await chrome.tabs.update(targetTab.id, { active: true });
+        await sleep(350); // let the tab paint
+
         const screenshot = mode === 'full_page'
           ? await captureFullPage(targetTab.id)
           : await captureViewport(targetTab.id, '100');
+
+        // Switch back to the results page
+        if (returnTabId) {
+          await chrome.windows.update(returnWindowId, { focused: true });
+          await chrome.tabs.update(returnTabId, { active: true });
+        }
+
         sendResponse({ success: true, screenshot });
       } catch (err) {
+        // Always try to return focus even on error
+        if (senderTabId) {
+          try { await chrome.tabs.update(senderTabId, { active: true }); } catch (_) {}
+        }
         sendResponse({ success: false, error: err.message });
       }
     })();
