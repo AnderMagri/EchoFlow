@@ -3368,6 +3368,199 @@
     list.innerHTML = html;
   }
 
+  // ── Journey Mode Rendering ──
+
+  function renderJourneyMode() {
+    // Replace the entire page content with a journey-specific layout
+    document.body.innerHTML = `
+      <header class="toolbar">
+        <div class="toolbar-left">
+          <div class="toolbar-logo">
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+              <rect width="22" height="22" rx="6" fill="#00C9A7"/>
+              <path d="M3 11 C5.5 6 8.5 6 11 11 C13.5 16 16.5 16 19 11" stroke="white" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+              <path d="M3 14 C5.5 9 8.5 9 11 14 C13.5 19 16.5 19 19 14" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.4"/>
+            </svg>
+            <span class="toolbar-brand">EchoFlow</span>
+          </div>
+          <span class="toolbar-sep">|</span>
+          <span class="badge badge-journey">Journey Audit</span>
+          <span class="toolbar-time">${new Date(auditData.meta.timestamp).toLocaleString()}</span>
+        </div>
+        <div class="toolbar-right">
+          <button id="journey-btn-copy" class="toolbar-btn">Copy Report</button>
+        </div>
+      </header>
+      <div class="journey-results-layout">
+        <div class="journey-sidebar">
+          <div class="journey-sidebar-header">
+            <div class="journey-flow-score-wrap">
+              <div class="journey-flow-score" id="journey-flow-score">—</div>
+              <div class="journey-flow-label">Flow Score</div>
+            </div>
+            <p class="journey-sidebar-summary" id="journey-sidebar-summary"></p>
+          </div>
+          <div class="journey-steps-timeline" id="journey-steps-timeline"></div>
+        </div>
+        <div class="journey-main">
+          <div class="journey-findings-grid" id="journey-findings-grid">
+            <div class="journey-section" id="journey-friction-section"></div>
+            <div class="journey-section" id="journey-consistency-section"></div>
+            <div class="journey-section" id="journey-positives-section"></div>
+            <div class="journey-section" id="journey-recommendations-section"></div>
+          </div>
+        </div>
+      </div>
+      <div id="toast" class="toast"></div>
+    `;
+
+    const steps = auditData.steps || [];
+    const analysis = auditData.analysis || {};
+
+    // Flow score
+    const scoreEl = document.getElementById('journey-flow-score');
+    if (scoreEl && analysis.flowScore != null) {
+      scoreEl.textContent = analysis.flowScore;
+      const score = analysis.flowScore;
+      scoreEl.className = 'journey-flow-score ' + (score >= 70 ? 'score-good' : score >= 45 ? 'score-mid' : 'score-bad');
+    }
+
+    // Summary
+    const summaryEl = document.getElementById('journey-sidebar-summary');
+    if (summaryEl) summaryEl.textContent = analysis.summary || '';
+
+    // Steps timeline
+    const timelineEl = document.getElementById('journey-steps-timeline');
+    if (timelineEl) {
+      timelineEl.innerHTML = steps.map((s, i) => {
+        const frictions = (analysis.frictionPoints || []).filter(f => f.step === s.stepNumber);
+        const hasFriction = frictions.length > 0;
+        const h1 = s.headings?.find(h => h.level === 'H1');
+        const label = h1?.text || s.title || s.url;
+        const host = (() => { try { return new URL(s.url).pathname; } catch { return s.url; } })();
+        return `
+          <div class="journey-step-timeline-item ${hasFriction ? 'has-friction' : ''}">
+            <div class="journey-step-connector ${i === 0 ? 'first' : ''}"></div>
+            <div class="journey-step-dot ${hasFriction ? 'dot-friction' : 'dot-ok'}">
+              ${hasFriction ? '⚠' : i + 1}
+            </div>
+            <div class="journey-step-meta">
+              <div class="journey-step-meta-title" title="${escapeHtml(label)}">${escapeHtml(label.slice(0, 48))}${label.length > 48 ? '…' : ''}</div>
+              <div class="journey-step-meta-url" title="${escapeHtml(s.url)}">${escapeHtml(host)}</div>
+              ${s.forms?.length ? `<div class="journey-step-meta-tag">📝 ${s.forms.length} form${s.forms.length > 1 ? 's' : ''}</div>` : ''}
+              ${s.ctaCount ? `<div class="journey-step-meta-tag">🎯 ${s.ctaCount} CTAs</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Friction points
+    const frictionEl = document.getElementById('journey-friction-section');
+    if (frictionEl) {
+      const frictions = analysis.frictionPoints || [];
+      frictionEl.innerHTML = `
+        <h2 class="journey-section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Friction Points <span class="journey-count-badge">${frictions.length}</span>
+        </h2>
+        ${frictions.length === 0
+          ? '<p class="journey-empty">No major friction points detected.</p>'
+          : frictions.map(f => `
+            <div class="journey-finding-card severity-${f.severity || 'medium'}">
+              <div class="journey-finding-header">
+                <span class="journey-sev-badge sev-${f.severity || 'medium'}">${(f.severity || 'medium').toUpperCase()}</span>
+                <span class="journey-step-ref">Step ${f.step}</span>
+                <strong class="journey-finding-title">${escapeHtml(f.title)}</strong>
+              </div>
+              <p class="journey-finding-desc">${escapeHtml(f.description)}</p>
+            </div>`).join('')}`;
+    }
+
+    // Consistency issues
+    const consistencyEl = document.getElementById('journey-consistency-section');
+    if (consistencyEl) {
+      const issues = analysis.consistencyIssues || [];
+      consistencyEl.innerHTML = `
+        <h2 class="journey-section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Consistency Issues <span class="journey-count-badge">${issues.length}</span>
+        </h2>
+        ${issues.length === 0
+          ? '<p class="journey-empty">No major consistency issues detected.</p>'
+          : issues.map(c => `
+            <div class="journey-finding-card severity-medium">
+              <div class="journey-finding-header">
+                <span class="journey-sev-badge sev-medium">CONSISTENCY</span>
+                <span class="journey-step-ref">Steps ${(c.steps || []).join(', ')}</span>
+                <strong class="journey-finding-title">${escapeHtml(c.title)}</strong>
+              </div>
+              <p class="journey-finding-desc">${escapeHtml(c.description)}</p>
+            </div>`).join('')}`;
+    }
+
+    // Positives
+    const positivesEl = document.getElementById('journey-positives-section');
+    if (positivesEl) {
+      const positives = analysis.positives || [];
+      positivesEl.innerHTML = `
+        <h2 class="journey-section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00C9A7" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          What's Working <span class="journey-count-badge positive">${positives.length}</span>
+        </h2>
+        ${positives.length === 0
+          ? '<p class="journey-empty">No positives captured.</p>'
+          : positives.map(p => `<div class="journey-positive-item">✓ ${escapeHtml(p)}</div>`).join('')}`;
+    }
+
+    // Recommendations
+    const recsEl = document.getElementById('journey-recommendations-section');
+    if (recsEl) {
+      const recs = analysis.recommendations || [];
+      recsEl.innerHTML = `
+        <h2 class="journey-section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3949ab" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Recommendations <span class="journey-count-badge">${recs.length}</span>
+        </h2>
+        ${recs.length === 0
+          ? '<p class="journey-empty">No recommendations generated.</p>'
+          : recs.map(r => `
+            <div class="journey-rec-card priority-${r.priority || 'medium'}">
+              <div class="journey-finding-header">
+                <span class="journey-sev-badge sev-${r.priority === 'high' ? 'high' : r.priority === 'medium' ? 'medium' : 'low'}">${(r.priority || 'medium').toUpperCase()}</span>
+                <strong class="journey-finding-title">${escapeHtml(r.title)}</strong>
+              </div>
+              <p class="journey-finding-desc">${escapeHtml(r.description)}</p>
+            </div>`).join('')}`;
+    }
+
+    // Copy report button
+    document.getElementById('journey-btn-copy')?.addEventListener('click', () => {
+      const lines = [
+        `EchoFlow Journey Audit`,
+        `${new Date(auditData.meta.timestamp).toLocaleString()}`,
+        `Flow Score: ${analysis.flowScore || '—'}/100`,
+        ``,
+        analysis.summary || '',
+        ``,
+        `STEPS (${steps.length})`,
+        ...steps.map(s => `  ${s.stepNumber}. ${s.url}`),
+        ``,
+        `FRICTION POINTS`,
+        ...(analysis.frictionPoints || []).map(f => `  [${f.severity?.toUpperCase()}] Step ${f.step}: ${f.title} — ${f.description}`),
+        ``,
+        `CONSISTENCY ISSUES`,
+        ...(analysis.consistencyIssues || []).map(c => `  Steps ${(c.steps || []).join(',')}: ${c.title} — ${c.description}`),
+        ``,
+        `RECOMMENDATIONS`,
+        ...(analysis.recommendations || []).map(r => `  [${r.priority?.toUpperCase()}] ${r.title}: ${r.description}`)
+      ];
+      navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        const toast = document.getElementById('toast');
+        if (toast) { toast.textContent = 'Report copied!'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); }
+      });
+    });
+  }
+
   // ── Compare Mode Rendering ──
 
   function renderCompareMode() {
@@ -3486,7 +3679,10 @@
     }
 
     // Route to correct render mode
-    if (mode === 'shopify-adapt' || auditData.mode === 'shopify-adapt') {
+    if (mode === 'journey' || auditData.mode === 'journey') {
+      renderJourneyMode();
+      return; // Journey mode has its own complete layout
+    } else if (mode === 'shopify-adapt' || auditData.mode === 'shopify-adapt') {
       renderAdaptMode();
     } else if (auditData.compareMode) {
       findings = auditData.findings || [];

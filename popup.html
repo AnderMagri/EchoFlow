@@ -10,13 +10,21 @@
   <div class="popup">
     <header class="header">
       <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="9" fill="#00C9A7"/>
-          <path d="M6 10L9 13L14 7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect width="22" height="22" rx="6" fill="#00C9A7"/>
+          <path d="M3 11 C5.5 6 8.5 6 11 11 C13.5 16 16.5 16 19 11" stroke="white" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+          <path d="M3 14 C5.5 9 8.5 9 11 14 C13.5 19 16.5 19 19 14" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.4"/>
         </svg>
         <span class="logo-text">EchoFlow</span>
       </div>
-      <span class="version">v1.1</span>
+      <div style="display:inline-flex;align-items:center;gap:6px;">
+        <span class="version">v1.1</span>
+        <button id="btn-open-sidebar" class="btn-sidebar-pin" title="Open in sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7"/><rect x="8" y="5" width="8" height="5" rx="1"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
     <!-- Main Tabs -->
@@ -24,6 +32,7 @@
       <button class="popup-tab active" data-popup-tab="page-review">Page Review</button>
       <button class="popup-tab" data-popup-tab="explorer">Explorer</button>
       <button class="popup-tab" data-popup-tab="shopify-adapt">Shopify Migration</button>
+      <button class="popup-tab" data-popup-tab="journey">Journey</button>
       <!-- Project tab hidden — kept for future use -->
       <button class="popup-tab" data-popup-tab="project-review" style="display:none;">Project</button>
     </nav>
@@ -196,6 +205,59 @@
         <button id="btn-view-project" class="btn-secondary">View Project Results</button>
         <button id="btn-delete-project" class="btn-danger-sm">Delete Project</button>
       </div>
+    </div>
+
+    <!-- ═══ Journey Audit Tab ═══ -->
+    <div id="tab-journey" class="popup-tab-content">
+      <div class="section">
+        <div class="journey-intro">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00C9A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/><circle cx="18" cy="12" r="3" fill="#00C9A7" stroke="#00C9A7"/></svg>
+          <p class="journey-desc">Record a real browsing session across multiple pages — EchoFlow captures each step and runs AI analysis of the full UX flow.</p>
+        </div>
+      </div>
+
+      <!-- Idle state -->
+      <div id="journey-idle" class="journey-state">
+        <div class="section">
+          <label class="section-label">Vertical</label>
+          <select id="journey-vertical" class="page-type-select">
+            <option value="generic-ux">Generic UX</option>
+            <option value="shopify">Shopify</option>
+            <option value="fintech">Fintech</option>
+            <option value="crypto">Crypto</option>
+          </select>
+        </div>
+        <button id="btn-journey-start" class="btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><circle cx="12" cy="12" r="8"/></svg>
+          <span class="btn-text">Start Recording</span>
+        </button>
+        <p class="journey-hint">Recording will track every page you visit in the current tab.</p>
+      </div>
+
+      <!-- Recording state -->
+      <div id="journey-recording" class="journey-state" style="display:none;">
+        <div class="journey-pulse-row">
+          <span class="journey-pulse"></span>
+          <span class="journey-recording-label">Recording</span>
+          <span id="journey-step-count" class="journey-step-badge">0 steps</span>
+        </div>
+        <div id="journey-steps-list" class="journey-steps-list"></div>
+        <div class="journey-actions">
+          <button id="btn-journey-capture" class="btn-sm-secondary">📍 Capture Now</button>
+          <button id="btn-journey-stop" class="btn-sm-primary">Stop &amp; Analyze</button>
+        </div>
+        <div id="journey-record-status" class="status"></div>
+      </div>
+
+      <!-- Analyzing state -->
+      <div id="journey-analyzing" class="journey-state" style="display:none;">
+        <div class="journey-analyzing-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" class="journey-spinner-icon"><circle cx="12" cy="12" r="9" stroke="#00C9A7" stroke-width="2.5" fill="none" stroke-dasharray="40 16" stroke-linecap="round"/></svg>
+          <p class="journey-analyzing-text">Analyzing <span id="journey-analyze-count">0</span> steps with AI…</p>
+        </div>
+      </div>
+
+      <div id="journey-status" class="status"></div>
     </div>
 
     <!-- ═══ Shopify Migration Tab ═══ -->

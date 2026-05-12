@@ -2006,6 +2006,104 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ── Journey Audit ──
+
+  if (message.action === 'START_JOURNEY') {
+    (async () => {
+      try {
+        const tabs = await new Promise(r => chrome.tabs.query({ active: true, currentWindow: true }, r));
+        const tab = tabs[0];
+        if (!tab) { sendResponse({ success: false, error: 'No active tab' }); return; }
+
+        const journeyState = {
+          recording: true,
+          tabId: tab.id,
+          vertical: message.vertical || 'generic-ux',
+          startedAt: Date.now(),
+          steps: []
+        };
+        await chrome.storage.local.set({ echoflowJourney: journeyState });
+
+        // Capture the starting page immediately
+        await captureJourneyStep(tab.id, tab.url, tab.title);
+
+        sendResponse({ success: true, tabId: tab.id });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.action === 'STOP_JOURNEY') {
+    (async () => {
+      try {
+        const { echoflowJourney } = await chrome.storage.local.get('echoflowJourney');
+        if (!echoflowJourney) { sendResponse({ success: false, error: 'No journey in progress' }); return; }
+        echoflowJourney.recording = false;
+        echoflowJourney.stoppedAt = Date.now();
+        await chrome.storage.local.set({ echoflowJourney });
+        sendResponse({ success: true, steps: echoflowJourney.steps });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.action === 'JOURNEY_STATUS') {
+    (async () => {
+      try {
+        const { echoflowJourney } = await chrome.storage.local.get('echoflowJourney');
+        sendResponse({ success: true, journey: echoflowJourney || null });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.action === 'JOURNEY_CLEAR') {
+    chrome.storage.local.remove('echoflowJourney', () => sendResponse({ success: true }));
+    return true;
+  }
+
+  if (message.action === 'ANALYZE_JOURNEY') {
+    (async () => {
+      try {
+        const { steps, apiKey, vertical } = message;
+        if (!steps || steps.length === 0) {
+          sendResponse({ success: false, error: 'No steps to analyze' }); return;
+        }
+        const result = await analyzeJourney(steps, apiKey, vertical);
+        sendResponse(result);
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.action === 'JOURNEY_CAPTURE_STEP') {
+    (async () => {
+      try {
+        const tabs = await new Promise(r => chrome.tabs.query({ active: true, currentWindow: true }, r));
+        const tab = tabs[0];
+        if (!tab) { sendResponse({ success: false, error: 'No active tab' }); return; }
+
+        const { echoflowJourney } = await chrome.storage.local.get('echoflowJourney');
+        if (!echoflowJourney?.recording) { sendResponse({ success: false, error: 'Not recording' }); return; }
+
+        await captureJourneyStep(tab.id, tab.url, tab.title);
+        const updated = await chrome.storage.local.get('echoflowJourney');
+        sendResponse({ success: true, stepCount: updated.echoflowJourney?.steps?.length || 0 });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   // ── Frame-options check (can this URL be embedded in an iframe?) ──
   if (message.action === 'CHECK_FRAME_OPTIONS') {
     (async () => {
@@ -2497,3 +2595,210 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     updateKnowledgeBase();
   }
 });
+
+// ── Journey Audit ──
+
+// Persistent tabs.onUpdated listener — auto-captures each page load during a recording session.
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete') return;
+  if (!tab.url || tab.url.startsWith('chrome') || tab.url.startsWith('chrome-extension')) return;
+  try {
+    const { echoflowJourney } = await chrome.storage.local.get('echoflowJourney');
+    if (!echoflowJourney?.recording) return;
+    if (echoflowJourney.tabId !== tabId) return;
+    await captureJourneyStep(tabId, tab.url, tab.title);
+  } catch (_) {}
+});
+
+/**
+ * Capture a snapshot of the current page state and append it to the journey steps.
+ * Lightweight — only collects structural DOM data, no screenshots.
+ */
+async function captureJourneyStep(tabId, url, title) {
+  const { echoflowJourney } = await chrome.storage.local.get('echoflowJourney');
+  if (!echoflowJourney) return;
+
+  // Avoid duplicate steps for same URL (e.g. SPA hash changes)
+  const steps = echoflowJourney.steps || [];
+  const last = steps[steps.length - 1];
+  if (last && last.url === url) return;
+
+  let stepData = {
+    stepNumber: steps.length + 1,
+    url,
+    title: title || url,
+    timestamp: Date.now(),
+    headings: [],
+    forms: [],
+    ctaCount: 0,
+    linkCount: 0,
+    viewport: { width: 0, height: 0 },
+    errorMessages: [],
+    loadTime: null
+  };
+
+  try {
+    await sleep(600); // Wait for page to settle after load
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const headings = Array.from(document.querySelectorAll('h1,h2,h3'))
+          .slice(0, 6)
+          .map(h => ({ level: h.tagName, text: h.innerText?.trim().slice(0, 120) || '' }))
+          .filter(h => h.text);
+
+        const forms = Array.from(document.querySelectorAll('form')).map(form => ({
+          id: form.id || form.name || '',
+          action: form.action || '',
+          fields: Array.from(form.querySelectorAll('input:not([type="hidden"]),select,textarea'))
+            .map(f => ({ type: f.type || f.tagName.toLowerCase(), name: f.name || f.placeholder || f.id || '' }))
+            .slice(0, 10)
+        })).slice(0, 5);
+
+        const ctaSelectors = ['button[type="submit"]','a.btn','a.button','.cta','[class*="cta"]',
+          'button:not([type="button"]):not([type="reset"])'];
+        const ctaCount = new Set(document.querySelectorAll(ctaSelectors.join(','))).size;
+
+        const linkCount = document.querySelectorAll('a[href]').length;
+
+        const errorMessages = Array.from(document.querySelectorAll(
+          '[class*="error"],[class*="alert"],[role="alert"],[aria-live="assertive"]'
+        )).map(el => el.innerText?.trim().slice(0, 100)).filter(Boolean).slice(0, 3);
+
+        return {
+          headings,
+          forms,
+          ctaCount,
+          linkCount,
+          errorMessages,
+          viewport: { width: window.innerWidth, height: window.innerHeight }
+        };
+      }
+    });
+
+    if (result?.result) {
+      Object.assign(stepData, result.result);
+    }
+  } catch (_) {
+    // Scripting may fail on restricted pages — keep bare-minimum step data
+  }
+
+  steps.push(stepData);
+  echoflowJourney.steps = steps;
+  await chrome.storage.local.set({ echoflowJourney });
+}
+
+/**
+ * Build the AI prompt for Journey analysis.
+ */
+function buildJourneyPrompt(steps, vertical) {
+  const stepsText = steps.map(s => {
+    const headings = s.headings.map(h => `${h.level}: "${h.text}"`).join(', ');
+    const forms = s.forms.map(f =>
+      `Form (${f.fields.map(field => field.name || field.type).join(', ')})`
+    ).join('; ');
+    const errors = s.errorMessages.length ? `⚠️ Errors: ${s.errorMessages.join(' | ')}` : '';
+    return [
+      `Step ${s.stepNumber}: ${s.url}`,
+      `  Title: "${s.title}"`,
+      headings ? `  Headings: ${headings}` : '',
+      `  CTAs: ${s.ctaCount} | Links: ${s.linkCount}`,
+      forms ? `  ${forms}` : '',
+      errors ? `  ${errors}` : ''
+    ].filter(Boolean).join('\n');
+  }).join('\n\n');
+
+  return `You are a senior UX auditor specializing in ${vertical} user journeys.
+
+The user recorded the following browsing session across ${steps.length} pages:
+
+${stepsText}
+
+Analyze this journey and return your findings as a JSON object with this exact structure:
+{
+  "flowScore": <number 0-100, overall flow quality>,
+  "summary": "<2-3 sentence overview of the journey>",
+  "frictionPoints": [
+    { "step": <stepNumber>, "title": "<short title>", "description": "<what's broken or confusing>", "severity": "high|medium|low" }
+  ],
+  "consistencyIssues": [
+    { "title": "<short title>", "description": "<inconsistency across steps>", "steps": [<step numbers>] }
+  ],
+  "positives": [
+    "<one thing done well>"
+  ],
+  "recommendations": [
+    { "priority": "high|medium|low", "title": "<action>", "description": "<specific fix>" }
+  ]
+}
+
+Focus on: navigation clarity, form usability, CTA placement, error handling, content hierarchy, and flow continuity.
+Return ONLY the JSON object, no markdown fences, no preamble.`;
+}
+
+/**
+ * Run AI analysis on a recorded journey.
+ */
+async function analyzeJourney(steps, apiKey, vertical) {
+  if (!apiKey) {
+    return { success: false, error: 'No Claude API key configured. Go to Settings → Claude API Key.' };
+  }
+
+  const prompt = buildJourneyPrompt(steps, vertical);
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    return { success: false, error: 'Claude API error: ' + response.status + ' — ' + err.slice(0, 200) };
+  }
+
+  const data = await response.json();
+  const raw = data.content?.[0]?.text || '';
+
+  let analysis;
+  try {
+    analysis = JSON.parse(raw);
+  } catch (_) {
+    // Try extracting JSON from response
+    const match = raw.match(/\{[\s\S]+\}/);
+    if (match) {
+      try { analysis = JSON.parse(match[0]); }
+      catch (__) { return { success: false, error: 'Could not parse AI response as JSON.' }; }
+    } else {
+      return { success: false, error: 'AI returned unexpected format.' };
+    }
+  }
+
+  // Store results and open results page
+  const journeyResults = {
+    version: '1.0',
+    mode: 'journey',
+    meta: {
+      url: steps[0]?.url || '',
+      title: 'Journey Audit — ' + (steps[0]?.title || steps[0]?.url || ''),
+      timestamp: Date.now(),
+      vertical,
+      stepCount: steps.length
+    },
+    steps,
+    analysis
+  };
+
+  await chrome.storage.local.set({ echoflowResults: journeyResults });
+  await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') + '?mode=journey' });
+
+  return { success: true };
+}

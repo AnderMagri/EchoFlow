@@ -39,6 +39,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tab.dataset.popupTab === 'shopify-adapt') {
         maybeWarnShopifyMigration();
       }
+      // Journey tab — refresh state and start poller if recording
+      if (tab.dataset.popupTab === 'journey') {
+        refreshJourneyUI().then(() => {
+          chrome.runtime.sendMessage({ action: 'JOURNEY_STATUS' }).then(r => {
+            if (r?.journey?.recording) startJourneyPoller();
+            else stopJourneyPoller();
+          });
+        });
+      } else {
+        // Leaving journey tab — stop the poller
+        stopJourneyPoller();
+      }
     });
   });
 
@@ -1900,4 +1912,228 @@ document.addEventListener('DOMContentLoaded', () => {
       observer.observe(discoverSummaryEl, { attributes: true, attributeFilter: ['style'] });
     }
   }
+
+  // ── Sidebar pin button ──
+  document.getElementById('btn-open-sidebar')?.addEventListener('click', () => {
+    chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT }).catch(() => {});
+    window.close();
+  });
+
+  // ══════════════════════════════════════════════
+  //  Journey Audit Tab
+  // ══════════════════════════════════════════════
+
+  const journeyIdleEl     = document.getElementById('journey-idle');
+  const journeyRecordEl   = document.getElementById('journey-recording');
+  const journeyAnalyzeEl  = document.getElementById('journey-analyzing');
+  const journeyStatusEl   = document.getElementById('journey-status');
+  const journeyStepCount  = document.getElementById('journey-step-count');
+  const journeyStepsList  = document.getElementById('journey-steps-list');
+  const journeyAnalyzeCount = document.getElementById('journey-analyze-count');
+  const btnJourneyStart   = document.getElementById('btn-journey-start');
+  const btnJourneyStop    = document.getElementById('btn-journey-stop');
+  const btnJourneyCapture = document.getElementById('btn-journey-capture');
+  const journeyVertical   = document.getElementById('journey-vertical');
+  const journeyRecordStatus = document.getElementById('journey-record-status');
+
+  // Refresh journey UI from storage
+  async function refreshJourneyUI() {
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'JOURNEY_STATUS' });
+      const journey = result?.journey;
+
+      if (!journey || !journey.recording) {
+        // Idle state
+        journeyIdleEl.style.display = '';
+        journeyRecordEl.style.display = 'none';
+        journeyAnalyzeEl.style.display = 'none';
+        journeyStatusEl.textContent = '';
+        return;
+      }
+
+      // Recording state
+      journeyIdleEl.style.display = 'none';
+      journeyAnalyzeEl.style.display = 'none';
+      journeyRecordEl.style.display = '';
+
+      const steps = journey.steps || [];
+      journeyStepCount.textContent = steps.length + (steps.length === 1 ? ' step' : ' steps');
+
+      // Render step list
+      if (steps.length === 0) {
+        journeyStepsList.innerHTML = '<p class="journey-no-steps">Browse to start capturing pages…</p>';
+      } else {
+        journeyStepsList.innerHTML = steps.map(s => `
+          <div class="journey-step-row">
+            <span class="journey-step-num">${s.stepNumber}</span>
+            <div class="journey-step-info">
+              <div class="journey-step-title">${escapeHtml(s.title || s.url)}</div>
+              <div class="journey-step-url">${escapeHtml(s.url)}</div>
+            </div>
+          </div>
+        `).join('');
+        // Scroll to bottom
+        journeyStepsList.scrollTop = journeyStepsList.scrollHeight;
+      }
+    } catch (err) {
+      journeyStatusEl.textContent = err.message;
+      journeyStatusEl.className = 'status error';
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Start recording
+  btnJourneyStart?.addEventListener('click', async () => {
+    btnJourneyStart.disabled = true;
+    journeyStatusEl.textContent = 'Starting…';
+    journeyStatusEl.className = 'status';
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        action: 'START_JOURNEY',
+        vertical: journeyVertical?.value || 'generic-ux'
+      });
+
+      if (result?.success) {
+        journeyStatusEl.textContent = '';
+        await refreshJourneyUI();
+        // Poll for step updates while recording
+        startJourneyPoller();
+      } else {
+        journeyStatusEl.textContent = result?.error || 'Failed to start recording';
+        journeyStatusEl.className = 'status error';
+        btnJourneyStart.disabled = false;
+      }
+    } catch (err) {
+      journeyStatusEl.textContent = err.message;
+      journeyStatusEl.className = 'status error';
+      btnJourneyStart.disabled = false;
+    }
+  });
+
+  // Manual capture button
+  btnJourneyCapture?.addEventListener('click', async () => {
+    btnJourneyCapture.disabled = true;
+    journeyRecordStatus.textContent = 'Capturing current page…';
+    journeyRecordStatus.className = 'status';
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'JOURNEY_CAPTURE_STEP' });
+      if (result?.success) {
+        journeyRecordStatus.textContent = `Step captured (${result.stepCount} total)`;
+        journeyRecordStatus.className = 'status success';
+        await refreshJourneyUI();
+      } else {
+        journeyRecordStatus.textContent = result?.error || 'Capture failed';
+        journeyRecordStatus.className = 'status error';
+      }
+    } catch (err) {
+      journeyRecordStatus.textContent = err.message;
+      journeyRecordStatus.className = 'status error';
+    }
+    setTimeout(() => {
+      journeyRecordStatus.textContent = '';
+      journeyRecordStatus.className = 'status';
+      btnJourneyCapture.disabled = false;
+    }, 2000);
+  });
+
+  // Stop & Analyze
+  btnJourneyStop?.addEventListener('click', async () => {
+    btnJourneyStop.disabled = true;
+    journeyRecordStatus.textContent = 'Stopping…';
+
+    try {
+      const stopResult = await chrome.runtime.sendMessage({ action: 'STOP_JOURNEY' });
+      if (!stopResult?.success) {
+        journeyRecordStatus.textContent = stopResult?.error || 'Stop failed';
+        journeyRecordStatus.className = 'status error';
+        btnJourneyStop.disabled = false;
+        return;
+      }
+
+      const steps = stopResult.steps || [];
+      if (steps.length < 2) {
+        journeyRecordStatus.textContent = 'At least 2 steps needed for a journey analysis.';
+        journeyRecordStatus.className = 'status error';
+        await chrome.runtime.sendMessage({ action: 'JOURNEY_CLEAR' });
+        btnJourneyStart.disabled = false;
+        await refreshJourneyUI();
+        return;
+      }
+
+      stopJourneyPoller();
+
+      // Show analyzing state
+      journeyRecordEl.style.display = 'none';
+      journeyAnalyzeEl.style.display = '';
+      journeyAnalyzeCount.textContent = steps.length;
+
+      // Get API key
+      const { claudeApiKey } = await chrome.storage.local.get('claudeApiKey');
+      const { journeyVertical: savedVertical } = await chrome.storage.local.get('journeyVertical');
+
+      const analyzeResult = await chrome.runtime.sendMessage({
+        action: 'ANALYZE_JOURNEY',
+        steps,
+        apiKey: claudeApiKey || '',
+        vertical: savedVertical || 'generic-ux'
+      });
+
+      journeyAnalyzeEl.style.display = 'none';
+
+      if (analyzeResult?.success) {
+        journeyStatusEl.textContent = 'Journey analysis complete — opening results…';
+        journeyStatusEl.className = 'status success';
+        await chrome.runtime.sendMessage({ action: 'JOURNEY_CLEAR' });
+        btnJourneyStart.disabled = false;
+        await refreshJourneyUI();
+      } else {
+        journeyStatusEl.textContent = analyzeResult?.error || 'Analysis failed';
+        journeyStatusEl.className = 'status error';
+        // Re-show idle so user can try again or clear
+        journeyIdleEl.style.display = '';
+        btnJourneyStart.disabled = false;
+      }
+    } catch (err) {
+      journeyAnalyzeEl.style.display = 'none';
+      journeyStatusEl.textContent = err.message;
+      journeyStatusEl.className = 'status error';
+      btnJourneyStop.disabled = false;
+    }
+  });
+
+  // Save vertical choice
+  journeyVertical?.addEventListener('change', () => {
+    chrome.storage.local.set({ journeyVertical: journeyVertical.value });
+  });
+
+  // Load saved vertical preference
+  chrome.storage.local.get('journeyVertical').then(({ journeyVertical: v }) => {
+    if (v && journeyVertical) journeyVertical.value = v;
+  });
+
+  // Poller to keep step list fresh while recording
+  let journeyPollInterval = null;
+  function startJourneyPoller() {
+    stopJourneyPoller();
+    journeyPollInterval = setInterval(refreshJourneyUI, 1500);
+  }
+  function stopJourneyPoller() {
+    if (journeyPollInterval) { clearInterval(journeyPollInterval); journeyPollInterval = null; }
+  }
+
+  // Initial state check on load (in case popup was opened while recording on the journey tab)
+  chrome.runtime.sendMessage({ action: 'JOURNEY_STATUS' }).then(r => {
+    if (r?.journey?.recording) {
+      // Only auto-refresh/poll if the journey tab is currently active
+      const activeTab = document.querySelector('.popup-tab.active');
+      if (activeTab?.dataset?.popupTab === 'journey') {
+        refreshJourneyUI();
+        startJourneyPoller();
+      }
+    }
+  });
 });
