@@ -420,11 +420,16 @@
       html += '</div></div>';
     }
 
-    // SVG Inventory
+    // SVG Inventory — collapsed by default, expandable
     if (inv.svgInventory && inv.svgInventory.length > 0) {
       const svgs = inv.svgInventory;
       html += '<div class="design-section">' +
-        '<h4 class="design-section-title">SVGs <span class="design-count">' + svgs.length + ' found</span></h4>' +
+        '<details class="svg-collapsible">' +
+        '<summary class="svg-collapsible-summary">' +
+          '<h4 class="design-section-title" style="margin:0;display:inline;">SVGs</h4>' +
+          '<span class="design-count">' + svgs.length + ' found</span>' +
+          '<span class="svg-expand-hint">See all</span>' +
+        '</summary>' +
         '<div class="design-svg-grid">';
 
       svgs.forEach((s, i) => {
@@ -448,7 +453,7 @@
         }
       });
 
-      html += '</div></div>';
+      html += '</div></details></div>';
     }
 
     // Typography

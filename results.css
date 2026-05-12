@@ -2292,11 +2292,39 @@ select.settings-input {
 }
 
 /* ── SVG Inventory ── */
+.svg-collapsible {
+  /* reset <details> defaults */
+}
+
+.svg-collapsible summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.svg-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.svg-expand-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: #00C9A7;
+  font-weight: 600;
+}
+
+.svg-collapsible[open] .svg-expand-hint {
+  display: none;
+}
+
 .design-svg-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .design-svg-card {
