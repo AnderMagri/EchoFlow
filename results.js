@@ -72,12 +72,88 @@
 
   function renderScreenshot() {
     const img = document.getElementById('screenshot-img');
+    const panel = document.getElementById('screenshot-panel');
+
     if (!auditData.screenshot) {
-      img.alt = 'No screenshot captured';
+      // Show placeholder with capture buttons
+      img.style.display = 'none';
+      let ph = document.getElementById('screenshot-placeholder');
+      if (!ph) {
+        ph = document.createElement('div');
+        ph.id = 'screenshot-placeholder';
+        ph.className = 'screenshot-placeholder';
+        ph.innerHTML = `
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <p class="screenshot-ph-label">No screenshot yet</p>
+          <p class="screenshot-ph-hint">Capture the page to see visual markers and AI vision analysis</p>
+          <div class="screenshot-ph-btns">
+            <button class="btn-ph-capture" data-mode="viewport" id="btn-capture-viewport">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Viewport
+            </button>
+            <button class="btn-ph-capture btn-ph-capture--secondary" data-mode="full_page" id="btn-capture-fullpage">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+              Full Page
+            </button>
+          </div>
+          <div id="screenshot-ph-status" class="screenshot-ph-status"></div>
+        `;
+        panel.appendChild(ph);
+
+        ph.querySelector('#btn-capture-viewport').addEventListener('click', () => takeScreenshot('viewport'));
+        ph.querySelector('#btn-capture-fullpage').addEventListener('click', () => takeScreenshot('full_page'));
+      }
       return;
     }
+
+    // Screenshot available — hide placeholder, show image
+    const ph = document.getElementById('screenshot-placeholder');
+    if (ph) ph.style.display = 'none';
+    img.style.display = '';
     img.src = auditData.screenshot;
     img.onload = () => renderMarkers();
+  }
+
+  async function takeScreenshot(mode) {
+    const status = document.getElementById('screenshot-ph-status');
+    const btns = document.querySelectorAll('.btn-ph-capture');
+
+    btns.forEach(b => { b.disabled = true; });
+    if (status) {
+      status.textContent = mode === 'full_page' ? 'Scrolling & stitching full page…' : 'Capturing viewport…';
+      status.className = 'screenshot-ph-status loading';
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'TAKE_SCREENSHOT',
+        url: auditData.meta.url,
+        mode
+      });
+
+      if (response?.success) {
+        auditData.screenshot = response.screenshot;
+        auditData.meta.captureMode = mode;
+        renderScreenshot();
+        renderMarkers();
+      } else {
+        if (status) {
+          status.textContent = response?.error || 'Screenshot failed. Make sure the page is still open.';
+          status.className = 'screenshot-ph-status error';
+        }
+        btns.forEach(b => { b.disabled = false; });
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = 'Could not reach extension background. Try reloading the extension.';
+        status.className = 'screenshot-ph-status error';
+      }
+      btns.forEach(b => { b.disabled = false; });
+    }
   }
 
   function renderMarkers() {

@@ -216,6 +216,91 @@ body {
   height: auto;
 }
 
+/* ── Screenshot Placeholder ── */
+
+.screenshot-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  min-height: 260px;
+  background: #fff;
+  border-radius: 8px;
+  border: 2px dashed #d0d0d8;
+  text-align: center;
+}
+
+.screenshot-ph-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  margin: 0;
+}
+
+.screenshot-ph-hint {
+  font-size: 12px;
+  color: #999;
+  max-width: 220px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.screenshot-ph-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-ph-capture {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: #00C9A7;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.btn-ph-capture:hover:not(:disabled) {
+  background: #00a98a;
+}
+
+.btn-ph-capture:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ph-capture--secondary {
+  background: transparent;
+  border: 1.5px solid #00C9A7;
+  color: #00C9A7;
+}
+
+.btn-ph-capture--secondary:hover:not(:disabled) {
+  background: rgba(0,201,167,0.08);
+}
+
+.screenshot-ph-status {
+  font-size: 12px;
+  min-height: 16px;
+  color: #888;
+}
+
+.screenshot-ph-status.loading {
+  color: #00C9A7;
+}
+
+.screenshot-ph-status.error {
+  color: #e53935;
+}
+
 .markers-layer {
   position: absolute;
   top: 0;

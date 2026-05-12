@@ -105,8 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function getSelectedMode() {
-    const checked = document.querySelector('input[name="mode"]:checked');
-    return checked ? checked.value : 'viewport';
+    return 'viewport'; // Screenshot is taken on-demand from the results page
   }
 
   function getSelectedDevice() {

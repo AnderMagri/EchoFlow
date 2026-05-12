@@ -484,13 +484,10 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
   // Step 6: Fetch API endpoints if rules need them
   domData.apiResponses = await fetchApiEndpoints(origin, rules);
 
-  // Step 7: Capture screenshot (sent to Claude Vision Layer if enabled and size < 4MB)
-  const screenshot = await captureScreenshot(tabId, resolution, mode);
-
-  // Step 8: Evaluate rules
+  // Step 7: Evaluate rules (screenshot is taken on-demand from the results page)
   const findings = evaluateRules(rules, domData);
 
-  // Step 9: Assemble results
+  // Step 8: Assemble results
   const results = {
     version: '1.0',
     meta: {
@@ -507,7 +504,7 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
     shopify: domData.shopify,
     sections: domData.sections,
     catalog: domData.apiResponses,
-    screenshot: screenshot,
+    screenshot: null,
     findings: findings,
     regionBounds: regionBounds,
     rawData: {
@@ -565,7 +562,6 @@ async function runAuditSilent(tabId, tabUrl, vertical, mode, resolution, pageTyp
   const domData = captureResult.data;
   domData.apiResponses = await fetchApiEndpoints(origin, rules);
 
-  const screenshot = await captureScreenshot(tabId, resolution, mode);
   const findings = evaluateRules(rules, domData);
 
   const results = {
@@ -584,7 +580,7 @@ async function runAuditSilent(tabId, tabUrl, vertical, mode, resolution, pageTyp
     shopify: domData.shopify,
     sections: domData.sections,
     catalog: domData.apiResponses,
-    screenshot: screenshot,
+    screenshot: null,
     findings: findings,
     regionBounds: null,
     rawData: {
@@ -1995,6 +1991,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') + '?mode=shopify-adapt' });
 
         sendResponse({ success: true, pageCount: pages.length });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // ── On-demand Screenshot ──
+  if (message.action === 'TAKE_SCREENSHOT') {
+    (async () => {
+      try {
+        const { url, mode } = message;
+        // Find the tab that is showing the audited URL
+        const allTabs = await chrome.tabs.query({});
+        const baseUrl = url.split('?')[0].split('#')[0];
+        let targetTab = allTabs.find(t => t.url && (t.url.startsWith(baseUrl) || t.url === url));
+        if (!targetTab) {
+          // Fall back to the last focused window's active tab
+          const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          targetTab = activeTab;
+        }
+        if (!targetTab) {
+          sendResponse({ success: false, error: 'Could not find a tab with the audited page. Please navigate to the page and try again.' });
+          return;
+        }
+        const screenshot = mode === 'full_page'
+          ? await captureFullPage(targetTab.id)
+          : await captureViewport(targetTab.id, '100');
+        sendResponse({ success: true, screenshot });
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
