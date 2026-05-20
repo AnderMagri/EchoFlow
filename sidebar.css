@@ -8,6 +8,7 @@ svg { shape-rendering: geometricPrecision; display: block; }
 :root {
   --bg:       #F5F6F8;
   --surface:  #FFFFFF;
+  --inset:    #E5E7EB;  /* inner boxes — darker than BG */
   --border:   rgba(0,0,0,0.07);
   --border-m: rgba(0,0,0,0.10);
   --brand:    #00C9A7;
@@ -175,7 +176,7 @@ body {
 .sb-health-signals { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; margin-bottom: 8px; }
 
 .sb-signal {
-  background: var(--surface);
+  background: var(--inset);
   border: 1px solid var(--border);
   border-radius: var(--r-s);
   padding: 6px 4px;
@@ -342,7 +343,7 @@ body {
   padding: 5px 3px;
   border: 1px solid var(--border);
   border-radius: var(--r-s);
-  background: var(--surface);
+  background: var(--inset);
 }
 .ds-tile-size   { font-size: 10px; font-weight: 700; color: var(--tx-4); line-height: 1; }
 .ds-tile-sample { font-weight: 600; color: var(--tx-1); line-height: 1; flex: 1; display: flex; align-items: center; }
@@ -363,7 +364,7 @@ body {
   padding: 6px 5px;
   border: 1px solid var(--border);
   border-radius: var(--r-s);
-  background: var(--surface);
+  background: var(--inset);
   gap: 4px;
 }
 .ds-sp-val   { font-size: 10px; font-weight: 700; color: var(--tx-4); line-height: 1; }
@@ -394,7 +395,7 @@ body {
 
 .ds-icon-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; padding: 4px 0 10px; }
 
-.ds-icon-stat { text-align: center; padding: 8px 4px; background: var(--bg); border-radius: var(--r-s); border: 1px solid var(--border); }
+.ds-icon-stat { text-align: center; padding: 8px 4px; background: var(--inset); border-radius: var(--r-s); border: 1px solid var(--border); }
 .ds-icon-stat-num   { display: block; font-size: 20px; font-weight: 800; color: var(--tx-1); line-height: 1; margin-bottom: 2px; }
 .ds-icon-stat-label { font-size: 10px; color: var(--tx-4); font-weight: 600; }
 
@@ -405,14 +406,13 @@ body {
   justify-content: center;
   width: 100%;
   height: 80px;
-  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--r);
   margin-bottom: 8px;
   overflow: hidden;
   padding: 12px;
 }
-.ds-svg-hero.ds-svg-dark { background: #1a1a2e; border-color: rgba(255,255,255,0.08); }
+.ds-svg-hero.ds-svg-grey { background: #808080; border-color: rgba(0,0,0,0.15); }
 .ds-svg-hero svg { max-width: 100%; max-height: 56px; width: auto; height: auto; }
 
 .ds-svg-grid { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 0; }
@@ -423,16 +423,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(0,0,0,0.12);
   border-radius: var(--r-s);
   overflow: hidden;
   padding: 5px;
-  transition: background 0.1s;
+  transition: opacity 0.1s;
 }
-.ds-svg-thumb.ds-svg-dark { background: #1a1a2e; border-color: rgba(255,255,255,0.08); }
-.ds-svg-thumb:hover { background: #ECEEF2; }
-.ds-svg-thumb.ds-svg-dark:hover { background: #252836; }
+.ds-svg-thumb.ds-svg-grey { background: #808080; }
+.ds-svg-thumb:hover { opacity: 0.85; }
 .ds-svg-thumb svg { width: 100%; height: 100%; max-width: 26px; max-height: 26px; }
 
 /* ─── A11y contrast cards ─── */
@@ -471,6 +469,19 @@ body {
   color: #065F46;
   border-radius: 4px;
   border: 1px solid rgba(0,201,167,0.15);
+}
+
+/* Tech card in Explorer tab */
+.sb-card-tech-explorer { margin: 10px 14px 0; }
+
+.sb-tech-scan-bar { padding: 8px 14px 0; }
+.sb-btn-full {
+  width: 100%;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 /* ─── Shared meta + flags ─── */

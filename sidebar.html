@@ -43,7 +43,6 @@
         <div id="sb-card-typography" class="sb-design-card"></div>
         <div id="sb-card-structure"  class="sb-design-card"></div>
         <div id="sb-card-access"     class="sb-design-card"></div>
-        <div id="sb-card-tech"       class="sb-design-card"></div>
         <div id="sb-scanned-url"     class="sb-scanned-url"></div>
       </div>
 
@@ -108,6 +107,16 @@
 
     <!-- ═══ Explorer Tab ═══ -->
     <div id="sb-tab-explorer" class="sb-tab-content">
+
+      <!-- Tech Stack — populated by Design scan or its own scan btn -->
+      <div id="sb-card-tech" class="sb-design-card sb-card-tech-explorer"></div>
+      <div class="sb-tech-scan-bar" id="sb-tech-scan-bar">
+        <button id="sb-tech-scan-btn" class="sb-btn-outline sb-btn-full">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Detect Tech Stack
+        </button>
+      </div>
+
       <section class="sb-section">
         <label class="sb-label">Scan Settings</label>
         <div class="sb-filter-grid">

@@ -492,8 +492,11 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
   // Step 6: Fetch API endpoints if rules need them
   domData.apiResponses = await fetchApiEndpoints(origin, rules);
 
-  // Step 7: Evaluate rules (screenshot is taken on-demand from the results page)
+  // Step 7: Evaluate rules
   const findings = evaluateRules(rules, domData);
+
+  // Step 7b: Capture screenshot now while the tab is still active (before results page opens)
+  const screenshot = await captureViewport(tabId, '100').catch(() => null);
 
   // Step 8: Assemble results
   const results = {
@@ -512,7 +515,7 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
     shopify: domData.shopify,
     sections: domData.sections,
     catalog: domData.apiResponses,
-    screenshot: null,
+    screenshot,
     findings: findings,
     regionBounds: regionBounds,
     rawData: {

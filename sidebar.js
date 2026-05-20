@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
       tab.classList.add('active');
       const target = document.getElementById('sb-tab-' + tab.dataset.sbTab);
       if (target) target.classList.add('active');
+      // When Explorer tab opens, refresh tech card if we have a scan
+      if (tab.dataset.sbTab === 'explorer' && lastInventory) {
+        populateExplorerTechCard(lastInventory);
+      }
     });
   });
 
@@ -134,7 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sb-card-typography').innerHTML  = renderTypographyCard(inv, health.typography);
     document.getElementById('sb-card-structure').innerHTML   = renderStructureCard(inv, health.structure);
     document.getElementById('sb-card-access').innerHTML      = renderSVGCard(inv);
-    document.getElementById('sb-card-tech').innerHTML        = renderTechCard(inv);
+
+    // Tech stack lives in Explorer tab
+    populateExplorerTechCard(inv);
 
     // URL + export button
     document.getElementById('sb-scanned-url').innerHTML =
@@ -206,9 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       const tokenized = colorPalette.filter(c => tokenHexes.has(norm(c.value))).length;
       const coverage  = colorPalette.length ? Math.round((tokenized / colorPalette.length) * 100) : 50;
-      colorScore = coverage;
-      if (colorPalette.length > 18) colorScore = Math.max(0, colorScore - 15);
-      if (colorPalette.length > 28) colorScore = Math.max(0, colorScore - 15);
+      colorScore = Math.max(20, coverage); // floor: having a token system at all is worth 20
+      if (colorPalette.length > 18) colorScore = Math.max(15, colorScore - 15);
+      if (colorPalette.length > 28) colorScore = Math.max(10, colorScore - 15);
     }
     colorScore = Math.min(100, Math.max(0, colorScore));
 
@@ -221,12 +227,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fontSizeList.length > 18) typScore -= 20;
     typScore = Math.min(100, Math.max(0, typScore));
 
-    // Structure score
+    // Structure score — base of 25 so a real page never hits 0
     const gridRatio  = inv.spacingGridRatio || 0;
     const bps        = getAllBreakpoints(inv);
-    let structScore  = gridRatio;
+    let structScore  = Math.max(25, gridRatio);
     if (bps.length >= 2) structScore = Math.min(100, structScore + 10);
-    else if (bps.length === 0) structScore = Math.max(0, structScore - 20);
+    else if (bps.length === 0) structScore = Math.max(20, structScore - 10);
     structScore = Math.min(100, Math.max(0, structScore));
 
     // Accessibility score
@@ -596,13 +602,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const heroHtml = logo
-      ? `<div class="ds-svg-hero${svgNeedsDarkBg(logo.content) ? ' ds-svg-dark' : ''}" title="${logo.label || 'Logo'}">${logo.content}</div>`
+      ? `<div class="ds-svg-hero ds-svg-grey" title="${logo.label || 'Logo'}">${logo.content}</div>`
       : '';
 
-    const gridHtml = icons.map(s => {
-      const dark = svgNeedsDarkBg(s.content);
-      return `<div class="ds-svg-thumb${dark ? ' ds-svg-dark' : ''}" title="${s.label || ''}">${s.content}</div>`;
-    }).join('');
+    const gridHtml = icons.map(s =>
+      `<div class="ds-svg-thumb ds-svg-grey" title="${s.label || ''}">${s.content}</div>`
+    ).join('');
 
     return `
       <div class="ds-card-head">
@@ -677,6 +682,36 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="ds-tech-table">${body}</div>
       </div>`;
   }
+
+  function populateExplorerTechCard(inv) {
+    const el = document.getElementById('sb-card-tech');
+    const bar = document.getElementById('sb-tech-scan-bar');
+    if (!el) return;
+    el.innerHTML = renderTechCard(inv);
+    el.classList.add('ds-card-expanded');
+    if (bar) bar.style.display = 'none';
+    // re-attach collapse toggle for this card
+    el.querySelector('.ds-card-head')?.addEventListener('click', () => {
+      el.classList.toggle('ds-card-expanded');
+      const body = el.querySelector('.ds-card-body');
+      if (body) body.style.display = el.classList.contains('ds-card-expanded') ? '' : 'none';
+    });
+  }
+
+  // "Detect Tech Stack" button in Explorer tab (works even without a Design scan)
+  document.getElementById('sb-tech-scan-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('sb-tech-scan-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'LIVE_DESIGN_SCAN' });
+      if (result?.success) {
+        lastInventory = result.inventory;
+        lastUrl = result.url;
+        populateExplorerTechCard(result.inventory);
+      }
+    } catch (_) {}
+    if (btn) { btn.disabled = false; btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Detect Tech Stack`; }
+  });
 
   // ── Export Tokens JSON (W3C tokens format — importable via Token Studio in Figma) ──
 
@@ -773,14 +808,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   runAuditBtn?.addEventListener('click', async () => {
     runAuditBtn.disabled = true;
-    runAuditLabel.textContent = 'Capturing…';
+    runAuditLabel.textContent = 'Starting…';
     auditStatus.textContent = '';
     auditStatus.className = 'sb-status';
-
-    // Capture screenshot immediately before the audit opens a new window
-    try { await chrome.runtime.sendMessage({ action: 'CAPTURE_SCREENSHOT' }); } catch (_) {}
-
-    runAuditLabel.textContent = 'Starting…';
 
     try {
       const pageTypeSelect = document.getElementById('sb-page-type-select');
