@@ -8,7 +8,7 @@ svg { shape-rendering: geometricPrecision; display: block; }
 :root {
   --bg:       #ECEEF2;  /* ghost white — visibly cool grey, page base */
   --surface:  #FFFFFF;  /* cards — pure white, clearly elevated */
-  --inset:    #D4D6DC;  /* inner tiles/boxes — clearly grey, sunken into card */
+  --inset:    #FFFFFF;  /* inner tiles/boxes — white, defined by border */
   --border:   rgba(0,0,0,0.10);
   --border-m: rgba(0,0,0,0.14);
   --brand:    #00C9A7;
