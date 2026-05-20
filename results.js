@@ -606,7 +606,45 @@
       warnings.push({ level: 'warning', metric: 'Z-index', message: `${ziCount} unique z-index values`, detail: 'Many unique z-index values suggest an unmanaged stacking order. Define a z-index scale as tokens (--z-dropdown: 100, --z-modal: 200, etc.).' });
     }
 
-    return { score: Math.max(0, score), warnings };
+    // Per-category scores (each starts at 100, deductions applied)
+    let colorScore  = 100;
+    let typScore    = 100;
+    let structScore = 100;
+    let accScore    = 100;
+
+    // Color deductions
+    if (colorCount > 16)      colorScore -= 25;
+    else if (colorCount > 12) colorScore -= 12;
+    if ((inv.cssTokens?.total || 0) === 0 && colorCount > 0) colorScore -= 15;
+
+    // Typography deductions
+    if (fontCount > 5)       typScore -= 25;
+    else if (fontCount > 3)  typScore -= 12;
+    if (sizeCount > 10)      typScore -= 20;
+    else if (sizeCount > 7)  typScore -= 10;
+
+    // Structure deductions
+    if (gridRatio < 70)      structScore -= 25;
+    else if (gridRatio < 85) structScore -= 12;
+    const bpCount2 = (inv.breakpoints?.minWidth?.length || 0) + (inv.breakpoints?.maxWidth?.length || 0);
+    if (bpCount2 === 0)      structScore -= 20;
+    if (radiiCount > 8)      structScore -= 12;
+    else if (radiiCount > 5) structScore -= 5;
+
+    // Accessibility deductions
+    if (failPairs.length > 0) accScore -= Math.min(35, failPairs.length * 8);
+    if (noFV > 0)             accScore -= 25;
+    else if (!(inv.focusStates?.hasFocusVisible)) accScore -= 8;
+    if (hasAnimations && !inv.motion?.reducedMotionRespected) accScore -= 12;
+
+    return {
+      score: Math.max(0, score),
+      warnings,
+      colorScore:  Math.max(0, colorScore),
+      typScore:    Math.max(0, typScore),
+      structScore: Math.max(0, structScore),
+      accScore:    Math.max(0, accScore),
+    };
   }
 
   // ── Design Tab ──
@@ -625,489 +663,217 @@
       return;
     }
 
-    let html = '';
-
-    // ── Design Health Score ──
+    // Run health scoring
     const health = computeDesignHealth(inv);
-    const scoreColor = health.score >= 80 ? '#00C9A7' : health.score >= 60 ? '#f59e0b' : '#ef4444';
-    const scoreLabel = health.score >= 80 ? 'Good' : health.score >= 60 ? 'Needs Work' : 'Critical Issues';
-
-    // Badge = rule-based design findings + health warnings (both are real issues on this page)
     const totalDesignIssues = designFindings.length + health.warnings.length;
     document.getElementById('design-count').textContent = totalDesignIssues || '';
-    html += `<div class="design-health-card">
-      <div class="design-health-header">
-        <span class="design-health-title">Design Health</span>
-        <div class="design-health-right">
-          <span class="design-health-score" style="color:${scoreColor}">${health.score}<span class="design-health-denom">/100</span></span>
-          <span class="design-health-label" style="background:${scoreColor}22;color:${scoreColor};border-color:${scoreColor}44">${scoreLabel}</span>
+
+    // Build token hex set for color card
+    const cssVars    = inv.cssTokens?.variables || [];
+    const tokenHexes = dsTokenHexSet(cssVars);
+    const colors     = (inv.colorPalette || []).slice(0, 18);
+    const tokenized  = colors.filter(c => dsNorm(c.value) && tokenHexes.has(dsNorm(c.value))).length;
+    const coverage   = colors.length ? Math.round((tokenized / colors.length) * 100) : 0;
+    const hardcoded  = colors.length - tokenized;
+
+    // Breakpoints
+    const bps = [
+      ...((inv.breakpoints?.minWidth || []).map(b => b.value)),
+      ...((inv.breakpoints?.maxWidth || []).map(b => b.value))
+    ].filter((v, i, arr) => arr.indexOf(v) === i).sort((a, b) => a - b);
+
+    // Scores (0-100)
+    const colorScore  = health.colorScore  || 0;
+    const typScore    = health.typScore    || 0;
+    const structScore = health.structScore || 0;
+    const accScore    = health.accScore    || 0;
+
+    function dsSc(score) {
+      return score >= 70 ? 'ds-good' : score >= 45 ? 'ds-mid' : 'ds-bad';
+    }
+
+    // ── Health Bar ──
+    const overallColor = health.score >= 70 ? '#00C9A7' : health.score >= 45 ? '#f59e0b' : '#ef4444';
+    let html = `
+      <div class="ds4-header">
+        <div class="ds4-score-wrap">
+          <span class="ds4-score-num" style="color:${overallColor}">${health.score}</span>
+          <div class="ds4-score-meta">
+            <span class="ds4-score-label">Design Health</span>
+            <div class="ds4-bar-track">
+              <div class="ds4-bar-fill" style="width:${health.score}%;background:${overallColor}"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ds4-signals">
+          <div class="ds4-signal"><span class="ds4-signal-num ${dsSc(colorScore)}">${colorScore}</span><span class="ds4-signal-lbl">Color</span></div>
+          <div class="ds4-signal"><span class="ds4-signal-num ${dsSc(typScore)}">${typScore}</span><span class="ds4-signal-lbl">Type</span></div>
+          <div class="ds4-signal"><span class="ds4-signal-num ${dsSc(structScore)}">${structScore}</span><span class="ds4-signal-lbl">Layout</span></div>
+          <div class="ds4-signal"><span class="ds4-signal-num ${dsSc(accScore)}">${accScore}</span><span class="ds4-signal-lbl">A11y</span></div>
         </div>
       </div>`;
-    if (health.warnings.length === 0) {
-      html += `<p class="design-health-pass">✓ No major consistency issues detected</p>`;
-    } else {
-      html += `<div class="design-health-warnings">`;
-      for (const w of health.warnings) {
-        html += `<div class="design-health-warn dhw-${w.level}">
-          <div class="dhw-header">
-            <span class="dhw-icon">${w.level === 'error' ? '✕' : '!'}</span>
-            <span class="dhw-metric">${w.metric}</span>
-            <span class="dhw-msg">${w.message}</span>
-          </div>
-          <p class="dhw-detail">${w.detail}</p>
-        </div>`;
-      }
-      html += `</div>`;
-    }
-    html += `</div>`;
 
-    // Color palette
-    if (inv.colorPalette && inv.colorPalette.length > 0) {
-      html += '<div class="design-section"><h4 class="design-section-title">Color Palette <span class="design-count">' + inv.colorPalette.length + ' colors</span></h4><div class="design-swatches">';
-      for (const c of inv.colorPalette.slice(0, 20)) {
-        const isLight = isLightColor(c.value);
-        html += '<div class="design-swatch" title="' + c.value + ' (' + c.count + ' uses)">' +
-          '<div class="swatch-color" style="background:' + c.value + ';' + (isLight ? 'border:1px solid #ddd;' : '') + '"></div>' +
-          '<span class="swatch-label">' + c.value + '</span>' +
-          '<span class="swatch-count">' + c.count + '</span></div>';
-      }
-      html += '</div></div>';
-    }
-
-    // Logo — only shown when an SVG is detected (PNG logos aren't useful for design export;
-    // all SVGs on the page are accessible via the SVG inventory below).
-    if (inv.logo && inv.logo.type === 'svg') {
-      html += '<div class="design-section"><h4 class="design-section-title">Logo</h4><div class="design-logo-row">';
-      html += '<div class="design-logo-preview">' + inv.logo.content + '</div>';
-      html += '<a class="design-logo-download" href="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(inv.logo.content) + '" download="logo.svg">Download SVG</a>';
-      html += '</div></div>';
-    }
-
-    // SVG Inventory — collapsed by default, expandable
-    if (inv.svgInventory && inv.svgInventory.length > 0) {
-      const svgs = inv.svgInventory;
-      html += '<div class="design-section">' +
-        '<details class="svg-collapsible">' +
-        '<summary class="svg-collapsible-summary">' +
-          '<h4 class="design-section-title" style="margin:0;display:inline;">SVGs</h4>' +
-          '<span class="design-count">' + svgs.length + ' found</span>' +
-          '<span class="svg-expand-hint">See all</span>' +
-        '</summary>' +
-        '<div class="design-svg-grid">';
-
-      svgs.forEach((s, i) => {
-        const dim = (s.w && s.h) ? s.w + '×' + s.h : '';
-        const sizeClass = Math.max(s.w || 0, s.h || 0) >= 80 ? 'svg-large' : '';
-        const labelHtml = s.label ? '<div class="svg-card-label">' + escapeHtml(s.label) + '</div>' : '';
-        const dimHtml = dim ? '<div class="svg-card-dim">' + dim + '</div>' : '';
-
-        if (s.source === 'inline') {
-          html += '<div class="design-svg-card ' + sizeClass + '">' +
-            '<div class="design-svg-preview">' + s.content + '</div>' +
-            '<div class="svg-card-meta">' + dimHtml + labelHtml + '</div>' +
-            '<button class="design-svg-dl" data-svg-index="' + i + '" data-svg-source="inline">↓ SVG</button>' +
-            '</div>';
-        } else {
-          html += '<div class="design-svg-card ' + sizeClass + '">' +
-            '<div class="design-svg-preview"><img src="' + escapeHtml(s.src) + '" loading="lazy"></div>' +
-            '<div class="svg-card-meta">' + dimHtml + labelHtml + '</div>' +
-            '<button class="design-svg-dl" data-svg-index="' + i + '" data-svg-source="img-url" data-svg-url="' + escapeHtml(s.src) + '">↓ SVG</button>' +
-            '</div>';
-        }
-      });
-
-      html += '</div></details></div>';
-    }
-
-    // Typography
-    if (inv.fontFamilies && inv.fontFamilies.length > 0) {
-      html += '<div class="design-section"><h4 class="design-section-title">Typography <span class="design-count">' + inv.fontFamilies.length + ' families</span></h4><div class="design-type-list">';
-      for (const f of inv.fontFamilies.slice(0, 8)) {
-        // Font name always in UI font; sample "Aa" shown in detected font
-        html += '<div class="design-type-row">' +
-          '<span class="type-sample" style="font-family:' + escapeHtml(f.value) + '">Aa</span>' +
-          '<span class="type-family">' + escapeHtml(f.value) + '</span>' +
-          '<span class="type-count">' + f.count + ' uses</span></div>';
-      }
-      html += '</div>';
-      // Font sizes
-      if (inv.fontSizes && inv.fontSizes.length > 0) {
-        html += '<div class="design-sizes">';
-        for (const s of inv.fontSizes.sort((a, b) => parseFloat(a.value) - parseFloat(b.value))) {
-          const px = parseFloat(s.value);
-          html += '<span class="design-size-chip">' + px + 'px</span>';
-        }
-        html += '</div>';
-      }
-      // Line heights
-      if (inv.lineHeights && inv.lineHeights.length > 0) {
-        html += '<div class="design-meta-row"><span class="design-meta-label">Line heights</span><div class="design-chips">';
-        for (const lh of inv.lineHeights.slice(0, 10)) {
-          html += '<span class="design-chip">' + lh.value + '</span>';
-        }
-        html += '</div></div>';
-      }
-      // Letter spacing
-      if (inv.letterSpacings && inv.letterSpacings.length > 0) {
-        html += '<div class="design-meta-row"><span class="design-meta-label">Letter spacing</span><div class="design-chips">';
-        for (const ls of inv.letterSpacings.slice(0, 8)) {
-          html += '<span class="design-chip">' + ls.value + '</span>';
-        }
-        html += '</div></div>';
-      }
-      html += '</div>';
-    }
-
-    // Detected frameworks & icon libraries
-    const badges = [];
-    if (inv.uiFramework) badges.push({ label: inv.uiFramework, color: '#6366f1' });
-    if (inv.iconLibrary) badges.push({ label: inv.iconLibrary + ' icons', color: '#0891b2' });
-    if (badges.length > 0) {
-      html += '<div class="design-section"><h4 class="design-section-title">Stack</h4><div class="design-chips">';
-      for (const b of badges) {
-        html += '<span class="design-stack-badge" style="background:' + b.color + '">' + escapeHtml(b.label) + '</span>';
-      }
-      html += '</div></div>';
-    }
-
-    // Spacing
-    if (inv.spacingValues && inv.spacingValues.length > 0) {
-      html += '<div class="design-section"><h4 class="design-section-title">Spacing <span class="design-count">' + inv.spacingGridRatio + '% on 4px grid</span></h4><div class="design-spacing-scale">';
-      const sortedSpacing = [...inv.spacingValues].sort((a, b) => parseFloat(a.value) - parseFloat(b.value)).slice(0, 20);
-      for (const s of sortedSpacing) {
-        const px = parseFloat(s.value);
-        const onGrid = px % 4 === 0;
-        html += '<span class="spacing-chip' + (onGrid ? ' on-grid' : ' off-grid') + '" title="' + s.count + ' uses">' + px + '</span>';
-      }
-      html += '</div></div>';
-    }
-
-    // Layout System
-    const layout = inv.layoutSystem;
-    if (layout) {
-      html += '<div class="design-section layout-section"><h4 class="design-section-title">Layout System</h4>';
-      html += '<div class="layout-grid">';
-
-      // Spacing base unit
-      const baseLabel = layout.spacingBase ? layout.spacingBase + 'px base' : 'No base unit';
-      const baseColor = layout.spacingBase ? '#00C9A7' : '#ef4444';
-      html += `<div class="layout-stat">
-        <div class="layout-stat-value" style="color:${baseColor}">${baseLabel}</div>
-        <div class="layout-stat-label">Spacing unit</div>
+    // ── Color Card ──
+    const swatches = colors.map(c => {
+      const isToken = tokenHexes.has(dsNorm(c.value));
+      return `<div class="ds4-swatch ${isToken ? '' : 'ds4-swatch-raw'}" style="background:${c.value}" title="${c.value}${isToken ? ' · token' : ' · hardcoded'} · ×${c.count}"></div>`;
+    }).join('');
+    const coverageCls = coverage >= 70 ? 'ds-good-txt' : 'ds-warn-txt';
+    html += `
+      <div class="ds4-card">
+        <div class="ds4-card-head">
+          <span class="ds4-card-icon">🎨</span>
+          <span class="ds4-card-title">Color System</span>
+          <span class="ds4-pill ${dsSc(colorScore)}">${colorScore}</span>
+        </div>
+        <div class="ds4-swatches">${swatches || '<span class="ds4-empty-note">No colors detected</span>'}</div>
+        <div class="ds4-meta">
+          <span>${colors.length} unique color${colors.length !== 1 ? 's' : ''}</span>
+          ${cssVars.length > 0
+            ? `<span class="${coverageCls}">Token coverage: ${coverage}%</span>`
+            : '<span class="ds-warn-txt">No CSS tokens</span>'}
+        </div>
+        ${hardcoded > 0 && cssVars.length > 0 ? `<div class="ds4-flag">⚠ ${hardcoded} hardcoded color${hardcoded > 1 ? 's' : ''} (dashed border) not in token set</div>` : ''}
+        ${cssVars.length === 0 && colors.length > 0 ? '<div class="ds4-flag">⚠ No CSS custom properties — consider a token layer</div>' : ''}
+        ${colors.length > 16 ? `<div class="ds4-flag">⚠ ${colors.length} colors on page — a focused palette uses 6–12</div>` : ''}
       </div>`;
 
-      // Layout engine breakdown
-      const eng = layout.layoutEngines || {};
-      html += `<div class="layout-stat">
-        <div class="layout-engine-bars">
-          ${eng.flex  ? `<div class="layout-engine-bar" style="width:${eng.flex}%;background:#5e35b1" title="Flexbox ${eng.flex}%"></div>` : ''}
-          ${eng.grid  ? `<div class="layout-engine-bar" style="width:${eng.grid}%;background:#1e88e5" title="CSS Grid ${eng.grid}%"></div>` : ''}
-          ${eng.block ? `<div class="layout-engine-bar" style="width:${eng.block}%;background:#e0e0e0" title="Block ${eng.block}%"></div>` : ''}
+    // ── Typography Card ──
+    const families   = (inv.fontFamilies || []).slice(0, 5);
+    const fontSizes  = (inv.fontSizes    || []).slice(0, 8);
+    const maxFontCount = Math.max(...fontSizes.map(s => s.count), 1);
+    const scaleRows = fontSizes.map(s => {
+      const px    = parseFloat(s.value) || 16;
+      const width = Math.max(4, Math.round((s.count / maxFontCount) * 100));
+      const clampPx = Math.min(Math.max(px, 10), 22);
+      return `<div class="ds4-type-row">
+        <span class="ds4-type-sz">${Math.round(px)}</span>
+        <div class="ds4-type-bar-wrap"><div class="ds4-type-bar" style="width:${width}%"></div></div>
+        <span class="ds4-type-sample" style="font-size:${clampPx}px">Aa</span>
+      </div>`;
+    }).join('');
+    const familyNames = families.map(f => (f.value || '').split(',')[0].trim().replace(/['"]/g, '')).join(', ');
+    html += `
+      <div class="ds4-card">
+        <div class="ds4-card-head">
+          <span class="ds4-card-icon" style="font-weight:900;font-size:12px">Aa</span>
+          <span class="ds4-card-title">Typography</span>
+          <span class="ds4-pill ${dsSc(typScore)}">${typScore}</span>
         </div>
-        <div class="layout-engine-legend">
-          ${eng.flex  ? `<span class="layout-eng-dot" style="background:#5e35b1"></span><span>${eng.flex}% Flex</span>` : ''}
-          ${eng.grid  ? `<span class="layout-eng-dot" style="background:#1e88e5"></span><span>${eng.grid}% Grid</span>` : ''}
-          ${eng.block ? `<span class="layout-eng-dot" style="background:#aaa"></span><span>${eng.block}% Block</span>` : ''}
+        <div class="ds4-type-scale">${scaleRows || '<span class="ds4-empty-note">No font data</span>'}</div>
+        <div class="ds4-meta">
+          <span>${families.length} font ${families.length === 1 ? 'family' : 'families'}: ${familyNames}</span>
         </div>
-        <div class="layout-stat-label">Layout engines</div>
+        ${families.length > 2 ? `<div class="ds4-flag">⚠ ${families.length} font families — aim for 2 or fewer</div>` : ''}
+        ${(inv.fontSizes || []).length > 10 ? `<div class="ds4-flag">⚠ ${inv.fontSizes.length} different font sizes — consider a type scale</div>` : ''}
       </div>`;
 
-      html += '</div>'; // layout-grid
+    // ── Structure Card ──
+    const layout      = inv.layoutSystem || {};
+    const gridRatio   = inv.spacingGridRatio || 0;
+    const spacingBase = layout.spacingBase || 8;
+    const bpHtml = bps.length > 0
+      ? `<div class="ds4-bp-chips">${bps.map(b => `<span class="ds4-bp-chip">${b}px</span>`).join('')}</div>`
+      : '<div class="ds4-flag">⚠ No responsive breakpoints detected</div>';
+    html += `
+      <div class="ds4-card">
+        <div class="ds4-card-head">
+          <span class="ds4-card-icon">⊞</span>
+          <span class="ds4-card-title">Structure</span>
+          <span class="ds4-pill ${dsSc(structScore)}">${structScore}</span>
+        </div>
+        <div class="ds4-struct-row">
+          <span class="ds4-struct-lbl">Spacing</span>
+          <div class="ds4-struct-bar-wrap"><div class="ds4-struct-bar" style="width:${gridRatio}%"></div></div>
+          <span class="ds4-struct-val">${gridRatio}% on ${spacingBase}px grid</span>
+        </div>
+        ${bpHtml}
+        <div class="ds4-meta">
+          <span>${bps.length} breakpoint${bps.length !== 1 ? 's' : ''}</span>
+          <span>${layout.layoutEngines?.flex || 0}% flex · ${layout.layoutEngines?.grid || 0}% grid</span>
+        </div>
+        ${gridRatio < 50 && gridRatio > 0 ? `<div class="ds4-flag">⚠ Only ${gridRatio}% on ${spacingBase}px grid — spacing may feel inconsistent</div>` : ''}
+      </div>`;
 
-      // Column patterns
-      if (layout.columnPatterns && layout.columnPatterns.length > 0) {
-        html += '<div class="layout-subsection-title">Column Patterns</div><div class="layout-col-chips">';
-        for (const p of layout.columnPatterns) {
-          const n = parseInt(p.pattern);
-          html += `<div class="layout-col-chip" title="${p.count} occurrences">
-            <div class="layout-col-visual">${Array.from({ length: Math.min(n, 6) }).map(() => '<span class="layout-col-bar"></span>').join('')}</div>
-            <span class="layout-col-label">${p.pattern}</span>
-            <span class="layout-col-count">${p.count}</span>
-          </div>`;
-        }
-        html += '</div>';
-      }
-
-      // Gap / gutter values
-      if (layout.gapValues && layout.gapValues.length > 0) {
-        html += '<div class="layout-subsection-title">Gaps & Gutters <span class="design-count">' + layout.gapValues.length + ' values</span></div>';
-        html += '<div class="design-chips">';
-        for (const g of layout.gapValues) {
-          html += `<span class="spacing-chip on-grid" title="${g.count} uses">${g.value}</span>`;
-        }
-        html += '</div>';
-      }
-
-      // Container max-widths
-      if (layout.containerWidths && layout.containerWidths.length > 0) {
-        html += '<div class="layout-subsection-title">Container Max-widths <span class="design-count">' + layout.containerWidths.length + '</span></div>';
-        html += '<div class="layout-widths">';
-        const maxW = layout.containerWidths[0]?.value || 1;
-        for (const cw of layout.containerWidths) {
-          const barW = Math.round((cw.value / maxW) * 100);
-          html += `<div class="layout-width-row">
-            <span class="layout-width-px">${cw.value}px</span>
-            <div class="layout-width-bar-wrap"><div class="layout-width-bar" style="width:${barW}%"></div></div>
-            <span class="layout-width-count">${cw.count}</span>
-          </div>`;
-        }
-        html += '</div>';
-      }
-
-      html += '</div>'; // design-section
-    }
-
-    // Border radius
-    if (inv.borderRadii && inv.borderRadii.length > 0) {
-      html += '<div class="design-section"><h4 class="design-section-title">Border Radius <span class="design-count">' + inv.borderRadii.length + ' values</span></h4><div class="design-radii">';
-      for (const r of inv.borderRadii.slice(0, 10)) {
-        html += '<div class="radius-chip"><div class="radius-preview" style="border-radius:' + r.value + '"></div><span>' + r.value + '</span></div>';
-      }
-      html += '</div></div>';
-    }
-
-    // Shadows
-    if (inv.shadows && inv.shadows.length > 0) {
-      html += '<div class="design-section"><h4 class="design-section-title">Shadows <span class="design-count">' + inv.shadows.length + ' styles</span></h4><div class="design-shadows">';
-      for (const s of inv.shadows.slice(0, 6)) {
-        html += '<div class="shadow-chip"><div class="shadow-preview" style="box-shadow:' + s.value + '"></div><span class="swatch-count">' + s.count + '</span></div>';
-      }
-      html += '</div></div>';
-    }
-
-    // Image formats
-    if (inv.imageFormats && Object.keys(inv.imageFormats).length > 0) {
-      const total = Object.values(inv.imageFormats).reduce((a, b) => a + b, 0);
-      html += '<div class="design-section"><h4 class="design-section-title">Images <span class="design-count">' + total + ' found</span></h4><div class="design-img-formats">';
-      for (const [fmt, count] of Object.entries(inv.imageFormats).sort((a, b) => b[1] - a[1])) {
-        const pct = Math.round((count / total) * 100);
-        const isModern = ['webp', 'avif', 'svg'].includes(fmt);
-        html += '<div class="img-format-row">' +
-          '<span class="img-format-label' + (isModern ? ' modern' : '') + '">' + fmt.toUpperCase() + '</span>' +
-          '<div class="img-format-bar-wrap"><div class="img-format-bar" style="width:' + pct + '%"></div></div>' +
-          '<span class="img-format-count">' + count + '</span></div>';
-      }
-      if (inv.hasLazyLoading !== undefined) {
-        html += '<div class="design-meta-row" style="margin-top:6px"><span class="design-meta-label">Lazy loading</span>' +
-          '<span class="design-chip ' + (inv.hasLazyLoading ? 'chip-good' : 'chip-warn') + '">' + (inv.hasLazyLoading ? '✓ detected' : '✗ not detected') + '</span></div>';
-      }
-      html += '</div></div>';
-    }
-
-    // ── 1. CSS Tokens ──
-    const tok = inv.cssTokens;
-    if (tok) {
-      const catColors  = tok.variables.filter(v => /color|colour|bg\b|text\b/.test(v.name));
-      const catSpacing = tok.variables.filter(v => /spacing|space|gap|padding|margin/.test(v.name));
-      const catOther   = tok.variables.filter(v => !catColors.includes(v) && !catSpacing.includes(v));
-      html += `<div class="design-section"><h4 class="design-section-title">CSS Custom Properties <span class="design-count">${tok.total} tokens</span></h4>`;
-      if (tok.total === 0) {
-        html += `<div class="tok-empty">No CSS variables found — styles are hard-coded rather than token-based.</div>`;
-      } else {
-        html += `<div class="tok-grid">`;
-        for (const [label, vars] of [['Colors', catColors], ['Spacing', catSpacing], ['Other', catOther]]) {
-          if (!vars.length) continue;
-          html += `<div class="tok-group"><div class="tok-group-label">${label} <span class="tok-group-count">${vars.length}</span></div>`;
-          for (const v of vars.slice(0, 12)) {
-            const isColor = /^(#[0-9a-f]{3,8}|rgb|hsl)/i.test(v.value.trim());
-            const swatch = isColor ? `<span class="tok-swatch" style="background:${v.value.trim()}"></span>` : '';
-            html += `<div class="tok-row">${swatch}<span class="tok-name">${escapeHtml(v.name)}</span><span class="tok-val">${escapeHtml(v.value.slice(0, 40))}</span></div>`;
-          }
-          if (vars.length > 12) html += `<div class="tok-more">+${vars.length - 12} more</div>`;
-          html += `</div>`;
-        }
-        html += `</div>`;
-      }
-      html += `</div>`;
-    }
-
-    // ── 2. Breakpoints ──
-    const bp = inv.breakpoints;
-    if (bp) {
-      const allBpCount = (bp.minWidth?.length || 0) + (bp.maxWidth?.length || 0);
-      html += `<div class="design-section"><h4 class="design-section-title">Breakpoints <span class="design-count">${allBpCount} widths</span></h4>`;
-      if (allBpCount === 0) {
-        html += `<div class="tok-empty">No @media width queries found. Layout may not be responsive.</div>`;
-      } else {
-        if (bp.minWidth?.length) {
-          html += `<div class="bp-group-label">min-width (mobile-first)</div><div class="bp-chips">`;
-          for (const b of bp.minWidth) html += `<span class="bp-chip bp-min">${b.value}px</span>`;
-          html += `</div>`;
-        }
-        if (bp.maxWidth?.length) {
-          html += `<div class="bp-group-label">max-width (desktop-first)</div><div class="bp-chips">`;
-          for (const b of bp.maxWidth) html += `<span class="bp-chip bp-max">${b.value}px</span>`;
-          html += `</div>`;
-        }
-      }
-      html += `<div class="bp-flags">
-        <span class="bp-flag ${bp.prefersColorScheme   ? 'bp-flag-on' : 'bp-flag-off'}">${bp.prefersColorScheme   ? '✓' : '✗'} prefers-color-scheme</span>
-        <span class="bp-flag ${bp.prefersReducedMotion ? 'bp-flag-on' : 'bp-flag-off'}">${bp.prefersReducedMotion ? '✓' : '✗'} prefers-reduced-motion</span>
-      </div></div>`;
-    }
-
-    // ── 3. Contrast Sampling ──
-    const cp = inv.contrastPairs || [];
-    if (cp.length) {
-      const fails = cp.filter(p => p.level === 'FAIL').length;
-      const cntBadge = fails > 0 ? `<span class="design-count contrast-fail-badge">${fails} failing</span>` : `<span class="design-count">all pass</span>`;
-      html += `<div class="design-section"><h4 class="design-section-title">Contrast Sampling ${cntBadge}</h4><div class="contrast-grid">`;
-      for (const pair of cp) {
-        const bc = pair.level === 'AAA' ? 'contrast-aaa' : pair.level === 'AA' ? 'contrast-aa' : 'contrast-fail';
-        html += `<div class="contrast-pair">
-          <div class="contrast-preview" style="background:${escapeHtml(pair.bgHex||pair.bgRgb)};color:${escapeHtml(pair.textHex||pair.textRgb)}">Aa</div>
-          <div class="contrast-info">
-            <div class="contrast-colors"><span class="contrast-hex">${escapeHtml(pair.textHex||'?')}</span> on <span class="contrast-hex">${escapeHtml(pair.bgHex||'?')}</span></div>
-            <div class="contrast-ratio-row"><span class="contrast-ratio">${pair.ratio}:1</span><span class="contrast-badge ${bc}">${pair.level}</span><span class="contrast-size">${pair.fontSize}px${pair.isLarge?' large':''}</span></div>
-          </div>
-        </div>`;
-      }
-      html += `</div></div>`;
-    }
-
-    // ── 4. Focus & Interaction States ──
-    const fst = inv.focusStates;
-    if (fst) {
-      const isOk  = fst.hasFocusVisible && fst.outlineRemovedWithoutReplacement === 0;
-      const isBad = fst.outlineRemovedWithoutReplacement > 0;
-      const icon  = isOk ? '✓' : isBad ? '✕' : '!';
-      const cls   = isOk ? 'focus-ok' : isBad ? 'focus-bad' : 'focus-warn';
-      html += `<div class="design-section"><h4 class="design-section-title">Focus & Interaction States</h4>
-        <div class="focus-status ${cls}"><span class="focus-status-icon">${icon}</span>
-          <div>
-            <div class="focus-status-main">${isOk ? ':focus-visible in use — keyboard nav handled' : isBad ? `outline removed on ${fst.outlineRemovedWithoutReplacement} rule(s) without :focus-visible` : ':focus-visible not detected — keyboard users may miss focus'}</div>
-            <div class="focus-status-sub">${fst.rules.length} focus-related rule${fst.rules.length !== 1 ? 's' : ''} in stylesheets</div>
-          </div>
-        </div>`;
-      if (fst.rules.length > 0) {
-        html += `<details class="focus-rules-details"><summary class="focus-rules-toggle">Show rules (${fst.rules.length})</summary><div class="focus-rules-list">`;
-        for (const r of fst.rules) {
-          const rc = (r.outline === 'none' || r.outline === '0') ? 'focus-rule-bad' : 'focus-rule-ok';
-          html += `<div class="focus-rule ${rc}"><code class="focus-rule-sel">${escapeHtml(r.selector)}</code>`;
-          if (r.outline)    html += ` <span class="focus-rule-prop">outline: ${escapeHtml(r.outline)}</span>`;
-          if (r.boxShadow)  html += ` <span class="focus-rule-prop">box-shadow: ${escapeHtml(r.boxShadow.slice(0,40))}</span>`;
-          html += `</div>`;
-        }
-        html += `</div></details>`;
-      }
-      html += `</div>`;
-    }
-
-    // ── 5. Z-index Audit ──
-    const zia = inv.zIndexAudit;
-    if (zia && zia.uniqueCount > 0) {
-      const chaotic = zia.maxValue >= 9999 || zia.uniqueCount > 8;
-      html += `<div class="design-section"><h4 class="design-section-title">Z-index Stack <span class="design-count">${zia.uniqueCount} value${zia.uniqueCount !== 1 ? 's' : ''}</span></h4>`;
-      if (chaotic) html += `<div class="zi-warning">Max z-index: ${zia.maxValue >= 0 ? zia.maxValue : '–'} — consider a z-index token scale</div>`;
-      const maxZ = Math.max(...zia.values.map(v => Math.abs(v.value)), 1);
-      html += `<div class="zi-scale">`;
-      for (const v of zia.values) {
-        const pct  = Math.min(100, Math.round((Math.abs(v.value) / maxZ) * 100));
-        const high = v.value >= 9999;
-        html += `<div class="zi-row"><span class="zi-val ${high ? 'zi-high' : ''}">${v.value}</span><div class="zi-bar-wrap"><div class="zi-bar" style="width:${pct}%"></div></div><span class="zi-count">${v.count}×</span></div>`;
-      }
-      html += `</div></div>`;
-    }
-
-    // ── 6. Motion & Animation ──
-    const mot = inv.motion;
-    if (mot && (mot.transitions.length > 0 || mot.animations.length > 0)) {
-      const motCount = mot.transitions.length + mot.animations.length;
-      html += `<div class="design-section"><h4 class="design-section-title">Motion & Animation <span class="design-count">${motCount} pattern${motCount !== 1 ? 's' : ''}</span></h4>`;
-      html += `<div class="mot-rm-badge ${mot.reducedMotionRespected ? 'mot-rm-ok' : 'mot-rm-warn'}">${mot.reducedMotionRespected ? '✓ prefers-reduced-motion handled' : '⚠ prefers-reduced-motion not detected'}</div>`;
-      if (mot.transitions.length) {
-        html += `<div class="mot-group-label">Transitions</div><div class="mot-list">`;
-        for (const t of mot.transitions) html += `<div class="mot-row"><span class="mot-dur">${escapeHtml(t.duration)}</span><span class="mot-ease">${escapeHtml(t.easing)}</span><span class="mot-uses">${t.count}×</span></div>`;
-        html += `</div>`;
-      }
-      if (mot.animations.length) {
-        html += `<div class="mot-group-label">Keyframe Animations</div><div class="mot-list">`;
-        for (const a of mot.animations) html += `<div class="mot-row"><span class="mot-dur">${escapeHtml(a.duration)}</span><span class="mot-ease">${escapeHtml(a.name)}</span><span class="mot-uses">${a.count}×</span></div>`;
-        html += `</div>`;
-      }
-      html += `</div>`;
-    }
+    // ── Accessibility Card ──
+    const contrastFails = (inv.contrastPairs || []).filter(p => p.level === 'FAIL').slice(0, 5);
+    const contrastPasses = (inv.contrastPairs || []).filter(p => p.level !== 'FAIL');
+    const focus  = inv.focusStates;
+    const motion = inv.motion;
+    const contrastHtml = contrastFails.length === 0
+      ? `<div class="ds4-acc-pass">✓ ${contrastPasses.length ? `${contrastPasses.length} sampled pairs all pass` : 'No contrast issues'}</div>`
+      : contrastFails.map(f => `
+          <div class="ds4-contrast-fail">
+            <div class="ds4-contrast-swatches">
+              <div style="width:14px;height:14px;border-radius:2px;background:${f.textHex};border:1px solid rgba(0,0,0,0.1)"></div>
+              <div style="width:14px;height:14px;border-radius:2px;background:${f.bgHex};border:1px solid rgba(0,0,0,0.1)"></div>
+            </div>
+            <span class="ds4-contrast-ratio">${f.ratio}:1</span>
+            <span class="ds4-contrast-tag">&lt;${f.tag}&gt; · ${f.fontSize}px · needs ${f.isLarge ? '3' : '4.5'}:1</span>
+          </div>`).join('');
+    const focusHtml  = focus?.hasFocusVisible
+      ? '<div class="ds4-acc-pass">✓ :focus-visible styles declared</div>'
+      : (focus?.outlineRemovedWithoutReplacement > 0)
+        ? `<div class="ds4-acc-fail">✕ Outline removed without :focus-visible replacement</div>`
+        : '<div class="ds4-acc-warn">○ No custom focus styles</div>';
+    const motionHtml = motion?.reducedMotionRespected
+      ? '<div class="ds4-acc-pass">✓ prefers-reduced-motion declared</div>'
+      : '<div class="ds4-acc-warn">○ No reduced-motion media query</div>';
+    html += `
+      <div class="ds4-card">
+        <div class="ds4-card-head">
+          <span class="ds4-card-icon">♿</span>
+          <span class="ds4-card-title">Accessibility</span>
+          <span class="ds4-pill ${dsSc(accScore)}">${accScore}</span>
+        </div>
+        ${contrastFails.length > 0 ? '<div class="ds4-sub-head">Contrast failures</div>' : ''}
+        ${contrastHtml}
+        <div class="ds4-acc-checks">
+          ${focusHtml}
+          ${motionHtml}
+        </div>
+      </div>`;
 
     container.innerHTML = html;
 
-    // SVG inventory download handlers
-    container.querySelectorAll('button[data-svg-index]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idx = parseInt(btn.dataset.svgIndex, 10);
-        const svgData = inv.svgInventory?.[idx];
-        if (!svgData) return;
-
-        const origText = btn.textContent;
-        btn.textContent = '…';
-        btn.disabled = true;
-
-        try {
-          let svgText = '';
-          let filename = (svgData.label || ('svg-' + (idx + 1))).replace(/[^a-z0-9_-]/gi, '-').toLowerCase() + '.svg';
-
-          if (svgData.source === 'inline') {
-            // Already have the serialized SVG
-            svgText = svgData.content;
-          } else {
-            // Fetch the SVG file from its URL
-            const resp = await fetch(btn.dataset.svgUrl);
-            if (!resp.ok) throw new Error('fetch failed');
-            svgText = await resp.text();
-            // Derive filename from URL path
-            const urlPath = btn.dataset.svgUrl.split('?')[0].split('/').pop();
-            if (urlPath) filename = urlPath;
-          }
-
-          const blob = new Blob([svgText], { type: 'image/svg+xml' });
-          const objUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = objUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
-          showToast('Downloaded ' + filename);
-        } catch {
-          showToast('Download failed — check CORS');
-        }
-
-        btn.textContent = origText;
-        btn.disabled = false;
-      });
-    });
-
-    // Render design findings below the inventory
+    // Rule-based design findings (unchanged — shows per-finding cards)
     findingsList.innerHTML = '';
     if (designFindings.length > 0) {
-      const title = document.createElement('h4');
-      title.className = 'design-section-title';
-      title.style.margin = '20px 0 12px';
-      title.textContent = 'Design Findings';
-      findingsList.appendChild(title);
-
       designFindings.forEach(finding => {
         const card = document.createElement('div');
         card.className = 'finding-card';
-        card.dataset.number = finding.number;
-        const color = getMarkerColor(finding.number - 1);
-        const iceAvg = iceAverage(finding.ice);
         card.innerHTML = `
-          <div class="finding-number" style="background:${color}">${finding.number}</div>
-          <div class="finding-body">
-            <div class="finding-description">${escapeHtml(finding.description)}</div>
-            <div class="finding-meta">
-              <span class="ice-badge ${getICELevel(finding.ice.impact)}">I:${finding.ice.impact}/10</span>
-              <span class="ice-badge ${getICELevel(finding.ice.confidence)}">C:${finding.ice.confidence}/10</span>
-              <span class="ice-badge ${getICELevel(finding.ice.ease)}">E:${finding.ice.ease}/10</span>
-              <span class="ice-total">${iceAvg}/10</span>
-              <span class="category-tag category-design">design</span>
+          <div class="finding-header">
+            <span class="finding-number" style="background:${getMarkerColor(finding.number - 1)}">${finding.number}</span>
+            <div class="finding-title-wrap">
+              <span class="finding-title">${escapeHtml(finding.description)}</span>
             </div>
-          </div>
-        `;
+            <div class="ice-scores">
+              <span class="ice-score ice-${getICELevel(finding.ice.impact)}">I:${finding.ice.impact}</span>
+              <span class="ice-score ice-${getICELevel(finding.ice.confidence)}">C:${finding.ice.confidence}</span>
+              <span class="ice-score ice-${getICELevel(finding.ice.ease)}">E:${finding.ice.ease}</span>
+            </div>
+          </div>`;
         findingsList.appendChild(card);
       });
     }
+  }
+
+  // Helper functions used by the new design tab cards
+  function dsNorm(hex) { return (hex || '').toLowerCase().trim(); }
+
+  function dsTokenHexSet(cssVars) {
+    const set = new Set();
+    for (const v of cssVars) {
+      const val = (v.value || '').trim();
+      if (/^#[0-9a-f]{3,8}$/i.test(val)) { set.add(dsNorm(val)); continue; }
+      const m = val.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (m) {
+        const hex = '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+        set.add(dsNorm(hex));
+      }
+    }
+    return set;
   }
 
   function isLightColor(hex) {

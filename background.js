@@ -2104,6 +2104,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ── Live Design Scan (sidebar inline mode) ──
+
+  if (message.action === 'LIVE_DESIGN_SCAN') {
+    (async () => {
+      try {
+        const tabs = await new Promise(r => chrome.tabs.query({ active: true, currentWindow: true }, r));
+        const tab = tabs[0];
+        if (!tab || !tab.url || tab.url.startsWith('chrome') || tab.url.startsWith('chrome-extension')) {
+          sendResponse({ success: false, error: 'Cannot scan this page.' }); return;
+        }
+
+        // Inject content script (idempotent — content.js guards with __echoflowInjected)
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+        await sleep(200);
+
+        const result = await chrome.tabs.sendMessage(tab.id, { action: 'CAPTURE_DESIGN_INVENTORY' });
+        if (!result?.success) {
+          sendResponse({ success: false, error: result?.error || 'Design scan failed' }); return;
+        }
+
+        sendResponse({
+          success: true,
+          url: tab.url,
+          title: tab.title,
+          inventory: result.inventory
+        });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   // ── Frame-options check (can this URL be embedded in an iframe?) ──
   if (message.action === 'CHECK_FRAME_OPTIONS') {
     (async () => {
@@ -2584,6 +2617,11 @@ async function updateKnowledgeBase() {
     }
   }
 }
+
+// Open the side panel when the extension icon is clicked (sidebar-only mode)
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   updateKnowledgeBase();

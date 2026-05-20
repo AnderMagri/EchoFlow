@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EchoFlow",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "UX audit tool for websites — Generic UX, Shopify, Fintech, Crypto verticals with mobile analysis, Shopify Migration, and FigJam/Notion export.",
   "permissions": [
     "activeTab",
@@ -9,13 +9,17 @@
     "storage",
     "alarms",
     "offscreen",
-    "debugger"
+    "debugger",
+    "sidePanel",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
+  "side_panel": {
+    "default_path": "sidebar.html"
+  },
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "128": "icons/icon128.png"
     }
@@ -28,6 +32,7 @@
     {
       "resources": [
         "results.html",
+        "sidebar.html",
         "offscreen.html",
         "knowledge-base/generic-ux.json",
         "knowledge-base/mobile.json",

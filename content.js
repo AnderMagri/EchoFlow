@@ -1106,5 +1106,13 @@
       sendResponse({ success: true });
       return true;
     }
+
+    // Standalone design inventory scan — used by sidebar Live Scan
+    if (message.action === 'CAPTURE_DESIGN_INVENTORY') {
+      captureDesignInventory()
+        .then(inv => sendResponse({ success: true, inventory: inv }))
+        .catch(err => sendResponse({ success: false, error: err.message }));
+      return true;
+    }
   });
 })();
