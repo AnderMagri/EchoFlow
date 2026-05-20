@@ -6,11 +6,11 @@
 svg { shape-rendering: geometricPrecision; display: block; }
 
 :root {
-  --bg:       #F5F6F8;
-  --surface:  #FFFFFF;
-  --inset:    #E5E7EB;  /* inner boxes — darker than BG */
-  --border:   rgba(0,0,0,0.07);
-  --border-m: rgba(0,0,0,0.10);
+  --bg:       #ECEEF2;  /* ghost white — visibly cool grey, page base */
+  --surface:  #FFFFFF;  /* cards — pure white, clearly elevated */
+  --inset:    #D4D6DC;  /* inner tiles/boxes — clearly grey, sunken into card */
+  --border:   rgba(0,0,0,0.10);
+  --border-m: rgba(0,0,0,0.14);
   --brand:    #00C9A7;
   --brand-d:  #00A88C;
   --nav:      #10111A;
@@ -191,12 +191,12 @@ body {
 /* ─── Design Cards ─── */
 
 .sb-design-card {
-  margin: 5px 14px 0;
+  margin: 6px 12px 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 1px rgba(0,0,0,0.04);
 }
 .sb-design-card:last-of-type { margin-bottom: 14px; }
 
