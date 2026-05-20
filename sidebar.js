@@ -29,27 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ═══════════════════════════════════════
-  //  Settings panel
+  //  Settings Tab
   // ═══════════════════════════════════════
 
-  const settingsBtn    = document.getElementById('sb-settings-btn');
-  const settingsPanel  = document.getElementById('sb-settings-panel');
-  const settingsClose  = document.getElementById('sb-settings-close');
-  const claudeKeyInput = document.getElementById('sb-claude-key');
+  const claudeKeyInput  = document.getElementById('sb-claude-key');
   const saveSettingsBtn = document.getElementById('sb-save-settings');
-  const settingsStatus = document.getElementById('sb-settings-status');
-
-  // Replace settings icon with vector SVG
-  if (settingsBtn) settingsBtn.innerHTML = IC.settings;
+  const settingsStatus  = document.getElementById('sb-settings-status');
 
   chrome.storage.local.get('claudeApiKey').then(({ claudeApiKey }) => {
     if (claudeApiKey && claudeKeyInput) claudeKeyInput.value = claudeApiKey;
-  });
-
-  settingsBtn?.addEventListener('click', () => { settingsPanel.style.display = 'flex'; });
-  settingsClose?.addEventListener('click', () => { settingsPanel.style.display = 'none'; });
-  settingsPanel?.addEventListener('click', e => {
-    if (e.target === settingsPanel) settingsPanel.style.display = 'none';
   });
 
   saveSettingsBtn?.addEventListener('click', async () => {
@@ -57,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await chrome.storage.local.set({ claudeApiKey: key });
     settingsStatus.textContent = 'Saved';
     settingsStatus.className = 'sb-status success';
-    setTimeout(() => { settingsPanel.style.display = 'none'; settingsStatus.textContent = ''; }, 1200);
+    setTimeout(() => { settingsStatus.textContent = ''; }, 1500);
   });
 
   // ═══════════════════════════════════════
