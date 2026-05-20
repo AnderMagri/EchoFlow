@@ -834,12 +834,72 @@ document.addEventListener('DOMContentLoaded', () => {
   const runAuditBtn   = document.getElementById('sb-run-audit-btn');
   const runAuditLabel = document.getElementById('sb-run-audit-label');
   const auditStatus   = document.getElementById('sb-audit-status');
+  const auditForm     = document.getElementById('sb-audit-form');
+  const auditResults  = document.getElementById('sb-audit-results');
+
+  const CAT_CLASS = {
+    TRUST: 'cat-trust', USABILITY: 'cat-usability', CONVERSION: 'cat-conversion',
+    PERFORMANCE: 'cat-perf', ACCESSIBILITY: 'cat-a11y', CONTENT: 'cat-content',
+    MOBILE: 'cat-mobile', SEO: 'cat-seo',
+  };
+
+  function iceScore(ice) {
+    return ((ice.impact + ice.confidence + ice.ease) / 3).toFixed(1);
+  }
+
+  function renderFindings(findings, meta) {
+    const list = document.getElementById('sb-findings-list');
+    const metaEl = document.getElementById('sb-results-meta');
+    if (!list) return;
+
+    const vertical = (meta?.vertical || '').toUpperCase();
+    const device   = meta?.device   || '';
+    metaEl.textContent = `${findings.length} findings · ${vertical} · ${device}`;
+
+    list.innerHTML = findings.map(f => {
+      const score = iceScore(f.ice);
+      const scoreNum = parseFloat(score);
+      const scoreClass = scoreNum >= 7.5 ? 'score-high' : scoreNum >= 5 ? 'score-mid' : 'score-low';
+      const catCls = CAT_CLASS[f.category] || 'cat-other';
+      return `
+        <div class="sb-finding">
+          <div class="sb-finding-row">
+            <span class="sb-finding-num">${f.number}</span>
+            <span class="sb-finding-desc">${escHtml(f.description)}</span>
+          </div>
+          <div class="sb-finding-meta">
+            <span class="sb-ice-score ${scoreClass}">${score}</span>
+            <span class="sb-ice-stat">I:${f.ice.impact}</span>
+            <span class="sb-ice-stat">C:${f.ice.confidence}</span>
+            <span class="sb-ice-stat">E:${f.ice.ease}</span>
+            <span class="sb-cat-tag ${catCls}">${f.category}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function showAuditResults(findings, meta) {
+    auditForm.style.display = 'none';
+    auditResults.style.display = 'block';
+    renderFindings(findings, meta);
+  }
+
+  function showAuditForm() {
+    auditResults.style.display = 'none';
+    auditForm.style.display = 'block';
+  }
+
+  document.getElementById('sb-results-back')?.addEventListener('click', showAuditForm);
+
+  document.getElementById('sb-results-fullreport')?.addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('results.html') });
+  });
 
   runAuditBtn?.addEventListener('click', async () => {
     runAuditBtn.disabled = true;
-    runAuditLabel.textContent = 'Starting…';
-    auditStatus.textContent = '';
-    auditStatus.className = 'sb-status';
+    runAuditLabel.textContent = 'Auditing…';
+    auditStatus.textContent = 'Capturing page…';
+    auditStatus.className = 'sb-status loading';
 
     try {
       const pageTypeSelect = document.getElementById('sb-page-type-select');
@@ -849,8 +909,9 @@ document.addEventListener('DOMContentLoaded', () => {
         mode: 'viewport', device: selectedDevice, projectId: null
       });
       if (result?.success) {
-        auditStatus.textContent = result.findingCount + ' findings — results opened';
-        auditStatus.className = 'sb-status success';
+        auditStatus.textContent = '';
+        auditStatus.className = 'sb-status';
+        showAuditResults(result.results.findings, result.results.meta);
       } else {
         throw new Error(result?.error || 'Audit failed');
       }

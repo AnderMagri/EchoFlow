@@ -443,7 +443,7 @@ async function injectShopifyMainWorld(tabId) {
 
 // ── Main Audit Orchestration ──
 
-async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, device = 'desktop') {
+async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, device = 'desktop', openTab = true) {
   const origin = new URL(tabUrl).origin;
 
   // Step 1: Load rules — merge mobile rules when running a mobile/tablet audit
@@ -530,9 +530,9 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
     designInventory: domData.designInventory || null
   };
 
-  // Step 10: Store results and open results page
+  // Step 10: Store results; open results page only when explicitly requested
   await chrome.storage.local.set({ echoflowResults: results });
-  await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') });
+  if (openTab) await chrome.tabs.create({ url: chrome.runtime.getURL('results.html') });
 
   return { success: true, findingCount: findings.length, results };
 }
@@ -1561,12 +1561,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // ── Mobile / Tablet emulation mode ──
           const profile = DEVICE_PROFILES[device];
           result = await withMobileEmulation(tabId, profile, (tid) =>
-            runAudit(tid, tabUrl, vertical, mode, '100', pageType, device)
+            runAudit(tid, tabUrl, vertical, mode, '100', pageType, device, false)
           );
 
         } else {
           // ── Desktop: current tab, current viewport ──
-          result = await runAudit(tabId, tabUrl, vertical, mode, '100', pageType, 'desktop');
+          result = await runAudit(tabId, tabUrl, vertical, mode, '100', pageType, 'desktop', false);
         }
 
         // Auto-save to project if one is active

@@ -52,57 +52,76 @@
     <!-- ═══ Audit Tab ═══ -->
     <div id="sb-tab-audit" class="sb-tab-content">
 
-      <section class="sb-section">
-        <label class="sb-label">Vertical</label>
-        <div class="sb-vertical-grid">
-          <button class="sb-vertical active" data-vertical="generic-ux">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            <span>Generic UX</span>
+      <!-- ── Audit Form ── -->
+      <div id="sb-audit-form">
+        <section class="sb-section">
+          <label class="sb-label">Vertical</label>
+          <div class="sb-vertical-grid">
+            <button class="sb-vertical active" data-vertical="generic-ux">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span>Generic UX</span>
+            </button>
+            <button class="sb-vertical" data-vertical="shopify">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+              <span>Shopify</span>
+            </button>
+            <button class="sb-vertical" data-vertical="fintech">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              <span>Fintech</span>
+            </button>
+            <button class="sb-vertical" data-vertical="crypto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.66 0-3 1-3 2.5S10.34 13 12 13c1.66 0 3 1 3 2.5S13.66 18 12 18c-1 0-2-.5-2.5-1.5"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="20"/></svg>
+              <span>Crypto</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="sb-page-type-section" class="sb-section" style="display:none;">
+          <label class="sb-label">Page Type</label>
+          <select id="sb-page-type-select" class="sb-select"></select>
+        </section>
+
+        <section class="sb-section">
+          <label class="sb-label">Device</label>
+          <div class="sb-device-row">
+            <button class="sb-device active" data-device="desktop">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Desktop
+            </button>
+            <button class="sb-device" data-device="mobile">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              Mobile
+            </button>
+            <button class="sb-device" data-device="tablet">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              Tablet
+            </button>
+          </div>
+        </section>
+
+        <button id="sb-run-audit-btn" class="sb-btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="sb-run-audit-label">Run Full Audit</span>
+        </button>
+
+        <div id="sb-audit-status" class="sb-status"></div>
+      </div>
+
+      <!-- ── Audit Results (shown after audit completes) ── -->
+      <div id="sb-audit-results" style="display:none;">
+        <div class="sb-results-topbar">
+          <button id="sb-results-back" class="sb-results-back" title="Back to settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            New Audit
           </button>
-          <button class="sb-vertical" data-vertical="shopify">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
-            <span>Shopify</span>
-          </button>
-          <button class="sb-vertical" data-vertical="fintech">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            <span>Fintech</span>
-          </button>
-          <button class="sb-vertical" data-vertical="crypto">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.66 0-3 1-3 2.5S10.34 13 12 13c1.66 0 3 1 3 2.5S13.66 18 12 18c-1 0-2-.5-2.5-1.5"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="20"/></svg>
-            <span>Crypto</span>
+          <span id="sb-results-meta" class="sb-results-meta"></span>
+          <button id="sb-results-fullreport" class="sb-results-fullreport" title="Open full report">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </button>
         </div>
-      </section>
+        <div id="sb-findings-list" class="sb-findings-list"></div>
+      </div>
 
-      <section id="sb-page-type-section" class="sb-section" style="display:none;">
-        <label class="sb-label">Page Type</label>
-        <select id="sb-page-type-select" class="sb-select"></select>
-      </section>
-
-      <section class="sb-section">
-        <label class="sb-label">Device</label>
-        <div class="sb-device-row">
-          <button class="sb-device active" data-device="desktop">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            Desktop
-          </button>
-          <button class="sb-device" data-device="mobile">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-            Mobile
-          </button>
-          <button class="sb-device" data-device="tablet">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-            Tablet
-          </button>
-        </div>
-      </section>
-
-      <button id="sb-run-audit-btn" class="sb-btn-primary">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span id="sb-run-audit-label">Run Full Audit</span>
-      </button>
-
-      <div id="sb-audit-status" class="sb-status"></div>
     </div>
 
     <!-- ═══ Explorer Tab ═══ -->
@@ -195,7 +214,7 @@
         <button id="sb-save-settings" class="sb-btn-primary" style="margin-top:8px;">Save</button>
         <div id="sb-settings-status" class="sb-status"></div>
       </section>
-      <div class="sb-settings-version">EchoFlow v2.6</div>
+      <div class="sb-settings-version">EchoFlow v2.7</div>
     </div>
 
   </div>
