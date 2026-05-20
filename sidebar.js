@@ -4,14 +4,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Lucide-style SVG icon constants ──
   const IC = {
-    palette:  `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
-    type:     `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
-    layout:   `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
-    svgIcon:  `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 22 22 7 12 2"/></svg>`,
-    chevron:  `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
-    copy:     `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-    download: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-    settings: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+    palette:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
+    type:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+    layout:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+    svgIcon:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 22 22 7 12 2"/></svg>`,
+    chevron:  `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    copy:     `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+    download: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+    settings: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
   };
 
   // ═══════════════════════════════════════
@@ -247,6 +247,38 @@ document.addEventListener('DOMContentLoaded', () => {
     return (hex || '').toLowerCase().trim();
   }
 
+  function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function hexToHsl(hex) {
+    const r = parseInt(hex.slice(1,3)||'0',16)/255;
+    const g = parseInt(hex.slice(3,5)||'0',16)/255;
+    const b = parseInt(hex.slice(5,7)||'0',16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h = 0, s = 0, l = (max+min)/2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+      if (max===r) h = (g-b)/d + (g<b?6:0);
+      else if (max===g) h = (b-r)/d + 2;
+      else h = (r-g)/d + 4;
+      h /= 6;
+    }
+    return [h*360, s*100, l*100];
+  }
+
+  function sortByHue(colors) {
+    return [...colors].sort((a, b) => {
+      const ha = hexToHsl(toHex(a.value)||'#000'), hb = hexToHsl(toHex(b.value)||'#000');
+      const grayA = ha[1] < 12, grayB = hb[1] < 12;
+      if (grayA && grayB) return ha[2] - hb[2];
+      if (grayA) return 1;
+      if (grayB) return -1;
+      return ha[0] - hb[0];
+    });
+  }
+
   function getAllBreakpoints(inv) {
     return [
       ...((inv.breakpoints?.minWidth || []).map(b => b.value)),
@@ -290,22 +322,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const cssVars    = inv.cssTokens?.variables || [];
     const tokenHexes = buildTokenHexSet(cssVars);
 
-    // Build hex → token name lookup
     const hexToToken = {};
     for (const v of cssVars) {
       const hex = hexFromVar(v.value);
       if (hex && !hexToToken[hex]) hexToToken[hex] = v.name;
     }
 
-    const tokenized = colors.filter(c => tokenHexes.has(norm(toHex(c.value))));
-    const hardcoded = colors.filter(c => !tokenHexes.has(norm(toHex(c.value))));
+    const tokenized = sortByHue(colors.filter(c =>  tokenHexes.has(norm(toHex(c.value)))));
+    const hardcoded = sortByHue(colors.filter(c => !tokenHexes.has(norm(toHex(c.value)))));
 
     function miniCardGrid(list) {
       if (!list.length) return '<div class="ds-empty-pane">None detected</div>';
       return `<div class="ds-color-grid">${list.map(c => {
-        const hex      = toHex(c.value);
-        const normHex  = norm(hex);
-        const tkName   = hexToToken[normHex] || '';
+        const hex    = toHex(c.value);
+        const tkName = hexToToken[norm(hex)] || '';
         return `<div class="ds-color-card">
           <div class="ds-color-preview" style="background:${c.value}"></div>
           <div class="ds-color-info">
@@ -319,24 +349,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }).join('')}</div>`;
     }
 
-    // Effects pane
-    const shadows   = (inv.shadows   || []).slice(0, 6);
-    const gradients = (inv.gradients || []).slice(0, 5);
-    const shadowHtml = shadows.map(s => `
-      <div class="ds-effect-item">
-        <div class="ds-effect-preview" style="background:#f5f5f5;box-shadow:${s.value}"></div>
-        <span class="ds-effect-val">${s.value}</span>
-        <span class="ds-effect-count">×${s.count}</span>
-      </div>`).join('');
-    const gradientHtml = gradients.map(g => `
-      <div class="ds-effect-item">
-        <div class="ds-effect-preview" style="background:${g.value}"></div>
-        <span class="ds-effect-val">${g.value}</span>
-        <span class="ds-effect-count">×${g.count}</span>
-      </div>`).join('');
+    // Effects pane — squared previews, CSS value collapsible
+    const shadows   = (inv.shadows   || []).slice(0, 8);
+    const gradients = (inv.gradients || []).slice(0, 6);
+
+    function effectCard(previewStyle, cssValue, count) {
+      return `<div class="ds-effect-card">
+        <div class="ds-effect-sq" style="${previewStyle}"></div>
+        <div class="ds-effect-right">
+          <span class="ds-effect-count">×${count}</span>
+          <details class="ds-effect-details">
+            <summary class="ds-effect-summary">CSS</summary>
+            <code class="ds-effect-code">${escHtml(cssValue)}</code>
+          </details>
+        </div>
+      </div>`;
+    }
+
+    const shadowHtml   = shadows.map(s   => effectCard(`background:#f5f5f5;box-shadow:${s.value}`, s.value, s.count)).join('');
+    const gradientHtml = gradients.map(g => effectCard(`background:${g.value}`, g.value, g.count)).join('');
     const effectsContent = [
-      shadows.length   ? `<div class="ds-effect-section-lbl">Shadows</div>${shadowHtml}` : '',
-      gradients.length ? `<div class="ds-effect-section-lbl">Gradients</div>${gradientHtml}` : '',
+      shadows.length   ? `<div class="ds-effect-section-lbl">Shadows (${shadows.length})</div><div class="ds-effect-grid">${shadowHtml}</div>` : '',
+      gradients.length ? `<div class="ds-effect-section-lbl">Gradients (${gradients.length})</div><div class="ds-effect-grid">${gradientHtml}</div>` : '',
       !shadows.length && !gradients.length ? '<div class="ds-empty-pane">No effects detected</div>' : ''
     ].join('');
 
@@ -362,22 +396,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderA11yContent(inv) {
-    const fails  = (inv.contrastPairs || []).filter(p => p.level === 'FAIL').slice(0, 5);
+    const fails  = (inv.contrastPairs || []).filter(p => p.level === 'FAIL').slice(0, 6);
     const passes = (inv.contrastPairs || []).filter(p => p.level !== 'FAIL');
     const focus  = inv.focusStates;
     const motion = inv.motion;
 
     const contrastHtml = fails.length === 0
       ? `<div class="ds-acc-check pass">Contrast OK — ${passes.length} pairs sampled</div>`
-      : fails.map(f => `
-          <div class="ds-contrast-fail">
-            <div class="ds-contrast-swatches">
-              <div style="width:11px;height:11px;border-radius:2px;background:${f.textHex};border:1px solid rgba(0,0,0,0.1)"></div>
-              <div style="width:11px;height:11px;border-radius:2px;background:${f.bgHex};border:1px solid rgba(0,0,0,0.1)"></div>
+      : `<div class="ds-contrast-cards">${fails.map(f => `
+          <div class="ds-contrast-card">
+            <div class="ds-contrast-preview" style="background:${f.bgHex}">
+              <span style="color:${f.textHex}">Aa</span>
             </div>
-            <span class="ds-contrast-ratio">${f.ratio}:1</span>
-            <span class="ds-contrast-tag">${f.tag} · ${f.fontSize}px</span>
-          </div>`).join('');
+            <div class="ds-contrast-body">
+              <div class="ds-contrast-ratio">${f.ratio}:1</div>
+              <div class="ds-contrast-swatches-sm">
+                <div style="width:14px;height:14px;border-radius:3px;background:${f.textHex};border:1px solid rgba(0,0,0,0.08)"></div>
+                <div style="width:14px;height:14px;border-radius:3px;background:${f.bgHex};border:1px solid rgba(0,0,0,0.08)"></div>
+              </div>
+              <div class="ds-contrast-tag">${f.tag} · ${f.fontSize}px</div>
+            </div>
+          </div>`).join('')}</div>`;
 
     const focusHtml = focus?.hasFocusVisible
       ? `<div class="ds-acc-check pass">:focus-visible declared</div>`
@@ -390,32 +429,34 @@ document.addEventListener('DOMContentLoaded', () => {
       : `<div class="ds-acc-check warn">No reduced-motion media query</div>`;
 
     return `
-      ${fails.length > 0 ? '<div style="font-size:9px;font-weight:700;color:#e53935;text-transform:uppercase;padding:4px 0 2px;">Contrast Failures</div>' : ''}
+      ${fails.length > 0 ? '<div class="ds-section-label" style="color:#e53935">Contrast Failures</div>' : ''}
       ${contrastHtml}
-      <div style="margin-top:5px">${focusHtml}${motionHtml}</div>`;
+      <div style="margin-top:8px">${focusHtml}${motionHtml}</div>`;
   }
 
   // ── Typography Card ──
 
   function renderTypographyCard(inv, score) {
     const families = (inv.fontFamilies || []).slice(0, 5);
-    // Sort by size value ascending (crescent scale: 12px → 48px)
     const sizes = (inv.fontSizes || [])
       .slice()
       .sort((a, b) => parseFloat(a.value) - parseFloat(b.value))
       .slice(0, 10);
 
-    const familyRows = families.map(f => {
+    const familyCards = families.map(f => {
       const name = (f.value || '').split(',')[0].trim().replace(/['"]/g, '');
-      return `<div class="ds-family-row">
-        <span class="ds-family-name">${name || f.value}</span>
-        <span class="ds-family-count">×${f.count}</span>
+      return `<div class="ds-family-card">
+        <div class="ds-family-header">
+          <span class="ds-family-name">${name || f.value}</span>
+          <span class="ds-family-count">×${f.count}</span>
+        </div>
+        <div class="ds-family-preview" style="font-family:${f.value}">Aa Bb Cc &nbsp;01 23</div>
       </div>`;
     }).join('');
 
     const tiles = sizes.map(s => {
       const px      = parseFloat(s.value) || 16;
-      const display = Math.min(Math.max(Math.round(px), 9), 20);
+      const display = Math.min(Math.max(Math.round(px), 9), 22);
       return `<div class="ds-type-tile">
         <div class="ds-tile-size">${Math.round(px)}px</div>
         <div class="ds-tile-sample" style="font-size:${display}px">Aa</div>
@@ -432,9 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="ds-card-body">
         <div class="ds-font-families">
-          ${familyRows || '<div class="ds-empty-pane">No font data</div>'}
+          ${familyCards || '<div class="ds-empty-pane">No font data</div>'}
         </div>
-        <div class="ds-type-tiles">${tiles}</div>
+        ${sizes.length ? `<div class="ds-section-label">Sizes</div><div class="ds-type-tiles">${tiles}</div>` : ''}
         ${families.length > 2 ? `<div class="ds-flag">⚠ ${families.length} font families — aim for 2 max</div>` : ''}
         ${sizes.length >= 10 ? `<div class="ds-flag">⚠ ${inv.fontSizes?.length || sizes.length}+ sizes — define a type scale</div>` : ''}
       </div>`;
@@ -450,21 +491,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const flexPct     = layout.layoutEngines?.flex  || 0;
     const gridPct     = layout.layoutEngines?.grid  || 0;
 
-    const spacingValues = (inv.spacingValues || []).slice(0, 8);
-    const maxSpCount    = Math.max(...spacingValues.map(s => s.count), 1);
+    const spacingValues = (inv.spacingValues || []).slice(0, 10);
+    const maxPx = Math.max(...spacingValues.map(s => parseFloat(s.value)), 1);
 
-    const spacingRows = spacingValues.map(s => {
-      const barW = Math.max(4, Math.round((s.count / maxSpCount) * 100));
-      return `<div class="ds-spacing-item">
-        <span class="ds-sp-px">${Math.round(parseFloat(s.value))}px</span>
-        <div class="ds-sp-bar-wrap"><div class="ds-sp-bar" style="width:${barW}%"></div></div>
-        <span class="ds-sp-count">×${s.count}</span>
+    // Tiles like font size tiles: label / visual box / count
+    const spacingTiles = spacingValues.map(s => {
+      const px    = Math.round(parseFloat(s.value));
+      const boxPx = Math.max(4, Math.min(Math.round((px / maxPx) * 44), 44));
+      return `<div class="ds-sp-tile">
+        <div class="ds-sp-val">${px}px</div>
+        <div class="ds-sp-box" style="width:${boxPx}px;height:${boxPx}px"></div>
+        <div class="ds-sp-count">×${s.count}</div>
       </div>`;
     }).join('');
 
+    // Column count hints based on breakpoints
+    const colHints = [];
+    if (bps.some(b => b >= 1200)) colHints.push({ label: 'Desktop', cols: 12 });
+    else if (bps.length > 0)      colHints.push({ label: 'Desktop', cols: 12 });
+    if (bps.some(b => b >= 600 && b < 1200)) colHints.push({ label: 'Tablet', cols: 8 });
+    if (bps.length > 0)           colHints.push({ label: 'Mobile',  cols: 4 });
+    if (colHints.length === 0)    colHints.push({ label: 'Single col', cols: 1 });
+
+    const colHtml = `<div class="ds-col-chips">${colHints.map(c =>
+      `<div class="ds-col-chip">
+        <span class="ds-col-num">${c.cols}</span>
+        <span class="ds-col-label">${c.label}</span>
+      </div>`).join('')}</div>`;
+
     const bpHtml = bps.length > 0
       ? `<div class="ds-bp-chips">${bps.map(b => `<span class="ds-bp-chip">${b}px</span>`).join('')}</div>`
-      : `<div class="ds-flag">No responsive breakpoints in stylesheets</div>`;
+      : `<div class="ds-flag">No responsive breakpoints found in stylesheets</div>`;
 
     return `
       <div class="ds-card-head">
@@ -475,13 +532,15 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="ds-card-body">
         <div class="ds-section-label">Spacing — ${spacingBase}px base · ${gridRatio}% on-grid</div>
-        <div class="ds-spacing-table">${spacingRows || '<div class="ds-empty-pane">No spacing data</div>'}</div>
+        ${spacingTiles ? `<div class="ds-sp-tiles">${spacingTiles}</div>` : '<div class="ds-empty-pane">No spacing data</div>'}
+        <div class="ds-section-label">Grid Columns</div>
+        ${colHtml}
         <div class="ds-section-label">Breakpoints</div>
         ${bpHtml}
         <div class="ds-card-meta">
           <span>Flexbox: ${flexPct}%</span>
           <span>CSS Grid: ${gridPct}%</span>
-          <span>${bps.length} breakpoint${bps.length !== 1 ? 's' : ''}</span>
+          <span>${bps.length} bp</span>
         </div>
         ${gridRatio < 50 && gridRatio > 0 ? `<div class="ds-flag">Only ${gridRatio}% of spacing follows the ${spacingBase}px grid</div>` : ''}
       </div>`;
@@ -490,15 +549,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── SVG & Icons Card ──
 
   function renderSVGCard(inv) {
-    const svgs      = inv.svgInventory || [];
-    const inline    = svgs.filter(s => s.source === 'inline');
-    const imgBased  = svgs.filter(s => s.source === 'img-url');
-    const iconLib   = inv.iconLibrary;
+    const svgs     = inv.svgInventory || [];
+    const inline   = svgs.filter(s => s.source === 'inline');
+    const imgBased = svgs.filter(s => s.source === 'img-url');
+    const iconLib  = inv.iconLibrary;
 
-    const previews = inline.slice(0, 16).map(s => `
-      <div class="ds-svg-thumb" title="${s.label || '(unlabelled)'}">
-        ${s.content}
-      </div>`).join('');
+    // Logo: prefer an SVG labelled "logo" or "brand", otherwise the first one
+    const logo  = inline.find(s => /logo|brand|mark/i.test((s.label || '') + (s.className || ''))) || inline[0];
+    const icons = inline.filter(s => s !== logo).slice(0, 20);
+
+    const heroHtml = logo
+      ? `<div class="ds-svg-hero" title="${logo.label || 'Logo'}">${logo.content}</div>`
+      : '';
+
+    const gridHtml = icons.map(s =>
+      `<div class="ds-svg-thumb" title="${s.label || ''}">${s.content}</div>`
+    ).join('');
 
     return `
       <div class="ds-card-head">
@@ -522,7 +588,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="ds-icon-stat-label">Total</span>
           </div>
         </div>
-        ${previews ? `<div class="ds-svg-grid">${previews}</div>` : '<div class="ds-empty-pane">No SVGs detected</div>'}
+        ${heroHtml}
+        ${gridHtml ? `<div class="ds-svg-grid">${gridHtml}</div>` : (!heroHtml ? '<div class="ds-empty-pane">No SVGs detected</div>' : '')}
       </div>`;
   }
 
@@ -621,9 +688,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   runAuditBtn?.addEventListener('click', async () => {
     runAuditBtn.disabled = true;
-    runAuditLabel.textContent = 'Starting…';
+    runAuditLabel.textContent = 'Capturing…';
     auditStatus.textContent = '';
     auditStatus.className = 'sb-status';
+
+    // Capture screenshot immediately before the audit opens a new window
+    try { await chrome.runtime.sendMessage({ action: 'CAPTURE_SCREENSHOT' }); } catch (_) {}
+
+    runAuditLabel.textContent = 'Starting…';
 
     try {
       const pageTypeSelect = document.getElementById('sb-page-type-select');

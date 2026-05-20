@@ -108,8 +108,42 @@
     <!-- ═══ Explorer Tab ═══ -->
     <div id="sb-tab-explorer" class="sb-tab-content">
       <section class="sb-section">
+        <label class="sb-label">Scan Settings</label>
+        <div class="sb-filter-grid">
+          <div class="sb-filter-row">
+            <span class="sb-filter-label">Max pages</span>
+            <select id="sb-max-pages" class="sb-select-sm">
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+            </select>
+          </div>
+          <div class="sb-filter-row">
+            <span class="sb-filter-label">Max depth</span>
+            <select id="sb-max-depth" class="sb-select-sm">
+              <option value="2">2 levels</option>
+              <option value="3" selected>3 levels</option>
+              <option value="5">5 levels</option>
+              <option value="10">10 levels</option>
+            </select>
+          </div>
+          <div class="sb-filter-row">
+            <span class="sb-filter-label">Skip pattern</span>
+            <input type="text" id="sb-skip-pattern" class="sb-input-sm" placeholder="/blog/, /tag/">
+          </div>
+          <div class="sb-filter-row">
+            <span class="sb-filter-label">Include SEO data</span>
+            <label class="sb-toggle">
+              <input type="checkbox" id="sb-include-seo" checked>
+              <span class="sb-toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+      <section class="sb-section">
         <label class="sb-label">Discover Pages</label>
-        <p class="sb-hint">Map every page of this site, grouped by template type.</p>
+        <p class="sb-hint">Map this site's pages grouped by template type.</p>
         <div id="sb-platform-banner" style="display:none;"></div>
         <div class="sb-discover-btns">
           <button id="sb-discover-sitemap" class="sb-btn-outline">Sitemap</button>
