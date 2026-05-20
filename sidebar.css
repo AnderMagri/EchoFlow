@@ -28,7 +28,7 @@ body {
   padding: 0 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   background: linear-gradient(135deg, #1e2340, #1a1a2e);
   flex-shrink: 0;
 }
