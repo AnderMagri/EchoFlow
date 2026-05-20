@@ -649,10 +649,25 @@
     else if (document.querySelector('.icon-tabler')) iconLibrary = 'Tabler Icons';
 
     // ── @font-face capture (for sidebar preview) ──
-    // Google Fonts: capture the <link> href — cssRules is inaccessible cross-origin
+    // Strategy 1: Google Fonts <link> tags in HTML
     const googleFontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'))
       .map(l => l.href)
       .filter(Boolean);
+
+    // Strategy 2: Google Fonts loaded via @import inside same-origin CSS files
+    try {
+      for (const sheet of document.styleSheets) {
+        try {
+          for (const rule of sheet.cssRules || []) {
+            if (rule.constructor.name === 'CSSImportRule' &&
+                rule.href?.includes('fonts.googleapis.com') &&
+                !googleFontLinks.includes(rule.href)) {
+              googleFontLinks.push(rule.href);
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
 
     // Self-hosted fonts: capture @font-face rules from same-origin sheets
     const fontFaceRules = [];

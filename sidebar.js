@@ -105,20 +105,47 @@ document.addEventListener('DOMContentLoaded', () => {
   //  Design Cards Rendering
   // ═══════════════════════════════════════
 
+  // System fonts that are always available — no need to load these
+  const SYSTEM_FONTS = new Set([
+    '-apple-system', 'blinkmacsystemfont', 'segoe ui', 'helvetica neue', 'helvetica',
+    'arial', 'sans-serif', 'serif', 'monospace', 'times new roman', 'georgia',
+    'trebuchet ms', 'verdana', 'tahoma', 'courier new', 'courier', 'system-ui',
+    'ui-sans-serif', 'ui-serif', 'ui-monospace', 'cursive', 'fantasy',
+  ]);
+
   function injectPageFonts(inv) {
-    // Remove previously injected font assets
     document.querySelectorAll('.__ef-gf, #__ef-fonts').forEach(el => el.remove());
 
-    // Google Fonts: inject the same <link> the page uses — most reliable approach
+    // Step 1: inject any Google Fonts <link> tags captured directly from the page
+    const injectedLinks = new Set();
     for (const href of inv.googleFontLinks || []) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.className = '__ef-gf';
       link.href = href;
       document.head.appendChild(link);
+      injectedLinks.add(href);
     }
 
-    // Self-hosted @font-face rules (same-origin, accessible via cssRules)
+    // Step 2: best-effort — for any non-system font family, request it from
+    // Google Fonts by name. Works regardless of HOW the page originally loaded it.
+    const candidates = (inv.fontFamilies || [])
+      .map(f => (f.value || '').trim().replace(/['"]/g, ''))
+      .filter(name => name && !SYSTEM_FONTS.has(name.toLowerCase()))
+      .slice(0, 5);
+
+    if (candidates.length > 0) {
+      const params = candidates
+        .map(f => `family=${encodeURIComponent(f)}:ital,wght@0,300;0,400;0,600;0,700;1,400`)
+        .join('&');
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.className = '__ef-gf';
+      link.href = `https://fonts.googleapis.com/css2?${params}&display=swap`;
+      document.head.appendChild(link);
+    }
+
+    // Step 3: self-hosted @font-face rules (same-origin sheets only)
     const rules = inv.fontFaceRules || [];
     if (rules.length) {
       const style = document.createElement('style');
@@ -477,13 +504,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .slice(0, 10);
 
     const familyCards = families.map(f => {
-      const name = (f.value || '').split(',')[0].trim().replace(/['"]/g, '');
+      const name = (f.value || '').trim().replace(/['"]/g, '');
+      // Quote the family name so multi-word names like "Open Sans" parse correctly
+      const cssFamilyValue = `'${name}', sans-serif`;
       return `<div class="ds-family-card">
         <div class="ds-family-header">
-          <span class="ds-family-name">${name || f.value}</span>
+          <span class="ds-family-name">${escHtml(name)}</span>
           <span class="ds-family-count">×${f.count}</span>
         </div>
-        <div class="ds-family-preview" style="font-family:${f.value}">Aa Bb Cc &nbsp;01 23</div>
+        <div class="ds-family-preview" style="font-family:${cssFamilyValue}">Aa Bb Cc 01 23</div>
       </div>`;
     }).join('');
 
