@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     copy:     `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
     download: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
     settings: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+    tech: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
   };
 
   // ═══════════════════════════════════════
@@ -100,14 +101,28 @@ document.addEventListener('DOMContentLoaded', () => {
   //  Design Cards Rendering
   // ═══════════════════════════════════════
 
+  function injectPageFonts(inv) {
+    // Remove any previously injected font styles
+    document.getElementById('__ef-fonts')?.remove();
+    const rules = inv.fontFaceRules || [];
+    if (!rules.length) return;
+    const style = document.createElement('style');
+    style.id = '__ef-fonts';
+    style.textContent = rules.join('\n');
+    document.head.appendChild(style);
+  }
+
   function renderDesignResults(inv, url) {
     const health = computeDesignHealth(inv);
+
+    injectPageFonts(inv);
 
     document.getElementById('sb-health-overview').innerHTML  = renderHealthOverview(health);
     document.getElementById('sb-card-color').innerHTML       = renderColorCard(inv, health.color, health);
     document.getElementById('sb-card-typography').innerHTML  = renderTypographyCard(inv, health.typography);
     document.getElementById('sb-card-structure').innerHTML   = renderStructureCard(inv, health.structure);
     document.getElementById('sb-card-access').innerHTML      = renderSVGCard(inv);
+    document.getElementById('sb-card-tech').innerHTML        = renderTechCard(inv);
 
     // URL + export button
     document.getElementById('sb-scanned-url').innerHTML =
@@ -558,13 +573,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const logo  = inline.find(s => /logo|brand|mark/i.test((s.label || '') + (s.className || ''))) || inline[0];
     const icons = inline.filter(s => s !== logo).slice(0, 20);
 
+    function svgNeedsDarkBg(svgContent) {
+      return /(fill|stroke)=["']\s*(white|#fff|#ffffff)\s*["']/i.test(svgContent)
+          || (svgContent.includes('currentColor') && !/fill=["'](?!none|white|#fff)[^"']/i.test(svgContent) && !svgContent.includes('fill="black"') && svgContent.includes('stroke="white"'));
+    }
+
     const heroHtml = logo
-      ? `<div class="ds-svg-hero" title="${logo.label || 'Logo'}">${logo.content}</div>`
+      ? `<div class="ds-svg-hero${svgNeedsDarkBg(logo.content) ? ' ds-svg-dark' : ''}" title="${logo.label || 'Logo'}">${logo.content}</div>`
       : '';
 
-    const gridHtml = icons.map(s =>
-      `<div class="ds-svg-thumb" title="${s.label || ''}">${s.content}</div>`
-    ).join('');
+    const gridHtml = icons.map(s => {
+      const dark = svgNeedsDarkBg(s.content);
+      return `<div class="ds-svg-thumb${dark ? ' ds-svg-dark' : ''}" title="${s.label || ''}">${s.content}</div>`;
+    }).join('');
 
     return `
       <div class="ds-card-head">
@@ -590,6 +611,53 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         ${heroHtml}
         ${gridHtml ? `<div class="ds-svg-grid">${gridHtml}</div>` : (!heroHtml ? '<div class="ds-empty-pane">No SVGs detected</div>' : '')}
+      </div>`;
+  }
+
+  // ── Tech Stack Card ──
+
+  function renderTechCard(inv) {
+    const ts = inv.techStack;
+    if (!ts) return '';
+
+    function row(label, value) {
+      if (!value) return '';
+      return `<div class="ds-tech-row">
+        <span class="ds-tech-label">${label}</span>
+        <span class="ds-tech-value">${value}</span>
+      </div>`;
+    }
+
+    function tags(label, arr) {
+      if (!arr?.length) return '';
+      return `<div class="ds-tech-row ds-tech-tags-row">
+        <span class="ds-tech-label">${label}</span>
+        <div class="ds-tech-tags">${arr.map(t => `<span class="ds-tech-tag">${t}</span>`).join('')}</div>
+      </div>`;
+    }
+
+    const hasAny = ts.cms || ts.jsFramework || ts.cssFramework || ts.analytics?.length
+      || ts.marketing?.length || ts.tagManager || ts.abTesting || ts.ecommerce;
+
+    const body = hasAny ? `
+      ${row('CMS / Platform', ts.cms)}
+      ${row('JS Framework', ts.jsFramework)}
+      ${row('CSS Framework', ts.cssFramework)}
+      ${row('E-commerce', ts.ecommerce !== ts.cms ? ts.ecommerce : null)}
+      ${row('Tag Manager', ts.tagManager)}
+      ${row('A/B Testing', ts.abTesting)}
+      ${tags('Analytics', ts.analytics)}
+      ${tags('Marketing', ts.marketing)}
+    ` : '<div class="ds-empty-pane">No stack detected</div>';
+
+    return `
+      <div class="ds-card-head">
+        <span class="ds-card-icon">${IC.tech}</span>
+        <span class="ds-card-title">Tech Stack</span>
+        <span class="ds-chevron">${IC.chevron}</span>
+      </div>
+      <div class="ds-card-body">
+        <div class="ds-tech-table">${body}</div>
       </div>`;
   }
 

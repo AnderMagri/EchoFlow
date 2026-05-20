@@ -648,6 +648,103 @@
     else if (iconLinks.some(u => u.includes('remix-icon') || u.includes('remixicon'))) iconLibrary = 'Remix Icons';
     else if (document.querySelector('.icon-tabler')) iconLibrary = 'Tabler Icons';
 
+    // ── @font-face capture (for sidebar preview) ──
+    const fontFaceRules = [];
+    try {
+      for (const sheet of document.styleSheets) {
+        try {
+          for (const rule of sheet.cssRules || []) {
+            if (rule.constructor.name === 'CSSFontFaceRule') {
+              // Keep only src + font-family, strip heavy format fallbacks > 500 chars
+              const text = rule.cssText;
+              if (text.length < 4000) fontFaceRules.push(text);
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // ── Full tech stack detection ──
+    const allScripts = Array.from(document.querySelectorAll('script[src]')).map(s => s.src || '');
+    const allLinks   = Array.from(document.querySelectorAll('link[href]')).map(l => l.href || '');
+    const allAssets  = [...allScripts, ...allLinks, ...iconLinks];
+    const metaGenerator = document.querySelector('meta[name="generator"]')?.content || '';
+    const bodyHtml = document.body.innerHTML.slice(0, 40000);
+
+    function detectAny(patterns) {
+      return patterns.some(p => {
+        if (typeof p === 'string') return allAssets.some(u => u.includes(p)) || bodyHtml.includes(p);
+        return p.test(bodyHtml) || allAssets.some(u => p.test(u));
+      });
+    }
+
+    const techStack = {
+      cms: null,
+      jsFramework: null,
+      cssFramework: uiFramework || null,
+      analytics: [],
+      marketing: [],
+      abTesting: null,
+      tagManager: null,
+      ecommerce: null,
+    };
+
+    // CMS
+    if (window.Shopify || detectAny(['cdn.shopify.com'])) techStack.cms = 'Shopify';
+    else if (/wp-content|wp-includes/.test(bodyHtml) || /wordpress/.test(metaGenerator.toLowerCase())) techStack.cms = 'WordPress';
+    else if (/wix\.com|wixsite/.test(bodyHtml) || detectAny(['static.wixstatic.com'])) techStack.cms = 'Wix';
+    else if (detectAny(['webflow.com', 'assets-global.website-files.com'])) techStack.cms = 'Webflow';
+    else if (/squarespace/.test(bodyHtml) || detectAny(['sqspcdn.com', 'squarespace.com'])) techStack.cms = 'Squarespace';
+    else if (/framer\.com/.test(bodyHtml) || detectAny(['framer.com'])) techStack.cms = 'Framer';
+    else if (/ghost-url|ghost\.io/.test(bodyHtml)) techStack.cms = 'Ghost';
+    else if (detectAny(['cdn.webcompat.com']) || /drupal/.test(metaGenerator.toLowerCase())) techStack.cms = 'Drupal';
+
+    // JS Framework
+    if (window.__NEXT_DATA__ || detectAny(['/_next/'])) techStack.jsFramework = 'Next.js';
+    else if (window.__nuxt || window.$nuxt) techStack.jsFramework = 'Nuxt';
+    else if (window.angular || detectAny(['/angular'])) techStack.jsFramework = 'Angular';
+    else if (window.__SVELTE__ || detectAny(['.svelte'])) techStack.jsFramework = 'SvelteKit';
+    else if (window.React || document.querySelector('[data-reactroot], [data-reactid]') || detectAny(['react.production.min.js', 'react-dom'])) techStack.jsFramework = 'React';
+    else if (window.Vue || document.querySelector('[data-v-]') || detectAny(['vue.runtime', 'vue.min.js'])) techStack.jsFramework = 'Vue';
+    else if (window.Astro || detectAny(['astro/'])) techStack.jsFramework = 'Astro';
+    else if (window.Ember || detectAny(['ember.min'])) techStack.jsFramework = 'Ember';
+
+    // Analytics
+    if (window.gtag || window.ga || detectAny(['google-analytics.com', 'googletagmanager.com/gtag'])) techStack.analytics.push('Google Analytics');
+    if (detectAny(['hotjar.com', 'static.hotjar.com'])) techStack.analytics.push('Hotjar');
+    if (detectAny(['cdn.segment.com', 'segment.io'])) techStack.analytics.push('Segment');
+    if (detectAny(['mixpanel.com'])) techStack.analytics.push('Mixpanel');
+    if (detectAny(['heap.io', 'heapanalytics.com'])) techStack.analytics.push('Heap');
+    if (detectAny(['clarity.ms', 'clarity.microsoft.com'])) techStack.analytics.push('Clarity');
+    if (detectAny(['plausible.io'])) techStack.analytics.push('Plausible');
+
+    // Tag manager
+    if (window.google_tag_manager || detectAny(['googletagmanager.com/gtm'])) techStack.tagManager = 'Google Tag Manager';
+    else if (detectAny(['tealiumiq.com', 'tiqcdn.com'])) techStack.tagManager = 'Tealium';
+    else if (detectAny(['launch.adobe.com', 'assets.adobedtm.com'])) techStack.tagManager = 'Adobe Launch';
+
+    // Marketing / CRM
+    if (detectAny(['js.hs-scripts.com', 'hubspot.com'])) techStack.marketing.push('HubSpot');
+    if (detectAny(['intercomcdn.com', 'widget.intercom.io'])) techStack.marketing.push('Intercom');
+    if (detectAny(['drift.com', 'js.driftt.com'])) techStack.marketing.push('Drift');
+    if (detectAny(['crisp.chat'])) techStack.marketing.push('Crisp');
+    if (detectAny(['zendesk.com', 'zopim.com'])) techStack.marketing.push('Zendesk');
+    if (detectAny(['connect.facebook.net', 'fbevents.js'])) techStack.marketing.push('Meta Pixel');
+    if (detectAny(['klaviyo.com'])) techStack.marketing.push('Klaviyo');
+    if (detectAny(['mailchimp.com', 'chimpstatic.com'])) techStack.marketing.push('Mailchimp');
+
+    // A/B testing
+    if (detectAny(['optimizely.com'])) techStack.abTesting = 'Optimizely';
+    else if (detectAny(['vwo.com'])) techStack.abTesting = 'VWO';
+    else if (detectAny(['abtasty.com'])) techStack.abTesting = 'AB Tasty';
+    else if (detectAny(['launchdarkly.com'])) techStack.abTesting = 'LaunchDarkly';
+
+    // E-commerce
+    if (techStack.cms === 'Shopify') techStack.ecommerce = 'Shopify';
+    else if (detectAny(['woocommerce'])) techStack.ecommerce = 'WooCommerce';
+    else if (detectAny(['magento'])) techStack.ecommerce = 'Magento';
+    else if (detectAny(['bigcommerce.com'])) techStack.ecommerce = 'BigCommerce';
+
     // ── SVG inventory ──
     // Collect every visible inline <svg> and every <img src="*.svg"> on the page.
     // Inline SVGs are serialized; img-based SVGs store only the URL (fetched at
@@ -948,6 +1045,7 @@
       colorPalette: toSorted(colors).slice(0, 30),
       fontFamilies: toSorted(fonts),
       fontSizes: toSorted(fontSizes),
+      fontFaceRules,
       lineHeights: toSorted(lineHeights).slice(0, 10),
       letterSpacings: toSorted(letterSpacings).slice(0, 8),
       typography: Object.values(typoCombos).sort((a, b) => b.count - a.count).slice(0, 20),
@@ -968,6 +1066,7 @@
       zIndexAudit,
       motion,
       contrastPairs,
+      techStack,
     };
   }
 
