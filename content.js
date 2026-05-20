@@ -649,18 +649,23 @@
     else if (document.querySelector('.icon-tabler')) iconLibrary = 'Tabler Icons';
 
     // ── @font-face capture (for sidebar preview) ──
+    // Google Fonts: capture the <link> href — cssRules is inaccessible cross-origin
+    const googleFontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'))
+      .map(l => l.href)
+      .filter(Boolean);
+
+    // Self-hosted fonts: capture @font-face rules from same-origin sheets
     const fontFaceRules = [];
     try {
       for (const sheet of document.styleSheets) {
         try {
           for (const rule of sheet.cssRules || []) {
             if (rule.constructor.name === 'CSSFontFaceRule') {
-              // Keep only src + font-family, strip heavy format fallbacks > 500 chars
               const text = rule.cssText;
               if (text.length < 4000) fontFaceRules.push(text);
             }
           }
-        } catch (_) {}
+        } catch (_) {} // cross-origin sheets throw SecurityError — skip silently
       }
     } catch (_) {}
 
@@ -1046,6 +1051,7 @@
       fontFamilies: toSorted(fonts),
       fontSizes: toSorted(fontSizes),
       fontFaceRules,
+      googleFontLinks,
       lineHeights: toSorted(lineHeights).slice(0, 10),
       letterSpacings: toSorted(letterSpacings).slice(0, 8),
       typography: Object.values(typoCombos).sort((a, b) => b.count - a.count).slice(0, 20),

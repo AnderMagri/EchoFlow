@@ -2,6 +2,9 @@
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Crisp SVG rendering globally — prevents sub-pixel blurring at small sizes */
+svg { shape-rendering: geometricPrecision; display: block; }
+
 :root {
   --bg:       #F5F6F8;
   --surface:  #FFFFFF;

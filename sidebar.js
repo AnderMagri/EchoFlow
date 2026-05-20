@@ -102,14 +102,26 @@ document.addEventListener('DOMContentLoaded', () => {
   // ═══════════════════════════════════════
 
   function injectPageFonts(inv) {
-    // Remove any previously injected font styles
-    document.getElementById('__ef-fonts')?.remove();
+    // Remove previously injected font assets
+    document.querySelectorAll('.__ef-gf, #__ef-fonts').forEach(el => el.remove());
+
+    // Google Fonts: inject the same <link> the page uses — most reliable approach
+    for (const href of inv.googleFontLinks || []) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.className = '__ef-gf';
+      link.href = href;
+      document.head.appendChild(link);
+    }
+
+    // Self-hosted @font-face rules (same-origin, accessible via cssRules)
     const rules = inv.fontFaceRules || [];
-    if (!rules.length) return;
-    const style = document.createElement('style');
-    style.id = '__ef-fonts';
-    style.textContent = rules.join('\n');
-    document.head.appendChild(style);
+    if (rules.length) {
+      const style = document.createElement('style');
+      style.id = '__ef-fonts';
+      style.textContent = rules.join('\n');
+      document.head.appendChild(style);
+    }
   }
 
   function renderDesignResults(inv, url) {
@@ -574,8 +586,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const icons = inline.filter(s => s !== logo).slice(0, 20);
 
     function svgNeedsDarkBg(svgContent) {
-      return /(fill|stroke)=["']\s*(white|#fff|#ffffff)\s*["']/i.test(svgContent)
-          || (svgContent.includes('currentColor') && !/fill=["'](?!none|white|#fff)[^"']/i.test(svgContent) && !svgContent.includes('fill="black"') && svgContent.includes('stroke="white"'));
+      // Attribute form: fill="white", fill="#fff", fill="#FFF", fill="#ffffff"
+      if (/(fill|stroke)=["']\s*(white|#fff{1,3}|#ffffff)\s*["']/i.test(svgContent)) return true;
+      // Inline style form: style="fill:white" or style="color:#fff"
+      if (/style=["'][^"']*(?:fill|stroke|color)\s*:\s*(?:white|#fff{1,3}|#ffffff)/i.test(svgContent)) return true;
+      // currentColor with no dark fill defined (icon fonts that inherit a white color)
+      if (svgContent.includes('currentColor') && /stroke=["'](white|#fff)/i.test(svgContent)) return true;
+      return false;
     }
 
     const heroHtml = logo
