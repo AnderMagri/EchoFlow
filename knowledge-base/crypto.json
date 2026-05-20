@@ -650,5 +650,115 @@
     "finding": "No clear dominant color — crypto interface lacks a strong visual identity",
     "ice": { "impact": 6, "confidence": 6, "ease": 5 },
     "target_selector": "body"
+  },
+  {
+    "id": "crypto-landing-no-launch-app-btn",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='app.']", "a[href*='/app']", "[class*='launch-app']", "[class*='open-app']", "a[class*='app']", "button[class*='app']", "[class*='go-to-app']", "[href*='dapp']"]
+    },
+    "finding": "No 'Launch App' or 'Open App' link visible — users cannot reach the product from the marketing page",
+    "ice": { "impact": 10, "confidence": 7, "ease": 9 },
+    "target_selector": "header, nav, .hero, [class*='hero'], main"
+  },
+  {
+    "id": "crypto-landing-no-connect-wallet-hero",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='connect-wallet']", "[class*='connectwallet']", "[class*='wallet-connect']", "button[class*='wallet']", "[data-testid*='wallet']", "[class*='web3-btn']"]
+    },
+    "finding": "No wallet connection button in hero — primary crypto entry point missing above fold",
+    "ice": { "impact": 9, "confidence": 6, "ease": 8 },
+    "target_selector": ".hero, [class*='hero'], header, [class*='banner']"
+  },
+  {
+    "id": "crypto-landing-no-audit-badge",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='audit']", "[class*='certik']", "[class*='quantstamp']", "[class*='hacken']", "[class*='slowmist']", "[class*='consensys']", "img[alt*='audit']", "a[href*='audit']", "[class*='security-badge']", "[class*='audited']"]
+    },
+    "finding": "No security audit badge visible — users cannot verify smart contract safety",
+    "ice": { "impact": 9, "confidence": 6, "ease": 7 },
+    "target_selector": "footer, [class*='hero'], [class*='trust'], [class*='security']"
+  },
+  {
+    "id": "crypto-landing-no-tvl-or-metrics",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='tvl']", "[class*='total-value']", "[class*='locked']", "[class*='volume']", "[class*='protocol-stat']", "[class*='metric']", "[class*='stat-value']", "[class*='stats']"]
+    },
+    "finding": "No TVL or key protocol metrics displayed — social proof and scale not communicated",
+    "ice": { "impact": 8, "confidence": 6, "ease": 7 },
+    "target_selector": "main, [class*='hero'], [class*='stats-section']"
+  },
+  {
+    "id": "crypto-landing-no-supported-chains",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='chain']", "[class*='network']", "[class*='supported-network']", "[class*='multichain']", "img[alt*='ethereum']", "img[alt*='polygon']", "img[alt*='solana']", "[class*='ecosystem']"]
+    },
+    "finding": "No supported chains or networks listed — users don't know if their network is supported",
+    "ice": { "impact": 7, "confidence": 6, "ease": 8 },
+    "target_selector": "main, footer, [class*='chains'], [class*='network']"
+  },
+  {
+    "id": "crypto-landing-no-github-link",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='github.com']", "[class*='github']", "a[aria-label*='GitHub']", "a[title*='GitHub']"]
+    },
+    "finding": "No GitHub link — open-source credibility not established for crypto project",
+    "ice": { "impact": 7, "confidence": 8, "ease": 9 },
+    "target_selector": "footer, nav, [class*='social']"
+  },
+  {
+    "id": "crypto-landing-no-docs-or-whitepaper",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='docs.']", "a[href*='/docs']", "a[href*='whitepaper']", "a[href*='litepaper']", "[class*='docs-link']", "a[href*='gitbook']", "a[href*='notion.site']"]
+    },
+    "finding": "No documentation or whitepaper link — technical credibility not established",
+    "ice": { "impact": 7, "confidence": 7, "ease": 9 },
+    "target_selector": "nav, footer, [class*='hero']"
+  },
+  {
+    "id": "crypto-landing-no-discord-or-twitter",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["a[href*='discord.com']", "a[href*='discord.gg']", "a[href*='twitter.com']", "a[href*='x.com']", "[class*='discord']", "[class*='twitter']", "[class*='social-links']"]
+    },
+    "finding": "No Discord or Twitter/X link — community presence not visible on landing page",
+    "ice": { "impact": 6, "confidence": 8, "ease": 9 },
+    "target_selector": "footer, nav, header"
+  },
+  {
+    "id": "crypto-landing-no-product-preview",
+    "category": "conversion",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["video", "[class*='demo']", "[class*='preview']", "img[class*='product']", "[class*='app-screenshot']", "[class*='interface']", "[class*='mockup']", "[class*='screen']"]
+    },
+    "finding": "No product screenshot or demo visible — users cannot see the app before committing",
+    "ice": { "impact": 8, "confidence": 5, "ease": 6 },
+    "target_selector": "main, [class*='hero'], [class*='features']"
+  },
+  {
+    "id": "crypto-landing-no-token-symbol",
+    "category": "trust",
+    "check": {
+      "type": "element_missing",
+      "selectors": ["[class*='token']", "[class*='ticker']", "[class*='symbol']", "[class*='tokenomics']", "[class*='token-info']", "[class*='coingecko']", "[class*='coinmarketcap']"]
+    },
+    "finding": "No token symbol or tokenomics section — investment/utility information not communicated",
+    "ice": { "impact": 6, "confidence": 6, "ease": 7 },
+    "target_selector": "main, footer, [class*='token']"
   }
 ]

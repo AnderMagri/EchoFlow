@@ -740,54 +740,131 @@ body {
 }
 .sb-results-fullreport:hover { color: var(--brand); border-color: var(--brand); }
 
-/* Findings list */
+/* ─── Screenshot with markers ─── */
 
-.sb-findings-list { padding: 8px 10px 20px; display: flex; flex-direction: column; gap: 6px; }
+.sb-screenshot-wrap {
+  margin: 0 0 8px;
+  border-radius: var(--r);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.sb-screenshot-inner {
+  position: relative;
+  width: 100%;
+  /* padding-top set inline as aspect ratio */
+}
+
+.sb-screenshot-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sb-marker {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  cursor: default;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  border: 1.5px solid rgba(255,255,255,0.6);
+  line-height: 1;
+  z-index: 2;
+}
+/* Marker colors match category */
+.sb-marker.cat-trust      { background: #4F46E5; }
+.sb-marker.cat-usability  { background: #D97706; }
+.sb-marker.cat-conversion { background: #059669; }
+.sb-marker.cat-perf       { background: #DC2626; }
+.sb-marker.cat-a11y       { background: #2563EB; }
+.sb-marker.cat-content    { background: #7C3AED; }
+.sb-marker.cat-mobile     { background: #0D9488; }
+.sb-marker.cat-seo        { background: #EA580C; }
+.sb-marker.cat-design     { background: #DB2777; }
+.sb-marker.cat-other      { background: #6B7280; }
+
+/* ─── Improved findings list ─── */
+
+.sb-findings-list { padding: 10px 10px 24px; }
+
+.sb-findings-items { display: flex; flex-direction: column; gap: 8px; }
 
 .sb-finding {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left-width: 3px;
   border-radius: var(--r-s);
-  padding: 10px 12px 8px;
+  padding: 12px 12px 10px 12px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
+/* Left border color per category */
+.cat-trust-border      { border-left-color: #4F46E5; }
+.cat-usability-border  { border-left-color: #D97706; }
+.cat-conversion-border { border-left-color: #059669; }
+.cat-perf-border       { border-left-color: #DC2626; }
+.cat-a11y-border       { border-left-color: #2563EB; }
+.cat-content-border    { border-left-color: #7C3AED; }
+.cat-mobile-border     { border-left-color: #0D9488; }
+.cat-seo-border        { border-left-color: #EA580C; }
+.cat-design-border     { border-left-color: #DB2777; }
+.cat-other-border      { border-left-color: var(--border-m); }
+
 .sb-finding-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
-  margin-bottom: 7px;
+  margin-bottom: 9px;
 }
 
 .sb-finding-num {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--bg);
-  border: 1px solid var(--border-m);
   font-size: 10px;
   font-weight: 800;
-  color: var(--tx-3);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   margin-top: 1px;
 }
+/* Number circle colors */
+.cat-trust      { background: #4F46E5; }
+.cat-usability  { background: #D97706; }
+.cat-conversion { background: #059669; }
+.cat-perf       { background: #DC2626; }
+.cat-a11y       { background: #2563EB; }
+.cat-content    { background: #7C3AED; }
+.cat-mobile     { background: #0D9488; }
+.cat-seo        { background: #EA580C; }
+.cat-design     { background: #DB2777; }
+.cat-other      { background: #9CA3AF; }
 
 .sb-finding-desc {
   font-size: 13px;
   font-weight: 500;
   color: var(--tx-1);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .sb-finding-meta {
   display: flex;
   align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .sb-ice-score {
@@ -796,13 +873,12 @@ body {
   padding: 2px 7px;
   border-radius: 4px;
   letter-spacing: 0.2px;
-  margin-right: 2px;
 }
-.sb-ice-score.score-high { background: rgba(220,38,38,0.08);  color: #991B1B; }
-.sb-ice-score.score-mid  { background: rgba(217,119,6,0.08);  color: #92400E; }
-.sb-ice-score.score-low  { background: rgba(5,150,105,0.08);  color: #065F46; }
+.sb-ice-score.score-high { background: rgba(220,38,38,0.09);  color: #991B1B; }
+.sb-ice-score.score-mid  { background: rgba(217,119,6,0.09);  color: #92400E; }
+.sb-ice-score.score-low  { background: rgba(5,150,105,0.09);  color: #065F46; }
 
-.sb-ice-stat {
+.sb-ice-trio {
   font-size: 11px;
   font-weight: 600;
   color: var(--tx-4);
@@ -816,13 +892,16 @@ body {
   border-radius: 3px;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  color: #fff;
+  opacity: 0.85;
 }
-.cat-trust      { background: rgba(99,102,241,0.08); color: #3730A3; }
-.cat-usability  { background: rgba(234,179,8,0.10);  color: #854D0E; }
-.cat-conversion { background: rgba(0,201,167,0.08);  color: #065F46; }
-.cat-perf       { background: rgba(239,68,68,0.08);  color: #991B1B; }
-.cat-a11y       { background: rgba(59,130,246,0.08); color: #1E40AF; }
-.cat-content    { background: rgba(168,85,247,0.08); color: #6B21A8; }
-.cat-mobile     { background: rgba(20,184,166,0.08); color: #0F766E; }
-.cat-seo        { background: rgba(249,115,22,0.08); color: #9A3412; }
-.cat-other      { background: var(--bg); color: var(--tx-4); }
+.sb-cat-tag.cat-trust      { background: rgba(79,70,229,0.10); color: #3730A3; }
+.sb-cat-tag.cat-usability  { background: rgba(217,119,6,0.10);  color: #92400E; }
+.sb-cat-tag.cat-conversion { background: rgba(5,150,105,0.10);  color: #065F46; }
+.sb-cat-tag.cat-perf       { background: rgba(220,38,38,0.10);  color: #991B1B; }
+.sb-cat-tag.cat-a11y       { background: rgba(37,99,235,0.10);  color: #1E40AF; }
+.sb-cat-tag.cat-content    { background: rgba(124,58,237,0.10); color: #6B21A8; }
+.sb-cat-tag.cat-mobile     { background: rgba(13,148,136,0.10); color: #0F766E; }
+.sb-cat-tag.cat-seo        { background: rgba(234,88,12,0.10);  color: #9A3412; }
+.sb-cat-tag.cat-design     { background: rgba(219,39,119,0.10); color: #9D174D; }
+.sb-cat-tag.cat-other      { background: var(--bg); color: var(--tx-4); }

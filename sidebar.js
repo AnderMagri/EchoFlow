@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const PAGE_TYPES = {
     'shopify': [{ value: 'homepage', label: 'Homepage' }, { value: 'pdp', label: 'Product Page' }, { value: 'collection', label: 'Collection' }, { value: 'checkout', label: 'Checkout' }, { value: 'other', label: 'Other' }],
     'fintech': [{ value: 'dashboard', label: 'Dashboard' }, { value: 'onboarding', label: 'Onboarding' }, { value: 'payment', label: 'Payment' }, { value: 'landing', label: 'Landing' }, { value: 'other', label: 'Other' }],
-    'crypto':  [{ value: 'wallet', label: 'Wallet' }, { value: 'exchange', label: 'Exchange' }, { value: 'defi', label: 'DeFi' }, { value: 'onboarding', label: 'Onboarding' }, { value: 'other', label: 'Other' }]
+    'crypto':  [{ value: 'landing', label: 'Landing / Marketing' }, { value: 'wallet', label: 'Wallet' }, { value: 'exchange', label: 'Exchange' }, { value: 'defi', label: 'DeFi' }, { value: 'onboarding', label: 'Onboarding' }, { value: 'other', label: 'Other' }]
   };
 
   document.querySelectorAll('.sb-vertical').forEach(btn => {
@@ -840,15 +840,37 @@ document.addEventListener('DOMContentLoaded', () => {
   const CAT_CLASS = {
     TRUST: 'cat-trust', USABILITY: 'cat-usability', CONVERSION: 'cat-conversion',
     PERFORMANCE: 'cat-perf', ACCESSIBILITY: 'cat-a11y', CONTENT: 'cat-content',
-    MOBILE: 'cat-mobile', SEO: 'cat-seo',
+    MOBILE: 'cat-mobile', SEO: 'cat-seo', DESIGN: 'cat-design',
   };
 
-  function iceScore(ice) {
-    return ((ice.impact + ice.confidence + ice.ease) / 3).toFixed(1);
+  function renderScreenshotSection(screenshot, findings, viewport) {
+    if (!screenshot) return '';
+    const vw = viewport?.width  || 1280;
+    const vh = viewport?.height || 800;
+    const aspectPct = (vh / vw * 100).toFixed(2);
+
+    const markers = findings.filter(f =>
+      f.position && f.position.x >= 0 && f.position.y >= 0 &&
+      f.position.x < vw && f.position.y < vh
+    ).map(f => {
+      const cx = f.position.x + (f.position.width  || 0) / 2;
+      const cy = f.position.y + (f.position.height || 0) / 2;
+      const lPct = Math.min(95, Math.max(1, cx / vw * 100)).toFixed(1);
+      const tPct = Math.min(97, Math.max(1, cy / vh * 100)).toFixed(1);
+      const catCls = CAT_CLASS[(f.category || '').toUpperCase()] || 'cat-other';
+      return `<div class="sb-marker ${catCls}" style="left:${lPct}%;top:${tPct}%" title="#${f.number} ${escHtml(f.description)}">${f.number}</div>`;
+    }).join('');
+
+    return `<div class="sb-screenshot-wrap">
+      <div class="sb-screenshot-inner" style="padding-top:${aspectPct}%">
+        <img src="${screenshot}" class="sb-screenshot-img" alt="">
+        ${markers}
+      </div>
+    </div>`;
   }
 
-  function renderFindings(findings, meta) {
-    const list = document.getElementById('sb-findings-list');
+  function renderFindings(findings, meta, screenshot) {
+    const list   = document.getElementById('sb-findings-list');
     const metaEl = document.getElementById('sb-results-meta');
     if (!list) return;
 
@@ -856,32 +878,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const device   = meta?.device   || '';
     metaEl.textContent = `${findings.length} findings · ${vertical} · ${device}`;
 
-    list.innerHTML = findings.map(f => {
-      const score = iceScore(f.ice);
+    const screenshotHtml = renderScreenshotSection(screenshot, findings, meta?.viewport);
+
+    const findingsHtml = findings.map(f => {
+      const score    = ((f.ice.impact + f.ice.confidence + f.ice.ease) / 3).toFixed(1);
       const scoreNum = parseFloat(score);
-      const scoreClass = scoreNum >= 7.5 ? 'score-high' : scoreNum >= 5 ? 'score-mid' : 'score-low';
-      const catCls = CAT_CLASS[f.category] || 'cat-other';
+      const scoreCls = scoreNum >= 7.5 ? 'score-high' : scoreNum >= 5 ? 'score-mid' : 'score-low';
+      const catKey   = (f.category || '').toUpperCase();
+      const catCls   = CAT_CLASS[catKey] || 'cat-other';
       return `
-        <div class="sb-finding">
+        <div class="sb-finding ${catCls}-border">
           <div class="sb-finding-row">
-            <span class="sb-finding-num">${f.number}</span>
-            <span class="sb-finding-desc">${escHtml(f.description)}</span>
+            <div class="sb-finding-num ${catCls}">${f.number}</div>
+            <div class="sb-finding-desc">${escHtml(f.description)}</div>
           </div>
           <div class="sb-finding-meta">
-            <span class="sb-ice-score ${scoreClass}">${score}</span>
-            <span class="sb-ice-stat">I:${f.ice.impact}</span>
-            <span class="sb-ice-stat">C:${f.ice.confidence}</span>
-            <span class="sb-ice-stat">E:${f.ice.ease}</span>
+            <span class="sb-ice-score ${scoreCls}">${score}</span>
+            <span class="sb-ice-trio">I:${f.ice.impact} · C:${f.ice.confidence} · E:${f.ice.ease}</span>
             <span class="sb-cat-tag ${catCls}">${f.category}</span>
           </div>
         </div>`;
     }).join('');
+
+    list.innerHTML = screenshotHtml + `<div class="sb-findings-items">${findingsHtml}</div>`;
   }
 
-  function showAuditResults(findings, meta) {
+  function showAuditResults(results) {
     auditForm.style.display = 'none';
     auditResults.style.display = 'block';
-    renderFindings(findings, meta);
+    renderFindings(results.findings, results.meta, results.screenshot);
   }
 
   function showAuditForm() {
@@ -911,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (result?.success) {
         auditStatus.textContent = '';
         auditStatus.className = 'sb-status';
-        showAuditResults(result.results.findings, result.results.meta);
+        showAuditResults(result.results);
       } else {
         throw new Error(result?.error || 'Audit failed');
       }
