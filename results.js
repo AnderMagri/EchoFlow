@@ -68,136 +68,15 @@
     document.getElementById('audit-time').textContent = date.toLocaleString();
   }
 
-  // ── Preview Mode State ──
+  // ── Screenshot (only mode) ──
 
-  let previewMode = 'live'; // 'live' | 'screenshot'
-
-  function setPreviewMode(mode) {
-    previewMode = mode;
-    document.getElementById('btn-mode-live')?.classList.toggle('preview-mode-btn--active', mode === 'live');
-    document.getElementById('btn-mode-screenshot')?.classList.toggle('preview-mode-btn--active', mode === 'screenshot');
-  }
-
-  // ── Render Preview (dispatches to live or screenshot mode) ──
-
-  function renderScreenshot() { renderPreview(); }  // alias for legacy call sites
-
-  function renderPreview() {
-    if (previewMode === 'live') {
-      renderLivePreview();
-    } else {
-      renderStaticScreenshot();
-    }
-  }
-
-  // ── Live Preview (iframe) ──
-
-  async function renderLivePreview() {
-    const wrap     = document.getElementById('live-preview-wrap');
-    const iframe   = document.getElementById('live-preview-iframe');
-    const loading  = document.getElementById('live-preview-loading');
-    const img      = document.getElementById('screenshot-img');
-    const ph       = document.getElementById('screenshot-placeholder');
-    const liveStatus = document.getElementById('live-status');
-
-    // Hide screenshot elements
-    img.style.display = 'none';
-    if (ph) ph.style.display = 'none';
-
-    // Compute scaled dimensions
-    const vw      = auditData.meta.viewport?.width  || 1280;
-    const vh      = auditData.meta.viewport?.height || 800;
-    const panel   = document.getElementById('screenshot-panel');
-    const padded  = (panel?.clientWidth || 600) - 32;  // 16px padding each side
-    const scale   = padded / vw;
-    const dispW   = Math.round(vw * scale);
-    const dispH   = Math.round(vh * scale);
-
-    // Size the container and wrap
-    const container = document.getElementById('screenshot-container');
-    container.style.width  = dispW + 'px';
-    container.style.height = dispH + 'px';
-    container.style.display = 'block';
-
-    wrap.style.width  = dispW + 'px';
-    wrap.style.height = dispH + 'px';
-    wrap.style.display = 'block';
-
-    // Stash for renderMarkers
-    wrap.dataset.dispW  = dispW;
-    wrap.dataset.dispH  = dispH;
-    wrap.dataset.srcW   = vw;
-    wrap.dataset.srcH   = vh;
-
-    // Don't reload if already showing the same URL
-    if (iframe.dataset.loadedUrl === auditData.meta.url) {
-      loading.style.display = 'none';
-      iframe.style.display  = 'block';
-      renderMarkers();
-      return;
-    }
-
-    // Check if the site allows embedding
-    if (liveStatus) liveStatus.textContent = '';
-    loading.style.display = 'flex';
-    iframe.style.display  = 'none';
-
-    let blocked = false;
-    try {
-      const check = await chrome.runtime.sendMessage({ action: 'CHECK_FRAME_OPTIONS', url: auditData.meta.url });
-      blocked = check?.blocked || false;
-    } catch (_) { /* bg not reachable — try anyway */ }
-
-    if (blocked) {
-      loading.style.display = 'none';
-      if (liveStatus) {
-        liveStatus.textContent = 'Site blocks embedding — use Screenshot mode';
-        liveStatus.className = 'live-status live-status--blocked';
-      }
-      // Gracefully fall back: auto-switch to screenshot mode
-      setTimeout(() => {
-        setPreviewMode('screenshot');
-        renderStaticScreenshot();
-      }, 1800);
-      return;
-    }
-
-    // Load the iframe
-    iframe.style.width  = vw + 'px';
-    iframe.style.height = Math.max(vh, auditData.meta.scrollHeight || vh * 3) + 'px';
-    iframe.style.transform       = `scale(${scale})`;
-    iframe.style.transformOrigin = 'top left';
-
-    iframe.onload = () => {
-      loading.style.display = 'none';
-      iframe.style.display  = 'block';
-      iframe.dataset.loadedUrl = auditData.meta.url;
-      if (liveStatus) { liveStatus.textContent = ''; liveStatus.className = 'live-status'; }
-      renderMarkers();
-    };
-
-    iframe.onerror = () => {
-      loading.style.display = 'none';
-      if (liveStatus) {
-        liveStatus.textContent = 'Failed to load — switch to Screenshot';
-        liveStatus.className = 'live-status live-status--blocked';
-      }
-    };
-
-    if (liveStatus) { liveStatus.textContent = 'Loading…'; liveStatus.className = 'live-status live-status--loading'; }
-    iframe.src = auditData.meta.url;
-  }
-
-  // ── Static Screenshot ──
+  function renderScreenshot() { renderStaticScreenshot(); }
+  function renderPreview()    { renderStaticScreenshot(); }
 
   function renderStaticScreenshot() {
-    const wrap    = document.getElementById('live-preview-wrap');
-    const img     = document.getElementById('screenshot-img');
-    const panel   = document.getElementById('screenshot-panel');
+    const img       = document.getElementById('screenshot-img');
     const container = document.getElementById('screenshot-container');
 
-    // Hide live preview, reset container to auto-size
-    wrap.style.display = 'none';
     container.style.width  = '';
     container.style.height = '';
     container.style.display = '';
@@ -3463,25 +3342,18 @@
       loadProjectSidebar(projectId);
     }
 
-    // Resize observer — re-render markers when panel resizes (handles both live + screenshot)
+    // Resize observer — re-render markers when panel resizes.
+    // rAF defers the work until after the browser finishes layout,
+    // preventing the "ResizeObserver loop" warning.
     const resizeTarget = document.getElementById('screenshot-panel');
     if (resizeTarget) {
+      let rafId;
       const observer = new ResizeObserver(() => {
-        if (previewMode === 'live') renderLivePreview();
-        else renderMarkers();
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => renderMarkers());
       });
       observer.observe(resizeTarget);
     }
-
-    // ── Preview mode toggle ──
-    document.getElementById('btn-mode-live')?.addEventListener('click', () => {
-      setPreviewMode('live');
-      renderLivePreview();
-    });
-    document.getElementById('btn-mode-screenshot')?.addEventListener('click', () => {
-      setPreviewMode('screenshot');
-      renderStaticScreenshot();
-    });
 
     // ── Tabs ──
     document.querySelectorAll('.tab-btn').forEach(btn => {

@@ -87,36 +87,10 @@
       <div id="sidebar-audit-list" class="sidebar-audit-list"></div>
     </aside>
 
-    <!-- Left: Live Preview / Screenshot + Markers -->
+    <!-- Left: Screenshot + Markers -->
     <div class="screenshot-panel" id="screenshot-panel">
-
-      <!-- Mode toggle toolbar -->
-      <div class="preview-toolbar">
-        <div class="preview-mode-pills">
-          <button id="btn-mode-live" class="preview-mode-btn preview-mode-btn--active" title="Render the live website">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M22 12c-2.667 4.667-6 7-10 7s-7.333-2.333-10-7c2.667-4.667 6-7 10-7s7.333 2.333 10 7"/></svg>
-            Live
-          </button>
-          <button id="btn-mode-screenshot" class="preview-mode-btn" title="Static screenshot with all markers">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            Screenshot
-          </button>
-        </div>
-        <span id="live-status" class="live-status"></span>
-      </div>
-
       <div id="screenshot-container" class="screenshot-container">
-        <!-- Live preview iframe -->
-        <div id="live-preview-wrap" class="live-preview-wrap">
-          <div id="live-preview-loading" class="live-preview-loading">
-            <svg class="live-spinner" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" stroke="#00C9A7" stroke-width="3" fill="none" stroke-dasharray="50 20" stroke-linecap="round"/></svg>
-            <span>Loading live preview…</span>
-          </div>
-          <iframe id="live-preview-iframe" class="live-preview-iframe" title="Live page preview" style="display:none;"></iframe>
-        </div>
-        <!-- Static screenshot -->
         <img id="screenshot-img" class="screenshot-img" alt="Page screenshot" style="display:none;">
-        <!-- Markers overlay (works for both modes) -->
         <div id="markers-layer" class="markers-layer"></div>
       </div>
     </div>

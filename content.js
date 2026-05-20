@@ -387,6 +387,7 @@
     const animationMap  = {};   // name → { duration, count }
     const contrastPairs = [];   // WCAG pairs (capped at 15)
     const seenPairs     = new Set();
+    const gradients     = {};   // backgroundImage gradient → count
 
     function relativeLuminance(rgb) {
       const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
@@ -452,6 +453,13 @@
       // Box shadow
       const bs = cs.boxShadow;
       if (bs && bs !== 'none') shadows[bs] = (shadows[bs] || 0) + 1;
+
+      // Background gradients
+      const bi = cs.backgroundImage;
+      if (bi && bi !== 'none' && bi.includes('gradient')) {
+        const gKey = bi.length > 120 ? bi.slice(0, 120) + '…' : bi;
+        gradients[gKey] = (gradients[gKey] || 0) + 1;
+      }
 
       // Text align
       const ta = cs.textAlign;
@@ -947,6 +955,7 @@
       spacingGridRatio: totalSpacing > 0 ? Math.round((onGrid / totalSpacing) * 100) : 0,
       borderRadii: toSorted(radii),
       shadows: toSorted(shadows),
+      gradients: toSorted(gradients).slice(0, 10),
       textAlignments: toSorted(aligns),
       imageFormats,
       hasLazyLoading,
