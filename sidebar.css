@@ -740,6 +740,51 @@ body {
 }
 .sb-results-fullreport:hover { color: var(--brand); border-color: var(--brand); }
 
+/* ─── Screenshot mode toggle (reuses .sb-device style) ─── */
+
+.sb-screenshot-mode {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-m);
+  border-radius: var(--r-s);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tx-3);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.sb-screenshot-mode.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  font-weight: 700;
+}
+.sb-screenshot-mode:not(.active):hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* ─── Legacy results fullreport button (still used for "Open Report" button) ─── */
+
+.sb-results-fullreport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-m);
+  border-radius: var(--r-s);
+  background: transparent;
+  color: var(--tx-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.1s, border-color 0.1s;
+}
+.sb-results-fullreport:hover { color: var(--brand); border-color: var(--brand); }
+
 /* ─── Screenshot with markers ─── */
 
 .sb-screenshot-wrap {

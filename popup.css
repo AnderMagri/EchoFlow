@@ -7,14 +7,18 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
-  color: #1a1a2e;
-  background: #fff;
+  color: #111827;
+  background: #ECEEF2;
   width: 420px;
-  min-height: 560px;
+  height: 640px;
+  overflow: hidden;
 }
 
 .popup {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Header */
@@ -80,18 +84,23 @@ body {
   border-bottom-color: #00C9A7;
 }
 
-/* Tab Content */
+/* Tab Content — fixed height popup, content scrolls inside each tab */
 .popup-tab-content {
   display: none;
 }
 
 .popup-tab-content.active {
   display: block;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding-bottom: 16px;
 }
 
 /* Sections */
 .section {
-  padding: 12px 16px 0;
+  padding: 14px 14px 0;
 }
 
 .section-label {
@@ -106,9 +115,8 @@ body {
 
 .section-hint {
   font-size: 11px;
-  color: #999;
-  margin: -4px 0 8px;
-  padding: 0 16px;
+  color: #9CA3AF;
+  margin: -2px 0 10px;
   line-height: 1.4;
 }
 
@@ -124,24 +132,22 @@ body {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 7px;
   background: #fff;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.12s, color 0.12s;
   font-family: inherit;
   font-size: 12px;
 }
 
 .vertical-card:hover {
   border-color: #00C9A7;
-  background: #f0fdf9;
 }
 
 .vertical-card.active {
   border-color: #00C9A7;
-  background: #f0fdf9;
-  box-shadow: 0 0 0 1px #00C9A7;
+  background: rgba(0,201,167,0.05);
 }
 
 .vertical-icon {
@@ -182,7 +188,7 @@ body {
   display: block;
   text-align: center;
   padding: 8px 4px;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
@@ -192,9 +198,8 @@ body {
 
 .mode-option input:checked + .mode-label {
   border-color: #00C9A7;
-  background: #f0fdf9;
-  color: #00996e;
-  box-shadow: 0 0 0 1px #00C9A7;
+  background: rgba(0,201,167,0.05);
+  color: #00816c;
 }
 
 .mode-label:hover {
@@ -217,13 +222,12 @@ body {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease;
   font-family: inherit;
 }
 
 .btn-primary:hover {
-  background: #00b396;
-  box-shadow: 0 2px 8px rgba(0,201,167,0.35);
+  background: #00A88C;
 }
 
 .btn-primary:disabled {
@@ -250,7 +254,7 @@ body {
   padding: 10px;
   background: transparent;
   color: #666;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
@@ -285,7 +289,7 @@ body {
   padding: 5px 10px;
   background: transparent;
   color: #888;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
@@ -352,7 +356,7 @@ body {
 .page-type-select {
   width: 100%;
   padding: 8px 10px;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
@@ -371,14 +375,13 @@ body {
 .page-type-select:focus {
   outline: none;
   border-color: #00C9A7;
-  box-shadow: 0 0 0 1px #00C9A7;
 }
 
 /* Text Input */
 .text-input {
   flex: 1;
   padding: 7px 10px;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 6px;
   font-size: 12px;
   font-family: inherit;
@@ -389,7 +392,6 @@ body {
 .text-input:focus {
   outline: none;
   border-color: #00C9A7;
-  box-shadow: 0 0 0 1px #00C9A7;
 }
 
 /* ── Project Tab ── */
@@ -402,7 +404,7 @@ body {
 
 .project-info-card {
   background: #f8f9fa;
-  border: 1px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -423,7 +425,7 @@ body {
 .batch-textarea {
   width: 100%;
   padding: 8px 10px;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 6px;
   font-size: 12px;
   font-family: inherit;
@@ -436,32 +438,31 @@ body {
 .batch-textarea:focus {
   outline: none;
   border-color: #00C9A7;
-  box-shadow: 0 0 0 1px #00C9A7;
 }
 
 .discover-controls {
   display: flex;
   gap: 6px;
-  padding: 0 16px;
+  margin-top: 2px;
 }
 
 .btn-discover {
   flex: 1;
   font-size: 11px;
-  padding: 6px 10px;
+  padding: 7px 10px;
 }
 
 .discover-progress {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
+  padding: 6px 0;
   font-size: 11px;
   color: #888;
 }
 
 .discover-summary {
-  padding: 8px 16px;
+  padding: 8px 0;
 }
 
 .discover-total {
@@ -488,7 +489,7 @@ body {
 .discover-view-toggle {
   display: inline-flex;
   gap: 0;
-  border: 1px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 0;
   overflow: hidden;
   margin-left: auto;
@@ -799,11 +800,6 @@ body {
   padding: 10px 12px;
   margin-bottom: 8px;
   background: #fff;
-  transition: box-shadow 0.15s;
-}
-
-.explorer-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 
 .explorer-card-main {
@@ -928,7 +924,7 @@ body {
   align-items: center;
   gap: 5px;
   padding: 10px 4px 8px;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 8px;
   background: #fff;
   color: #888;
@@ -975,7 +971,7 @@ body {
   align-items: center;
   gap: 5px;
   padding: 10px 4px 8px;
-  border: 1.5px solid #e0e0e0;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 8px;
   background: #fff;
   color: #888;
@@ -1162,9 +1158,7 @@ body {
 .ds-scan-bar {
   display: flex;
   gap: 8px;
-  padding: 10px 14px;
-  background: #fff;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding: 12px 12px 0;
   flex-shrink: 0;
 }
 
@@ -1195,8 +1189,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 48px 24px;
+  gap: 14px;
+  padding: 52px 28px;
   text-align: center;
   color: #9CA3AF;
   font-size: 13px;
@@ -1205,7 +1199,7 @@ body {
 
 /* ── Health Overview ── */
 
-.ds-health-overview { padding: 10px 12px 0; }
+.ds-health-overview { padding: 14px 12px 6px; }
 
 .sb-health-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 
@@ -1242,12 +1236,11 @@ body {
 /* ── Design Cards ── */
 
 .ds-design-card {
-  margin: 6px 12px 0;
+  margin: 8px 12px 0;
   background: #fff;
-  border: 1px solid rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 7px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .ds-design-card:last-of-type { margin-bottom: 14px; }
 
@@ -1318,7 +1311,7 @@ body {
   overflow: hidden;
   background: #fff;
 }
-.ds-color-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.09); }
+.ds-color-card:hover { border-color: rgba(0,0,0,0.20); }
 
 .ds-color-preview { height: 48px; width: 100%; }
 .ds-color-info    { padding: 5px 6px 4px; }
@@ -1519,16 +1512,38 @@ body {
 }
 .ds-export-btn:hover { border-color: #00C9A7; color: #065F46; }
 
+/* ── Explorer: Detect Tech Stack button ── */
+
+.ex-detect-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 14px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.12s, color 0.12s;
+}
+.ex-detect-btn:hover    { border-color: #00C9A7; color: #065F46; }
+.ex-detect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Page Review cards (match Design tab visual style) ── */
 
 .pr-card {
   margin: 10px 12px 0;
   background: #fff;
-  border: 1px solid rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 7px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  padding: 14px;
 }
+.pr-card:last-of-type { margin-bottom: 4px; }
 
 .pr-card-label {
   font-size: 10px;
@@ -1536,5 +1551,5 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #9CA3AF;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }

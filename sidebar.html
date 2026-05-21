@@ -99,6 +99,20 @@
           </div>
         </section>
 
+        <section class="sb-section">
+          <label class="sb-label">Screenshot</label>
+          <div class="sb-device-row">
+            <button class="sb-screenshot-mode active" data-screenshot-mode="viewport">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Viewport
+            </button>
+            <button class="sb-screenshot-mode" data-screenshot-mode="full_page">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+              Full Page
+            </button>
+          </div>
+        </section>
+
         <button id="sb-run-audit-btn" class="sb-btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="sb-run-audit-label">Run Full Audit</span>
@@ -107,7 +121,7 @@
         <div id="sb-audit-status" class="sb-status"></div>
       </div>
 
-      <!-- ── Audit Results (shown after audit completes) ── -->
+      <!-- ── Audit Results (inline) ── -->
       <div id="sb-audit-results" style="display:none;">
         <div class="sb-results-topbar">
           <button id="sb-results-back" class="sb-results-back" title="Back to settings">
@@ -214,7 +228,7 @@
         <button id="sb-save-settings" class="sb-btn-primary" style="margin-top:8px;">Save</button>
         <div id="sb-settings-status" class="sb-status"></div>
       </section>
-      <div class="sb-settings-version">EchoFlow v2.8</div>
+      <div class="sb-settings-version">EchoFlow v3.0</div>
     </div>
 
   </div>

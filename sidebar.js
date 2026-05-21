@@ -797,8 +797,9 @@ document.addEventListener('DOMContentLoaded', () => {
   //  Audit Tab
   // ═══════════════════════════════════════
 
-  let selectedVertical = 'generic-ux';
-  let selectedDevice   = 'desktop';
+  let selectedVertical      = 'generic-ux';
+  let selectedDevice        = 'desktop';
+  let selectedScreenshotMode = 'viewport';
 
   const PAGE_TYPES = {
     'shopify': [{ value: 'homepage', label: 'Homepage' }, { value: 'pdp', label: 'Product Page' }, { value: 'collection', label: 'Collection' }, { value: 'checkout', label: 'Checkout' }, { value: 'other', label: 'Other' }],
@@ -820,6 +821,14 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.sb-device').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedDevice = btn.dataset.device;
+    });
+  });
+
+  document.querySelectorAll('.sb-screenshot-mode').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sb-screenshot-mode').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedScreenshotMode = btn.dataset.screenshotMode;
     });
   });
 
@@ -923,7 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
   runAuditBtn?.addEventListener('click', async () => {
     runAuditBtn.disabled = true;
     runAuditLabel.textContent = 'Auditing…';
-    auditStatus.textContent = 'Capturing page…';
+    auditStatus.textContent = selectedScreenshotMode === 'full_page' ? 'Capturing full page…' : 'Capturing viewport…';
     auditStatus.className = 'sb-status loading';
 
     try {
@@ -931,12 +940,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const pageType = PAGE_TYPES[selectedVertical] ? pageTypeSelect?.value : null;
       const result = await chrome.runtime.sendMessage({
         action: 'START_AUDIT', vertical: selectedVertical, pageType,
-        mode: 'viewport', device: selectedDevice, projectId: null
+        mode: 'viewport', device: selectedDevice, projectId: null,
+        screenshotMode: selectedScreenshotMode
       });
       if (result?.success) {
         auditStatus.textContent = '';
         auditStatus.className = 'sb-status';
-        showAuditResults(result.results);
+        // Read full results from storage (background stored them there)
+        const stored = await chrome.storage.local.get('echoflowResults');
+        if (stored.echoflowResults) {
+          showAuditResults(stored.echoflowResults);
+        }
       } else {
         throw new Error(result?.error || 'Audit failed');
       }

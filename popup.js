@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Load explorations when switching to explorer tab
       if (tab.dataset.popupTab === 'explorer') {
         loadExplorerTab();
+        // Populate tech card from last design scan if available
+        if (dsLastInventory) populateExplorerTechCard(dsLastInventory);
       }
       // Warn if the current site is already on Shopify
       if (tab.dataset.popupTab === 'shopify-adapt') {
@@ -60,6 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
 
   const PAGE_TYPES = {
+    'generic-ux': [
+      { value: 'homepage',    label: 'Homepage' },
+      { value: 'landing',     label: 'Landing Page' },
+      { value: 'about',       label: 'About / Team' },
+      { value: 'pricing',     label: 'Pricing' },
+      { value: 'blog',        label: 'Blog / Article' },
+      { value: 'contact',     label: 'Contact' },
+      { value: 'other',       label: 'Other' },
+    ],
     'shopify': [
       { value: 'homepage', label: 'Homepage' },
       { value: 'pdp', label: 'Product Detail Page (PDP)' },
@@ -339,6 +350,41 @@ document.addEventListener('DOMContentLoaded', () => {
       container.innerHTML = '<div class="explorer-empty"><p>Could not load explorations.</p></div>';
     }
   }
+
+  // ── Explorer: Tech Stack ──
+
+  function populateExplorerTechCard(inv) {
+    const el  = document.getElementById('ex-card-tech');
+    const btn = document.getElementById('ex-tech-scan-btn');
+    if (!el) return;
+    const html = dsRenderTechCard(inv);
+    if (html) {
+      el.innerHTML = html;
+      el.style.display = '';
+      el.classList.add('ds-card-expanded');
+      el.querySelector('.ds-card-head')?.addEventListener('click', () => {
+        el.classList.toggle('ds-card-expanded');
+      });
+      if (btn) btn.style.display = 'none';
+    }
+  }
+
+  document.getElementById('ex-tech-scan-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('ex-tech-scan-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'LIVE_DESIGN_SCAN' });
+      if (result?.success) {
+        dsLastInventory = result.inventory;
+        dsLastUrl       = result.url;
+        populateExplorerTechCard(result.inventory);
+      }
+    } catch (_) {}
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Detect Tech Stack`;
+    }
+  });
 
   function formatTimeAgo(timestamp) {
     const diff = Date.now() - timestamp;

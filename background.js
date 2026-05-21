@@ -443,7 +443,7 @@ async function injectShopifyMainWorld(tabId) {
 
 // ── Main Audit Orchestration ──
 
-async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, device = 'desktop', openTab = true) {
+async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, device = 'desktop', openTab = true, screenshotMode = 'viewport') {
   const origin = new URL(tabUrl).origin;
 
   // Step 1: Load rules — merge mobile rules when running a mobile/tablet audit
@@ -495,8 +495,12 @@ async function runAudit(tabId, tabUrl, vertical, mode, resolution, pageType, dev
   // Step 7: Evaluate rules
   const findings = evaluateRules(rules, domData);
 
-  // Step 7b: Capture screenshot now while the tab is still active (before results page opens)
-  const screenshot = await captureViewport(tabId, '100').catch(() => null);
+  // Step 7b: Capture screenshot (timeout prevents full-page from hanging indefinitely)
+  const screenshotTimeout = new Promise(resolve => setTimeout(() => resolve(null), 60000));
+  const screenshot = await Promise.race([
+    captureScreenshot(tabId, resolution, screenshotMode).catch(() => null),
+    screenshotTimeout
+  ]);
 
   // Step 8: Assemble results
   const results = {
@@ -1496,7 +1500,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // ── Page Review ──
 
   if (message.action === 'START_AUDIT') {
-    const { vertical, pageType, mode, device = 'desktop', projectId } = message;
+    const { vertical, pageType, mode, device = 'desktop', projectId, screenshotMode = 'viewport' } = message;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs[0]) {
@@ -1561,12 +1565,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // ── Mobile / Tablet emulation mode ──
           const profile = DEVICE_PROFILES[device];
           result = await withMobileEmulation(tabId, profile, (tid) =>
-            runAudit(tid, tabUrl, vertical, mode, '100', pageType, device, false)
+            runAudit(tid, tabUrl, vertical, mode, '100', pageType, device, true, screenshotMode)
           );
 
         } else {
           // ── Desktop: current tab, current viewport ──
-          result = await runAudit(tabId, tabUrl, vertical, mode, '100', pageType, 'desktop', false);
+          result = await runAudit(tabId, tabUrl, vertical, mode, '100', pageType, 'desktop', true, screenshotMode);
         }
 
         // Auto-save to project if one is active
@@ -1584,7 +1588,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           } catch (_) {}
         }
 
-        sendResponse(result);
+        // Slim response — sidebar reads full results from storage, only needs the count
+        sendResponse(result?.success
+          ? { success: true, findingCount: result.findingCount ?? 0 }
+          : { success: false, error: result?.error || 'Audit failed' });
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
