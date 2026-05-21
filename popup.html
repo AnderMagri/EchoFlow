@@ -17,31 +17,57 @@
         </svg>
         <span class="logo-text">EchoFlow</span>
       </div>
-      <div style="display:inline-flex;align-items:center;gap:6px;">
-        <span class="version">v1.1</span>
-        <button id="btn-open-sidebar" class="btn-sidebar-pin" title="Open in sidebar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7"/><rect x="8" y="5" width="8" height="5" rx="1"/>
-          </svg>
-        </button>
-      </div>
+      <span class="version">v1.1</span>
     </header>
 
     <!-- Main Tabs -->
     <nav class="popup-tabs">
-      <button class="popup-tab active" data-popup-tab="page-review">Page Review</button>
+      <button class="popup-tab active" data-popup-tab="design">Design</button>
+      <button class="popup-tab" data-popup-tab="page-review">Page Review</button>
       <button class="popup-tab" data-popup-tab="explorer">Explorer</button>
-      <button class="popup-tab" data-popup-tab="shopify-adapt">Shopify Migration</button>
-      <button class="popup-tab" data-popup-tab="journey">Journey</button>
-      <!-- Project tab hidden — kept for future use -->
+      <button class="popup-tab" data-popup-tab="shopify-adapt">Migration</button>
+      <!-- Hidden tabs -->
+      <button class="popup-tab" data-popup-tab="journey" style="display:none;">Journey</button>
       <button class="popup-tab" data-popup-tab="project-review" style="display:none;">Project</button>
     </nav>
 
+    <!-- ═══ Design Tab ═══ -->
+    <div id="tab-design" class="popup-tab-content active">
+      <!-- Scan bar -->
+      <div class="ds-scan-bar">
+        <button id="ds-scan-btn" class="ds-scan-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span id="ds-scan-label">Scan Design</span>
+        </button>
+      </div>
+
+      <!-- Empty state -->
+      <div id="ds-design-empty" class="ds-empty-state">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#D1D5DB"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+        <p>Scan the current page to extract its design system — colors, typography, spacing, and icons.</p>
+      </div>
+
+      <!-- Results container (hidden until scan) -->
+      <div id="ds-design-results" style="display:none;">
+        <div id="ds-health-overview" class="ds-health-overview"></div>
+        <div id="ds-card-color" class="ds-design-card"></div>
+        <div id="ds-card-typography" class="ds-design-card"></div>
+        <div id="ds-card-structure" class="ds-design-card"></div>
+        <div id="ds-card-access" class="ds-design-card"></div>
+        <div id="ds-card-tech" class="ds-design-card"></div>
+        <div id="ds-scanned-url" class="ds-scanned-url"></div>
+      </div>
+
+      <div id="ds-design-status" class="status"></div>
+    </div>
+
     <!-- ═══ Page Review Tab ═══ -->
-    <div id="tab-page-review" class="popup-tab-content active">
+    <div id="tab-page-review" class="popup-tab-content">
       <div id="capture-panel">
-        <section class="section">
-          <label class="section-label">Audit Vertical</label>
+
+        <!-- Vertical card -->
+        <div class="pr-card">
+          <div class="pr-card-label">Audit Vertical</div>
           <div class="vertical-grid">
             <button class="vertical-card active" data-vertical="generic-ux">
               <span class="vertical-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
@@ -60,16 +86,16 @@
               <span class="vertical-name">Crypto</span>
             </button>
           </div>
-        </section>
+          <!-- Page Type (shown when vertical has sub-types) -->
+          <div id="page-type-section" style="display:none;">
+            <div class="pr-card-label" style="margin-top:12px;">Page Type</div>
+            <select id="page-type-select" class="page-type-select"></select>
+          </div>
+        </div>
 
-        <!-- Page Type Sub-selector (hidden for generic-ux) -->
-        <section id="page-type-section" class="section" style="display:none;">
-          <label class="section-label">Page Type</label>
-          <select id="page-type-select" class="page-type-select"></select>
-        </section>
-
-        <section class="section">
-          <label class="section-label">Device</label>
+        <!-- Device + Screenshot card -->
+        <div class="pr-card">
+          <div class="pr-card-label">Device</div>
           <div class="device-grid">
             <button class="device-card active" data-device="desktop" title="Current browser viewport">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -89,25 +115,37 @@
             </button>
           </div>
           <div id="device-info" class="device-info">Current browser viewport</div>
-        </section>
 
-        <button id="run-audit-btn" class="btn-primary">
-          <span class="btn-text">Run Audit</span>
-          <span class="btn-spinner" style="display:none;">
-            <svg width="16" height="16" viewBox="0 0 16 16" class="spinner">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30 10" stroke-linecap="round"/>
-            </svg>
-          </span>
-        </button>
+          <div class="pr-card-label" style="margin-top:12px;">Screenshot</div>
+          <div class="device-grid">
+            <button class="screenshot-mode-card active" data-screenshot-mode="viewport">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span>Viewport</span>
+            </button>
+            <button class="screenshot-mode-card" data-screenshot-mode="full_page">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+              <span>Full Page</span>
+            </button>
+          </div>
+        </div>
 
-        <div id="status" class="status"></div>
+        <!-- Run Audit action bar -->
+        <div class="ds-scan-bar">
+          <button id="run-audit-btn" class="ds-scan-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><polyline points="21 21 16.65 16.65"/></svg>
+            <span class="btn-text">Run Audit</span>
+            <span class="btn-spinner" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 16 16" class="spinner">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30 10" stroke-linecap="round"/>
+              </svg>
+            </span>
+          </button>
+        </div>
 
-        <div class="divider"></div>
-
-        <button id="load-audit-btn" class="btn-secondary">
-          Load Saved Audit
-        </button>
+        <div id="status" class="status" style="padding:4px 14px 8px;"></div>
         <input type="file" id="file-input" accept=".echoflow,.json" style="display:none;">
+        <!-- load-audit-btn hidden for now -->
+        <button id="load-audit-btn" style="display:none;"></button>
       </div>
     </div>
 

@@ -12,8 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnText = runBtn.querySelector('.btn-text');
   const btnSpinner = runBtn.querySelector('.btn-spinner');
 
-  let selectedVertical = 'generic-ux';
-  let selectedDevice = 'desktop';
+  let selectedVertical      = 'generic-ux';
+  let selectedDevice        = 'desktop';
+  let selectedScreenshotMode = 'viewport';
 
   // ══════════════════════════════════════════════
   //  Tab Switching
@@ -133,6 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const deviceInfoEl = document.getElementById('device-info');
+  document.querySelectorAll('.screenshot-mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.screenshot-mode-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      selectedScreenshotMode = card.dataset.screenshotMode;
+    });
+  });
+
   document.querySelectorAll('.device-card').forEach(card => {
     card.addEventListener('click', () => {
       document.querySelectorAll('.device-card').forEach(c => c.classList.remove('active'));
@@ -170,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pageType: pageType,
         mode: mode,
         device: device,
-        projectId: activeProjectId || null
+        projectId: activeProjectId || null,
+        screenshotMode: selectedScreenshotMode
       });
 
       if (result?.success) {
@@ -1913,12 +1923,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ── Sidebar pin button ──
-  document.getElementById('btn-open-sidebar')?.addEventListener('click', () => {
-    chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT }).catch(() => {});
-    window.close();
-  });
-
   // ══════════════════════════════════════════════
   //  Journey Audit Tab
   // ══════════════════════════════════════════════
@@ -2128,7 +2132,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial state check on load (in case popup was opened while recording on the journey tab)
   chrome.runtime.sendMessage({ action: 'JOURNEY_STATUS' }).then(r => {
     if (r?.journey?.recording) {
-      // Only auto-refresh/poll if the journey tab is currently active
       const activeTab = document.querySelector('.popup-tab.active');
       if (activeTab?.dataset?.popupTab === 'journey') {
         refreshJourneyUI();
@@ -2136,4 +2139,624 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // ══════════════════════════════════════════════
+  //  Design Tab — Live Design Scan
+  // ══════════════════════════════════════════════
+
+  const IC = {
+    palette:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
+    type:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+    layout:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+    svgIcon:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 22 22 7 12 2"/></svg>`,
+    chevron:  `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    copy:     `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+    download: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+    tech:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+  };
+
+  const SYSTEM_FONTS = new Set([
+    '-apple-system','blinkmacsystemfont','segoe ui','helvetica neue','helvetica',
+    'arial','sans-serif','serif','monospace','times new roman','georgia',
+    'trebuchet ms','verdana','tahoma','courier new','courier','system-ui',
+    'ui-sans-serif','ui-serif','ui-monospace','cursive','fantasy',
+  ]);
+
+  let dsLastInventory = null;
+  let dsLastUrl = null;
+
+  const dsScanBtn     = document.getElementById('ds-scan-btn');
+  const dsScanLabel   = document.getElementById('ds-scan-label');
+  const dsEmpty       = document.getElementById('ds-design-empty');
+  const dsResults     = document.getElementById('ds-design-results');
+  const dsStatusEl    = document.getElementById('ds-design-status');
+
+  dsScanBtn?.addEventListener('click', async () => {
+    dsScanBtn.disabled = true;
+    dsScanLabel.textContent = 'Scanning…';
+    if (dsStatusEl) { dsStatusEl.textContent = 'Analyzing…'; dsStatusEl.className = 'status'; }
+    if (dsEmpty) dsEmpty.style.display = 'none';
+    if (dsResults) dsResults.style.display = 'none';
+
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'LIVE_DESIGN_SCAN' });
+      if (!result?.success) throw new Error(result?.error || 'Scan failed');
+
+      dsLastInventory = result.inventory;
+      dsLastUrl = result.url;
+      dsRenderDesignResults(result.inventory, result.url);
+      if (dsResults) dsResults.style.display = 'block';
+      if (dsStatusEl) dsStatusEl.textContent = '';
+    } catch (err) {
+      if (dsEmpty) dsEmpty.style.display = 'flex';
+      if (dsStatusEl) { dsStatusEl.textContent = err.message || 'Scan failed'; dsStatusEl.className = 'status error'; }
+    }
+
+    dsScanBtn.disabled = false;
+    dsScanLabel.textContent = 'Scan Design';
+  });
+
+  function dsRenderDesignResults(inv, url) {
+    const health = dsComputeDesignHealth(inv);
+    dsInjectPageFonts(inv);
+
+    document.getElementById('ds-health-overview').innerHTML = dsRenderHealthOverview(health);
+    document.getElementById('ds-card-color').innerHTML      = dsRenderColorCard(inv, health.color, health);
+    document.getElementById('ds-card-typography').innerHTML = dsRenderTypographyCard(inv, health.typography);
+    document.getElementById('ds-card-structure').innerHTML  = dsRenderStructureCard(inv, health.structure);
+    document.getElementById('ds-card-access').innerHTML     = dsRenderSVGCard(inv);
+    const techHtml = dsRenderTechCard(inv);
+    const techEl = document.getElementById('ds-card-tech');
+    if (techEl) { techEl.innerHTML = techHtml; techEl.style.display = techHtml ? '' : 'none'; }
+
+    document.getElementById('ds-scanned-url').innerHTML =
+      `<span>${url || ''}</span>
+       <button class="ds-export-btn" id="ds-export-tokens">${IC.download} Export Tokens</button>`;
+
+    document.querySelectorAll('.ds-design-card').forEach(c => c.classList.add('ds-card-expanded'));
+
+    document.querySelectorAll('.ds-card-head').forEach(head => {
+      head.addEventListener('click', () => {
+        const card = head.closest('.ds-design-card');
+        card.classList.toggle('ds-card-expanded');
+      });
+    });
+
+    document.querySelectorAll('.ds-ctab').forEach(tab => {
+      tab.addEventListener('click', e => {
+        e.stopPropagation();
+        const body = tab.closest('.ds-card-body');
+        body.querySelectorAll('.ds-ctab').forEach(t => t.classList.remove('active'));
+        body.querySelectorAll('.ds-ctab-pane').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        body.querySelector(`[data-pane="${tab.dataset.ctab}"]`)?.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.ds-copy-hex').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(btn.dataset.copy || '').then(() => {
+          btn.textContent = '✓';
+          btn.style.color = '#00C9A7';
+          setTimeout(() => { btn.innerHTML = IC.copy; btn.style.color = ''; }, 1200);
+        }).catch(() => {});
+      });
+    });
+
+    document.getElementById('ds-export-tokens')?.addEventListener('click', () => {
+      dsExportTokensJSON(inv, url);
+    });
+  }
+
+  // ── Scoring helpers ──
+
+  function dsScoreClass(score) {
+    return score >= 70 ? 'good' : score >= 45 ? 'mid' : 'bad';
+  }
+
+  function dsComputeDesignHealth(inv) {
+    const colorPalette = inv.colorPalette || [];
+    const cssVars      = inv.cssTokens?.variables || [];
+    const tokenHexes   = dsBuildTokenHexSet(cssVars);
+
+    let colorScore;
+    if (cssVars.length === 0) {
+      colorScore = colorPalette.length === 0 ? 50 :
+                   colorPalette.length <= 8  ? 78 :
+                   colorPalette.length <= 14 ? 62 :
+                   colorPalette.length <= 20 ? 44 : 22;
+    } else {
+      const tokenized = colorPalette.filter(c => tokenHexes.has(dsNorm(c.value))).length;
+      const coverage  = colorPalette.length ? Math.round((tokenized / colorPalette.length) * 100) : 50;
+      colorScore = Math.max(20, coverage);
+      if (colorPalette.length > 18) colorScore = Math.max(15, colorScore - 15);
+      if (colorPalette.length > 28) colorScore = Math.max(10, colorScore - 15);
+    }
+    colorScore = Math.min(100, Math.max(0, colorScore));
+
+    const families     = inv.fontFamilies || [];
+    const fontSizeList = inv.fontSizes || [];
+    let typScore = families.length <= 1 ? 95 : families.length === 2 ? 85 :
+                   families.length === 3 ? 65 : families.length === 4 ? 40 : 20;
+    if (fontSizeList.length > 12) typScore -= 20;
+    if (fontSizeList.length > 18) typScore -= 20;
+    typScore = Math.min(100, Math.max(0, typScore));
+
+    const gridRatio  = inv.spacingGridRatio || 0;
+    const bps        = dsGetAllBreakpoints(inv);
+    let structScore  = Math.max(25, gridRatio);
+    if (bps.length >= 2) structScore = Math.min(100, structScore + 10);
+    else if (bps.length === 0) structScore = Math.max(20, structScore - 10);
+    structScore = Math.min(100, Math.max(0, structScore));
+
+    const pairs        = inv.contrastPairs || [];
+    const fails        = pairs.filter(p => p.level === 'FAIL').length;
+    const contrastScore = Math.round((1 - (pairs.length ? fails / pairs.length : 0)) * 100);
+    const focus        = inv.focusStates;
+    const focusScore   = focus?.hasFocusVisible ? 100 : (focus?.outlineRemovedWithoutReplacement > 0) ? 20 : 60;
+    const motionScore  = inv.motion?.reducedMotionRespected ? 100 : 65;
+    const accScore     = Math.round(contrastScore * 0.55 + focusScore * 0.3 + motionScore * 0.15);
+
+    const overall = Math.round(colorScore * 0.25 + typScore * 0.25 + structScore * 0.2 + accScore * 0.3);
+    return { overall, color: colorScore, typography: typScore, structure: structScore, accessibility: accScore };
+  }
+
+  function dsBuildTokenHexSet(cssVars) {
+    const set = new Set();
+    for (const v of cssVars) { const h = dsHexFromVar(v.value); if (h) set.add(h); }
+    return set;
+  }
+
+  function dsHexFromVar(val) {
+    val = (val || '').trim();
+    if (/^#[0-9a-f]{3,8}$/i.test(val)) return dsNorm(val);
+    const m = val.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (m) return dsNorm('#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join(''));
+    return null;
+  }
+
+  function dsToHex(val) {
+    if (!val) return val;
+    if (/^#[0-9a-f]{3,8}$/i.test(val)) return val.toLowerCase();
+    const m = val.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (m) return '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+    return val;
+  }
+
+  function dsNorm(hex) { return (hex || '').toLowerCase().trim(); }
+
+  function dsEscHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function dsHexToHsl(hex) {
+    const r = parseInt(hex.slice(1,3)||'0',16)/255;
+    const g = parseInt(hex.slice(3,5)||'0',16)/255;
+    const b = parseInt(hex.slice(5,7)||'0',16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h = 0, s = 0, l = (max+min)/2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+      if (max===r) h = (g-b)/d + (g<b?6:0);
+      else if (max===g) h = (b-r)/d + 2;
+      else h = (r-g)/d + 4;
+      h /= 6;
+    }
+    return [h*360, s*100, l*100];
+  }
+
+  function dsSortByHue(colors) {
+    return [...colors].sort((a, b) => {
+      const ha = dsHexToHsl(dsToHex(a.value)||'#000'), hb = dsHexToHsl(dsToHex(b.value)||'#000');
+      const grayA = ha[1] < 12, grayB = hb[1] < 12;
+      if (grayA && grayB) return ha[2] - hb[2];
+      if (grayA) return 1; if (grayB) return -1;
+      return ha[0] - hb[0];
+    });
+  }
+
+  function dsGetAllBreakpoints(inv) {
+    return [
+      ...((inv.breakpoints?.minWidth || []).map(b => b.value)),
+      ...((inv.breakpoints?.maxWidth || []).map(b => b.value))
+    ].filter((v, i, arr) => arr.indexOf(v) === i).sort((a, b) => a - b);
+  }
+
+  function dsInjectPageFonts(inv) {
+    document.querySelectorAll('.__ef-gf, #__ef-fonts').forEach(el => el.remove());
+    for (const href of inv.googleFontLinks || []) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet'; link.className = '__ef-gf'; link.href = href;
+      document.head.appendChild(link);
+    }
+    const candidates = (inv.fontFamilies || [])
+      .map(f => (f.value || '').trim().replace(/['"]/g, ''))
+      .filter(name => name && !SYSTEM_FONTS.has(name.toLowerCase())).slice(0, 5);
+    if (candidates.length > 0) {
+      const params = candidates.map(f => `family=${encodeURIComponent(f)}:ital,wght@0,300;0,400;0,600;0,700;1,400`).join('&');
+      const link = document.createElement('link');
+      link.rel = 'stylesheet'; link.className = '__ef-gf';
+      link.href = `https://fonts.googleapis.com/css2?${params}&display=swap`;
+      document.head.appendChild(link);
+    }
+    const rules = inv.fontFaceRules || [];
+    if (rules.length) {
+      const style = document.createElement('style');
+      style.id = '__ef-fonts'; style.textContent = rules.join('\n');
+      document.head.appendChild(style);
+    }
+  }
+
+  // ── Render functions ──
+
+  function dsRenderHealthOverview(health) {
+    const sc = dsScoreClass(health.overall);
+    const cats = [
+      { label: 'Color',  score: health.color },
+      { label: 'Type',   score: health.typography },
+      { label: 'Layout', score: health.structure },
+      { label: 'A11y',   score: health.accessibility }
+    ];
+    return `
+      <div class="sb-health-row">
+        <div class="sb-health-score ${sc}">${health.overall}</div>
+        <div class="sb-health-meta">
+          <div class="sb-health-label">Design Health</div>
+          <div class="sb-health-bar-track">
+            <div class="sb-health-bar-fill ${sc}" style="width:${health.overall}%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sb-health-signals">
+        ${cats.map(c => `
+          <div class="sb-signal">
+            <span class="sb-signal-num ${dsScoreClass(c.score)}">${c.score}</span>
+            <span class="sb-signal-lbl">${c.label}</span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function dsRenderColorCard(inv, score, health) {
+    const colors     = inv.colorPalette || [];
+    const cssVars    = inv.cssTokens?.variables || [];
+    const tokenHexes = dsBuildTokenHexSet(cssVars);
+
+    const hexToToken = {};
+    for (const v of cssVars) {
+      const hex = dsHexFromVar(v.value);
+      if (hex && !hexToToken[hex]) hexToToken[hex] = v.name;
+    }
+
+    const tokenized = dsSortByHue(colors.filter(c =>  tokenHexes.has(dsNorm(dsToHex(c.value)))));
+    const hardcoded = dsSortByHue(colors.filter(c => !tokenHexes.has(dsNorm(dsToHex(c.value)))));
+
+    function miniCardGrid(list) {
+      if (!list.length) return '<div class="ds-empty-pane">None detected</div>';
+      return `<div class="ds-color-grid">${list.map(c => {
+        const hex    = dsToHex(c.value);
+        const tkName = hexToToken[dsNorm(hex)] || '';
+        return `<div class="ds-color-card">
+          <div class="ds-color-preview" style="background:${c.value}"></div>
+          <div class="ds-color-info">
+            ${tkName ? `<div class="ds-color-name">${tkName}</div>` : ''}
+            <div class="ds-color-hex-row">
+              <span class="ds-color-hex">${hex}</span>
+              <button class="ds-copy-hex" data-copy="${hex}" title="Copy">${IC.copy}</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    const shadows   = (inv.shadows   || []).slice(0, 8);
+    const gradients = (inv.gradients || []).slice(0, 6);
+
+    function effectCard(previewStyle, cssValue, count) {
+      return `<div class="ds-effect-card">
+        <div class="ds-effect-sq" style="${previewStyle}"></div>
+        <div class="ds-effect-right">
+          <span class="ds-effect-count">×${count}</span>
+          <details class="ds-effect-details">
+            <summary class="ds-effect-summary">CSS</summary>
+            <code class="ds-effect-code">${dsEscHtml(cssValue)}</code>
+          </details>
+        </div>
+      </div>`;
+    }
+
+    const shadowHtml   = shadows.map(s   => effectCard(`background:#f5f5f5;box-shadow:${s.value}`, s.value, s.count)).join('');
+    const gradientHtml = gradients.map(g => effectCard(`background:${g.value}`, g.value, g.count)).join('');
+    const effectsContent = [
+      shadows.length   ? `<div class="ds-effect-section-lbl">Shadows (${shadows.length})</div><div class="ds-effect-grid">${shadowHtml}</div>` : '',
+      gradients.length ? `<div class="ds-effect-section-lbl">Gradients (${gradients.length})</div><div class="ds-effect-grid">${gradientHtml}</div>` : '',
+      !shadows.length && !gradients.length ? '<div class="ds-empty-pane">No effects detected</div>' : ''
+    ].join('');
+
+    return `
+      <div class="ds-card-head">
+        <span class="ds-card-icon">${IC.palette}</span>
+        <span class="ds-card-title">Color System</span>
+        <span class="ds-score-pill ${dsScoreClass(score)}">${score}</span>
+        <span class="ds-chevron">${IC.chevron}</span>
+      </div>
+      <div class="ds-card-body">
+        <div class="ds-ctabs">
+          <button class="ds-ctab active" data-ctab="tokens">Tokens${tokenized.length ? ' ('+tokenized.length+')' : ''}</button>
+          <button class="ds-ctab" data-ctab="raw">Raw${hardcoded.length ? ' ('+hardcoded.length+')' : ''}</button>
+          <button class="ds-ctab" data-ctab="effects">Effects</button>
+          <button class="ds-ctab" data-ctab="a11y">A11y</button>
+        </div>
+        <div class="ds-ctab-pane active" data-pane="tokens">${miniCardGrid(tokenized)}</div>
+        <div class="ds-ctab-pane" data-pane="raw">${miniCardGrid(hardcoded)}</div>
+        <div class="ds-ctab-pane" data-pane="effects">${effectsContent}</div>
+        <div class="ds-ctab-pane" data-pane="a11y">${dsRenderA11yContent(inv)}</div>
+      </div>`;
+  }
+
+  function dsRenderA11yContent(inv) {
+    const fails  = (inv.contrastPairs || []).filter(p => p.level === 'FAIL').slice(0, 6);
+    const passes = (inv.contrastPairs || []).filter(p => p.level !== 'FAIL');
+    const focus  = inv.focusStates;
+    const motion = inv.motion;
+
+    const contrastHtml = fails.length === 0
+      ? `<div class="ds-acc-check pass">Contrast OK — ${passes.length} pairs sampled</div>`
+      : `<div class="ds-contrast-cards">${fails.map(f => `
+          <div class="ds-contrast-card">
+            <div class="ds-contrast-preview" style="background:${f.bgHex}">
+              <span style="color:${f.textHex}">Aa</span>
+            </div>
+            <div class="ds-contrast-body">
+              <div class="ds-contrast-ratio">${f.ratio}:1</div>
+              <div class="ds-contrast-swatches-sm">
+                <div style="width:14px;height:14px;border-radius:3px;background:${f.textHex};border:1px solid rgba(0,0,0,0.08)"></div>
+                <div style="width:14px;height:14px;border-radius:3px;background:${f.bgHex};border:1px solid rgba(0,0,0,0.08)"></div>
+              </div>
+              <div class="ds-contrast-tag">${f.tag} · ${f.fontSize}px</div>
+            </div>
+          </div>`).join('')}</div>`;
+
+    const focusHtml = focus?.hasFocusVisible
+      ? `<div class="ds-acc-check pass">:focus-visible declared</div>`
+      : (focus?.outlineRemovedWithoutReplacement > 0)
+        ? `<div class="ds-acc-check fail">Outline removed without replacement</div>`
+        : `<div class="ds-acc-check warn">No custom focus styles</div>`;
+
+    const motionHtml = motion?.reducedMotionRespected
+      ? `<div class="ds-acc-check pass">prefers-reduced-motion respected</div>`
+      : `<div class="ds-acc-check warn">No reduced-motion media query</div>`;
+
+    return `
+      ${fails.length > 0 ? '<div class="ds-section-label" style="color:#e53935">Contrast Failures</div>' : ''}
+      ${contrastHtml}
+      <div style="margin-top:8px">${focusHtml}${motionHtml}</div>`;
+  }
+
+  function dsRenderTypographyCard(inv, score) {
+    const families = (inv.fontFamilies || []).slice(0, 5);
+    const sizes = (inv.fontSizes || []).slice().sort((a, b) => parseFloat(a.value) - parseFloat(b.value)).slice(0, 10);
+
+    const familyCards = families.map(f => {
+      const name = (f.value || '').trim().replace(/['"]/g, '');
+      return `<div class="ds-family-card">
+        <div class="ds-family-header">
+          <span class="ds-family-name">${dsEscHtml(name)}</span>
+          <span class="ds-family-count">×${f.count}</span>
+        </div>
+        <div class="ds-family-preview" style="font-family:'${name}', sans-serif">Aa Bb Cc 01 23</div>
+      </div>`;
+    }).join('');
+
+    const tiles = sizes.map(s => {
+      const px      = parseFloat(s.value) || 16;
+      const display = Math.min(Math.max(Math.round(px), 9), 22);
+      return `<div class="ds-type-tile">
+        <div class="ds-tile-size">${Math.round(px)}px</div>
+        <div class="ds-tile-sample" style="font-size:${display}px">Aa</div>
+        <div class="ds-tile-count">×${s.count}</div>
+      </div>`;
+    }).join('');
+
+    return `
+      <div class="ds-card-head">
+        <span class="ds-card-icon">${IC.type}</span>
+        <span class="ds-card-title">Typography</span>
+        <span class="ds-score-pill ${dsScoreClass(score)}">${score}</span>
+        <span class="ds-chevron">${IC.chevron}</span>
+      </div>
+      <div class="ds-card-body">
+        <div class="ds-font-families">
+          ${familyCards || '<div class="ds-empty-pane">No font data</div>'}
+        </div>
+        ${sizes.length ? `<div class="ds-section-label">Sizes</div><div class="ds-type-tiles">${tiles}</div>` : ''}
+        ${families.length > 2 ? `<div class="ds-flag">⚠ ${families.length} font families — aim for 2 max</div>` : ''}
+        ${sizes.length >= 10 ? `<div class="ds-flag">⚠ ${inv.fontSizes?.length || sizes.length}+ sizes — define a type scale</div>` : ''}
+      </div>`;
+  }
+
+  function dsRenderStructureCard(inv, score) {
+    const bps         = dsGetAllBreakpoints(inv);
+    const layout      = inv.layoutSystem || {};
+    const gridRatio   = inv.spacingGridRatio || 0;
+    const spacingBase = layout.spacingBase || 8;
+    const flexPct     = layout.layoutEngines?.flex  || 0;
+    const gridPct     = layout.layoutEngines?.grid  || 0;
+
+    const spacingValues = (inv.spacingValues || []).slice(0, 10);
+    const maxPx = Math.max(...spacingValues.map(s => parseFloat(s.value)), 1);
+
+    const spacingTiles = spacingValues.map(s => {
+      const px    = Math.round(parseFloat(s.value));
+      const boxPx = Math.max(4, Math.min(Math.round((px / maxPx) * 44), 44));
+      return `<div class="ds-sp-tile">
+        <div class="ds-sp-val">${px}px</div>
+        <div class="ds-sp-box" style="width:${boxPx}px;height:${boxPx}px"></div>
+        <div class="ds-sp-count">×${s.count}</div>
+      </div>`;
+    }).join('');
+
+    const colHints = [];
+    if (bps.some(b => b >= 1200) || bps.length > 0) colHints.push({ label: 'Desktop', cols: 12 });
+    if (bps.some(b => b >= 600 && b < 1200)) colHints.push({ label: 'Tablet', cols: 8 });
+    if (bps.length > 0) colHints.push({ label: 'Mobile', cols: 4 });
+    if (colHints.length === 0) colHints.push({ label: 'Single col', cols: 1 });
+
+    const colHtml = `<div class="ds-col-chips">${colHints.map(c =>
+      `<div class="ds-col-chip">
+        <span class="ds-col-num">${c.cols}</span>
+        <span class="ds-col-label">${c.label}</span>
+      </div>`).join('')}</div>`;
+
+    const bpHtml = bps.length > 0
+      ? `<div class="ds-bp-chips">${bps.map(b => `<span class="ds-bp-chip">${b}px</span>`).join('')}</div>`
+      : `<div class="ds-flag">No responsive breakpoints found in stylesheets</div>`;
+
+    return `
+      <div class="ds-card-head">
+        <span class="ds-card-icon">${IC.layout}</span>
+        <span class="ds-card-title">Structure</span>
+        <span class="ds-score-pill ${dsScoreClass(score)}">${score}</span>
+        <span class="ds-chevron">${IC.chevron}</span>
+      </div>
+      <div class="ds-card-body">
+        <div class="ds-section-label">Spacing — ${spacingBase}px base · ${gridRatio}% on-grid</div>
+        ${spacingTiles ? `<div class="ds-sp-tiles">${spacingTiles}</div>` : '<div class="ds-empty-pane">No spacing data</div>'}
+        <div class="ds-section-label">Grid Columns</div>
+        ${colHtml}
+        <div class="ds-section-label">Breakpoints</div>
+        ${bpHtml}
+        <div class="ds-card-meta">
+          <span>Flexbox: ${flexPct}%</span>
+          <span>CSS Grid: ${gridPct}%</span>
+          <span>${bps.length} bp</span>
+        </div>
+        ${gridRatio < 50 && gridRatio > 0 ? `<div class="ds-flag">Only ${gridRatio}% of spacing follows the ${spacingBase}px grid</div>` : ''}
+      </div>`;
+  }
+
+  function dsRenderSVGCard(inv) {
+    const svgs     = inv.svgInventory || [];
+    const inline   = svgs.filter(s => s.source === 'inline');
+    const imgBased = svgs.filter(s => s.source === 'img-url');
+    const iconLib  = inv.iconLibrary;
+
+    const logo  = inline.find(s => /logo|brand|mark/i.test((s.label || '') + (s.className || ''))) || inline[0];
+    const icons = inline.filter(s => s !== logo).slice(0, 20);
+
+    const heroHtml = logo
+      ? `<div class="ds-svg-hero ds-svg-grey" title="${logo.label || 'Logo'}">${logo.content}</div>`
+      : '';
+    const gridHtml = icons.map(s =>
+      `<div class="ds-svg-thumb ds-svg-grey" title="${s.label || ''}">${s.content}</div>`
+    ).join('');
+
+    return `
+      <div class="ds-card-head">
+        <span class="ds-card-icon">${IC.svgIcon}</span>
+        <span class="ds-card-title">SVGs & Icons</span>
+        <span class="ds-chevron">${IC.chevron}</span>
+      </div>
+      <div class="ds-card-body">
+        ${iconLib ? `<div class="ds-icon-lib-tag">${iconLib}</div>` : ''}
+        <div class="ds-icon-stats">
+          <div class="ds-icon-stat">
+            <span class="ds-icon-stat-num">${inline.length}</span>
+            <span class="ds-icon-stat-label">Inline SVGs</span>
+          </div>
+          <div class="ds-icon-stat">
+            <span class="ds-icon-stat-num">${imgBased.length}</span>
+            <span class="ds-icon-stat-label">SVG images</span>
+          </div>
+          <div class="ds-icon-stat">
+            <span class="ds-icon-stat-num">${svgs.length}</span>
+            <span class="ds-icon-stat-label">Total</span>
+          </div>
+        </div>
+        ${heroHtml}
+        ${gridHtml ? `<div class="ds-svg-grid">${gridHtml}</div>` : (!heroHtml ? '<div class="ds-empty-pane">No SVGs detected</div>' : '')}
+      </div>`;
+  }
+
+  function dsRenderTechCard(inv) {
+    const ts = inv.techStack;
+    if (!ts) return '';
+
+    function row(label, value) {
+      if (!value) return '';
+      return `<div class="ds-tech-row">
+        <span class="ds-tech-label">${label}</span>
+        <span class="ds-tech-value">${value}</span>
+      </div>`;
+    }
+    function tags(label, arr) {
+      if (!arr?.length) return '';
+      return `<div class="ds-tech-row ds-tech-tags-row">
+        <span class="ds-tech-label">${label}</span>
+        <div class="ds-tech-tags">${arr.map(t => `<span class="ds-tech-tag">${t}</span>`).join('')}</div>
+      </div>`;
+    }
+
+    const hasAny = ts.cms || ts.jsFramework || ts.cssFramework || ts.analytics?.length
+      || ts.marketing?.length || ts.tagManager || ts.abTesting || ts.ecommerce;
+    const body = hasAny ? `
+      ${row('CMS / Platform', ts.cms)}
+      ${row('JS Framework', ts.jsFramework)}
+      ${row('CSS Framework', ts.cssFramework)}
+      ${row('E-commerce', ts.ecommerce !== ts.cms ? ts.ecommerce : null)}
+      ${row('Tag Manager', ts.tagManager)}
+      ${row('A/B Testing', ts.abTesting)}
+      ${tags('Analytics', ts.analytics)}
+      ${tags('Marketing', ts.marketing)}
+    ` : '<div class="ds-empty-pane">No stack detected</div>';
+
+    return `
+      <div class="ds-card-head">
+        <span class="ds-card-icon">${IC.tech}</span>
+        <span class="ds-card-title">Tech Stack</span>
+        <span class="ds-chevron">${IC.chevron}</span>
+      </div>
+      <div class="ds-card-body">
+        <div class="ds-tech-table">${body}</div>
+      </div>`;
+  }
+
+  function dsExportTokensJSON(inv, url) {
+    const cssVars = inv.cssTokens?.variables || [];
+    const hexToToken = {};
+    for (const v of cssVars) {
+      const hex = dsHexFromVar(v.value);
+      if (hex && !hexToToken[hex]) hexToToken[hex] = v.name;
+    }
+
+    const tokens = {
+      '$meta': { source: 'EchoFlow', url, exportedAt: new Date().toISOString() },
+      color: {}, typography: {}, spacing: {}
+    };
+
+    for (const c of (inv.colorPalette || [])) {
+      const hex    = dsToHex(c.value);
+      const tkName = hexToToken[dsNorm(hex)];
+      const key    = tkName ? tkName.replace(/^--/, '').replace(/-/g, '_') : 'color_' + hex.replace('#', '');
+      if (!tokens.color[key]) tokens.color[key] = { '$value': hex, '$type': 'color' };
+    }
+    for (const f of (inv.fontFamilies || []).slice(0, 4)) {
+      const name = (f.value || '').split(',')[0].trim().replace(/['"]/g, '');
+      tokens.typography['family_' + (name || 'default').toLowerCase().replace(/\s+/g, '_')] = { '$value': f.value, '$type': 'fontFamily' };
+    }
+    for (const s of (inv.fontSizes || []).slice(0, 12)) {
+      const px = Math.round(parseFloat(s.value));
+      tokens.typography['size_' + px] = { '$value': px + 'px', '$type': 'dimension' };
+    }
+    for (const s of (inv.spacingValues || []).slice(0, 10)) {
+      const px = Math.round(parseFloat(s.value));
+      tokens.spacing['space_' + px] = { '$value': px + 'px', '$type': 'dimension' };
+    }
+
+    const blob = new Blob([JSON.stringify(tokens, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'echoflow-tokens.json'; a.click();
+    URL.revokeObjectURL(a.href);
+  }
 });
