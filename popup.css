@@ -12,7 +12,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   color: #111827;
-  background: #ECEEF2;
+  background: #F5F6FA;
   width: 420px;
   overflow-x: hidden;
 }
@@ -98,6 +98,7 @@ body {
 .popup-tab-content.active {
   display: block;
   padding-bottom: 20px;
+  min-height: 500px; /* keeps popup from feeling too short on empty tabs */
 }
 
 /* Sections */
@@ -117,7 +118,7 @@ body {
 
 .section-hint {
   font-size: 11px;
-  color: #9CA3AF;
+  color: #6B7280;
   margin: -2px 0 10px;
   line-height: 1.4;
 }
@@ -290,7 +291,7 @@ body {
 .btn-sm-secondary {
   padding: 5px 10px;
   background: transparent;
-  color: #888;
+  color: #6B7280;
   border: 1px solid rgba(0,0,0,0.10);
   border-radius: 6px;
   font-size: 11px;
@@ -420,7 +421,7 @@ body {
 
 .project-info-stats {
   font-size: 11px;
-  color: #888;
+  color: #6B7280;
 }
 
 /* Batch Audit */
@@ -460,7 +461,7 @@ body {
   gap: 8px;
   padding: 6px 0;
   font-size: 11px;
-  color: #888;
+  color: #6B7280;
 }
 
 .discover-summary {
@@ -504,7 +505,7 @@ body {
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
-  color: #888;
+  color: #6B7280;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -542,7 +543,7 @@ body {
 .discover-sample-link {
   text-decoration: none;
   font-size: 14px;
-  color: #888;
+  color: #6B7280;
   padding: 0 4px;
   flex-shrink: 0;
 }
@@ -599,7 +600,7 @@ body {
 .discover-group-count {
   font-size: 11px;
   font-weight: 600;
-  color: #888;
+  color: #6B7280;
   background: #f0f0f0;
   padding: 1px 7px;
   border-radius: 10px;
@@ -656,7 +657,7 @@ body {
 
 .progress-text {
   font-size: 11px;
-  color: #888;
+  color: #6B7280;
   white-space: nowrap;
 }
 
@@ -790,7 +791,7 @@ body {
 .discover-empty {
   padding: 16px 12px;
   font-size: 12px;
-  color: #888;
+  color: #6B7280;
   text-align: center;
   line-height: 1.6;
 }
@@ -834,7 +835,7 @@ body {
 
 .explorer-meta {
   font-size: 11px;
-  color: #999;
+  color: #6B7280;
   margin-top: 2px;
   display: flex;
   align-items: center;
@@ -851,7 +852,7 @@ body {
 .explorer-delete {
   background: none;
   border: none;
-  color: #ccc;
+  color: #9CA3AF;
   cursor: pointer;
   font-size: 12px;
   padding: 2px 4px;
@@ -874,7 +875,7 @@ body {
 .explorer-empty {
   text-align: center;
   padding: 32px 16px;
-  color: #999;
+  color: #6B7280;
   font-size: 12px;
   line-height: 1.6;
 }
@@ -882,12 +883,12 @@ body {
 .explorer-empty-icon {
   display: block;
   margin-bottom: 10px;
-  color: #D1D5DB;
+  color: #9CA3AF;
   line-height: 1;
 }
 
 .explorer-empty-hint {
-  color: #bbb;
+  color: #9CA3AF;
   font-size: 11px;
   margin-top: 4px;
 }
@@ -940,7 +941,7 @@ body {
   border: 1px solid rgba(0,0,0,0.10);
   border-radius: 8px;
   background: #fff;
-  color: #888;
+  color: #6B7280;
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
@@ -987,7 +988,7 @@ body {
   border: 1px solid rgba(0,0,0,0.10);
   border-radius: 8px;
   background: #fff;
-  color: #888;
+  color: #6B7280;
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
@@ -1005,7 +1006,7 @@ body {
 
 .device-info {
   font-size: 11px;
-  color: #888;
+  color: #6B7280;
   padding: 3px 0 2px;
   min-height: 18px;
 }
@@ -1020,7 +1021,7 @@ body {
 .journey-intro svg { flex-shrink: 0; margin-top: 2px; }
 .journey-desc {
   font-size: 12px;
-  color: #888;
+  color: #6B7280;
   line-height: 1.5;
   margin: 0;
 }
@@ -1105,7 +1106,7 @@ body {
 }
 .journey-step-url {
   font-size: 10px;
-  color: #999;
+  color: #6B7280;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1113,7 +1114,7 @@ body {
 }
 .journey-no-steps {
   font-size: 12px;
-  color: #bbb;
+  color: #9CA3AF;
   text-align: center;
   padding: 16px;
   margin: 0;
@@ -1153,7 +1154,7 @@ body {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
-  color: #888;
+  color: #6B7280;
   cursor: pointer;
   transition: color 0.15s, background 0.15s, border-color 0.15s;
   margin-left: 6px;
@@ -1280,7 +1281,7 @@ body {
 .ds-score-pill.mid  { background: rgba(217,119,6,0.09);  color: #92400E; }
 .ds-score-pill.bad  { background: rgba(220,38,38,0.08);  color: #991B1B; }
 
-.ds-chevron { color: #D1D5DB; display: flex; align-items: center; transition: transform 0.18s; }
+.ds-chevron { color: #9CA3AF; display: flex; align-items: center; transition: transform 0.18s; }
 .ds-card-expanded .ds-chevron { transform: rotate(90deg); }
 .ds-chevron svg { shape-rendering: geometricPrecision; }
 
@@ -1343,7 +1344,7 @@ body {
 
 .ds-color-hex { font-size: 11px; color: #374151; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.ds-copy-hex { padding: 0; border: none; background: none; cursor: pointer; color: #D1D5DB; display: flex; align-items: center; flex-shrink: 0; transition: color 0.12s; }
+.ds-copy-hex { padding: 0; border: none; background: none; cursor: pointer; color: #9CA3AF; display: flex; align-items: center; flex-shrink: 0; transition: color 0.12s; }
 .ds-copy-hex:hover { color: #00C9A7; }
 
 /* ── Effects pane ── */
@@ -1361,7 +1362,7 @@ body {
 .ds-effect-count { font-size: 10px; color: #9CA3AF; margin-bottom: 2px; }
 
 .ds-effect-details { margin-top: 2px; }
-.ds-effect-summary { font-size: 10px; font-weight: 600; color: #D1D5DB; cursor: pointer; list-style: none; user-select: none; }
+.ds-effect-summary { font-size: 10px; font-weight: 600; color: #6B7280; cursor: pointer; list-style: none; user-select: none; }
 .ds-effect-summary::-webkit-details-marker { display: none; }
 .ds-effect-summary:hover { color: #6B7280; }
 .ds-effect-code { display: block; font-size: 9px; font-family: monospace; color: #6B7280; word-break: break-all; margin-top: 3px; line-height: 1.3; }
@@ -1394,7 +1395,7 @@ body {
 }
 .ds-tile-size   { font-size: 10px; font-weight: 700; color: #9CA3AF; line-height: 1; }
 .ds-tile-sample { font-weight: 600; color: #111827; line-height: 1; flex: 1; display: flex; align-items: center; }
-.ds-tile-count  { font-size: 10px; color: #D1D5DB; line-height: 1; }
+.ds-tile-count  { font-size: 10px; color: #9CA3AF; line-height: 1; }
 
 /* ── Structure ── */
 
@@ -1416,7 +1417,7 @@ body {
 }
 .ds-sp-val   { font-size: 10px; font-weight: 700; color: #9CA3AF; line-height: 1; }
 .ds-sp-box   { background: #00C9A7; opacity: 0.28; border-radius: 2px; flex-shrink: 0; }
-.ds-sp-count { font-size: 10px; color: #D1D5DB; line-height: 1; }
+.ds-sp-count { font-size: 10px; color: #9CA3AF; line-height: 1; }
 
 .ds-col-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 2px 0 4px; }
 
@@ -1508,12 +1509,12 @@ body {
 
 .ds-flag { font-size: 12px; color: #92400E; background: #FFFBEB; padding: 4px 8px; border-radius: 5px; margin-top: 6px; line-height: 1.3; border: 1px solid rgba(217,119,6,0.12); }
 
-.ds-empty-pane { font-size: 13px; color: #D1D5DB; padding: 10px 0; text-align: center; }
+.ds-empty-pane { font-size: 13px; color: #6B7280; padding: 10px 0; text-align: center; }
 
 /* ── Scanned URL + Export ── */
 
 .ds-scanned-url { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 12px; gap: 6px; flex-wrap: wrap; }
-.ds-scanned-url span { font-size: 10px; color: #D1D5DB; word-break: break-all; flex: 1; }
+.ds-scanned-url span { font-size: 10px; color: #9CA3AF; word-break: break-all; flex: 1; }
 
 .ds-export-btn {
   display: inline-flex; align-items: center; gap: 5px;
