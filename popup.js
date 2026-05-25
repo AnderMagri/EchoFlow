@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const explorations = stored['__echoflowExplorations'] || [];
 
       if (explorations.length === 0) {
-        container.innerHTML = '<div class="explorer-empty"><span class="explorer-empty-icon">🔍</span><p>No explorations yet.</p><p class="explorer-empty-hint">Crawl any site on the Page Review tab — it\'ll appear here automatically.</p></div>';
+        container.innerHTML = '<div class="explorer-empty"><span class="explorer-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><p>No explorations yet.</p><p class="explorer-empty-hint">Crawl any site on the Page Review tab — it\'ll appear here automatically.</p></div>';
         return;
       }
 
@@ -303,7 +303,11 @@ document.addEventListener('DOMContentLoaded', () => {
         card.className = 'explorer-card';
 
         const ago = formatTimeAgo(exp.timestamp);
-        const methodLabel = exp.method === 'crawl' ? '🕷 Crawl' : '🗺 Sitemap';
+        const methodIcon = exp.method === 'crawl'
+          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>'
+          : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9"/><line x1="12" y1="12" x2="12" y2="15"/></svg>';
+        const methodText = exp.method === 'crawl' ? 'Crawl' : 'Sitemap';
+        const methodLabel = `<span class="explorer-method-badge">${methodIcon}${methodText}</span>`;
         const pageCount = (exp.result?.totalDetected || exp.pageCount || 0).toLocaleString();
 
         card.innerHTML = `

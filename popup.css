@@ -4,25 +4,28 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   color: #111827;
   background: #ECEEF2;
   width: 420px;
-  height: 640px;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .popup {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  width: 420px;
 }
 
-/* Header */
+/* Header — sticky so it never scrolls away */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -48,8 +51,11 @@ body {
   opacity: 0.5;
 }
 
-/* ── Popup Tabs ── */
+/* ── Popup Tabs — sticky below the header ── */
 .popup-tabs {
+  position: sticky;
+  top: 46px; /* header height */
+  z-index: 19;
   display: flex;
   background: #1a1a2e;
   gap: 2px;
@@ -84,18 +90,14 @@ body {
   border-bottom-color: #00C9A7;
 }
 
-/* Tab Content — fixed height popup, content scrolls inside each tab */
+/* Tab Content — flows naturally, document scrolls as one unit */
 .popup-tab-content {
   display: none;
 }
 
 .popup-tab-content.active {
   display: block;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-  padding-bottom: 16px;
+  padding-bottom: 20px;
 }
 
 /* Sections */
@@ -834,6 +836,16 @@ body {
   font-size: 11px;
   color: #999;
   margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.explorer-method-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #9CA3AF;
 }
 
 .explorer-delete {
@@ -868,9 +880,10 @@ body {
 }
 
 .explorer-empty-icon {
-  font-size: 28px;
   display: block;
   margin-bottom: 10px;
+  color: #D1D5DB;
+  line-height: 1;
 }
 
 .explorer-empty-hint {
