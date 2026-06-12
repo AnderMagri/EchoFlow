@@ -10,20 +10,16 @@ EchoFlow is an internal UX audit tool that analyses any website directly in Chro
 
 ### Step 1 — Download
 
-Click the green **Code** button at the top of this page → **Download ZIP**, then unzip the file anywhere on your computer.
+**[⬇ Download EchoFlow.zip](https://github.com/AnderMagri/EchoFlow/raw/main/EchoFlow.zip)**
 
-Or if you use Git:
-
-```bash
-git clone https://github.com/AnderMagri/EchoFlow.git
-```
+Save it anywhere and unzip it.
 
 ### Step 2 — Load in Chrome
 
 1. Open Chrome and navigate to **`chrome://extensions`**
 2. Toggle **Developer mode** ON (top-right corner)
 3. Click **Load unpacked**
-4. Select the unzipped **`EchoFlow-main`** (or `EchoFlow`) folder
+4. Select the unzipped **`EchoFlow`** folder
 5. The EchoFlow icon appears in your toolbar — pin it for quick access
 
 > **Chrome will show a "Developer mode extensions" banner on startup.** This is normal for any extension loaded this way — it's not a security issue.
@@ -106,7 +102,7 @@ Automatic warnings for: too many fonts, color sprawl, arbitrary spacing, inconsi
 
 When a new version is available:
 
-1. `git pull` (or re-download the ZIP and replace the folder)
+1. [Re-download EchoFlow.zip](https://github.com/AnderMagri/EchoFlow/raw/main/EchoFlow.zip) and replace the contents of your folder
 2. Go to `chrome://extensions`
 3. Click the **↺ refresh** icon on the EchoFlow card
 
