@@ -1,6 +1,6 @@
-# EchoFlow — UX Audit Chrome Extension
+# EchoFlow — UX Audit Chrome Extension `v1.6`
 
-EchoFlow is an internal UX audit tool that analyses any website directly in Chrome. It evaluates UX rules, captures a full design inventory, runs mobile analysis, maps pages to Shopify, and lets you run AI-powered analysis with Claude or Gemini — all without leaving the browser.
+EchoFlow is an internal UX audit tool that analyses any website directly in Chrome. It runs rule-based UX audits, captures a full design inventory, detects tech stacks, maps pages for Shopify migration, and lets you run AI-powered analysis with Claude or Gemini — all from a single popup, without leaving the browser.
 
 ---
 
@@ -28,7 +28,7 @@ Save it anywhere and unzip it.
 
 ## Setup — API Key (required for AI features)
 
-EchoFlow's AI analysis (UX insights, dark pattern detection, copy intelligence) requires a Claude or Gemini API key.
+EchoFlow's AI analysis requires a Claude or Gemini API key.
 
 1. Click the EchoFlow icon → run an audit → open the Results page
 2. Click **Settings** (top-right)
@@ -39,61 +39,65 @@ Get a Claude key at [console.anthropic.com](https://console.anthropic.com) · Ge
 
 ---
 
-## How to run an audit
+## The Popup — 4 Tabs
 
-1. Navigate to the page you want to audit
-2. Click the **EchoFlow icon** in your toolbar
-3. Choose your **vertical** (Generic UX, Shopify, Fintech, Crypto)
-4. Choose your **device** (Desktop, Mobile, Tablet, or Compare)
-5. Optionally select a **page type** (Home, PDP, Checkout…)
-6. Click **Start Audit**
+### Design
+Scans the current page and extracts a full design inventory in seconds.
 
-The results page opens with:
+- **Health Score (0–100)** — weighted across Color, Typography, Layout, and Accessibility
+- **Color System** — full palette with tokens, raw values, effects, and A11Y contrast check
+- **Typography** — font families, sizes, weights, line heights, letter spacing
+- **Layout & Structure** — spacing base unit, Flex/Grid/Block distribution, container widths, column patterns
+- **Accessibility** — heading hierarchy, alt text, ARIA, contrast issues
+- **Tech Stack** — detects UI framework, icon library, CMS, analytics, and more
 
-| Tab | What you get |
-|-----|-------------|
-| **Rules** | Rule-based findings with ICE scores, markers on the screenshot |
-| **Design** | Full design inventory — colors, typography, spacing, layout system, shadows, images |
-| **AI Analysis** | GPT-quality UX analysis with vision (reads the screenshot), dark pattern scan, copy intelligence |
-| **Compare** | Side-by-side desktop vs mobile findings |
+### Page Review
+Runs a full rule-based UX audit of the current page.
+
+1. Choose your **vertical** — Generic UX, Shopify, Fintech, or Crypto
+2. Choose a **page type** — Homepage, Landing Page, Pricing, PDP, Checkout… (varies by vertical)
+3. Choose your **device** — Desktop, Mobile (390×844), Tablet (820×1180), or Compare
+4. Choose **screenshot mode** — Viewport or Full Page
+5. Click **Run Audit**
+
+The results page opens with rule-based findings, ICE scores, screenshot markers, and AI analysis.
+
+### Explorer
+Maps and understands the full structure of a site.
+
+- **Detect Tech Stack** — identifies UI framework, CMS, analytics, and more without running a full audit
+- **Discover Pages** — crawls the site via sitemap or link-crawl and groups pages by template type
+- **Recent Explorations** — quick access to previously crawled sites; reload any discovery into the Page Review tab
+
+### Migration
+Evaluates how well the current site can be rebuilt in Shopify.
+
+- **Analyse Current Page** — maps sections and components to Shopify equivalents (Native / App / Custom)
+- **Analyse Whole Site** — runs the analysis across all page types discovered by Explorer, produces a full component inventory and theme recommendation
 
 ---
 
-## Features
+## Results Page
 
-### Audit Engine
-- **5 rule sets** — Generic UX, Shopify, Fintech, Crypto, Mobile
-- **ICE scoring** (Impact × Confidence × Ease) for every finding
-- **Full-page screenshot** with numbered markers linked to each finding
-- **Mobile emulation** via Chrome DevTools Protocol (real device profiles)
-- **Compare mode** — runs desktop + mobile simultaneously, shows delta findings
+After a Page Review audit the results page opens with:
 
-### Design Inventory
-- Color palette, typography, font sizes, line heights, letter spacing
-- **Layout System** — spacing base unit, Flex/Grid/Block distribution, column patterns, gap values, container widths
-- Border radii, shadows, text alignment
-- Image format breakdown (WebP, AVIF, SVG, PNG, JPG) + lazy loading detection
-- Logo extraction (SVG download), SVG inventory, icon library detection, UI framework detection
-
-### Design Health Score (0–100)
-Automatic warnings for: too many fonts, color sprawl, arbitrary spacing, inconsistent corners, broken heading hierarchy, elevation chaos, no spacing base unit, competing container widths.
+| Tab | What you get |
+|-----|-------------|
+| **Rules** | Rule-based findings with ICE scores and numbered markers on the screenshot |
+| **Design** | Full design inventory — colors, typography, spacing, layout system, shadows, images |
+| **AI Analysis** | UX analysis with vision (reads the screenshot), dark pattern scan, copy intelligence |
+| **Compare** | Side-by-side desktop vs mobile findings |
 
 ### AI Analysis (requires API key)
-- **UX Analysis** — top issues, quick wins, UX score, design score. Includes **Vision Layer**: Claude reads the actual screenshot for visual hierarchy and layout critique
+- **UX Analysis** — top issues, quick wins, UX score, design score. Includes **Vision Layer**: Claude reads the actual screenshot for visual hierarchy critique
 - **Dark Pattern Detector** — scans for 12 manipulative UI patterns with EU DSA / GDPR / US FTC / CCPA regulatory references
 - **Copy Intelligence** — scores value proposition, CTAs, headlines, reading level, trust signals, microcopy, emotional resonance. Includes rewrite suggestions
-
-### Shopify Migration
-- Maps any page's sections and components to Shopify equivalents (Green / Yellow / Red)
-- Discovers all site pages via sitemap, classifies by template type
-- AI-generated migration summary
 
 ### Export
 - **Save** as `.echoflow` file (reimport anytime)
 - **Figma Presentation** — auto-generates slides per finding
 - **PDF Report**
 - **Copy for Notion** — markdown formatted
-- **Export as Slides**
 - **Copy JSON for Claude**
 
 ---
