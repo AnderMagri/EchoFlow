@@ -1,0 +1,16 @@
+{
+  "name": "echoflow-analyzer",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "EchoFlow 2.0 analysis engine — renders pages with Playwright and produces a consistency wiki.",
+  "bin": { "echoflow": "./src/cli/index.js" },
+  "scripts": {
+    "analyze": "node src/cli/index.js",
+    "test": "node ../test/run.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "engines": { "node": ">=18" }
+}

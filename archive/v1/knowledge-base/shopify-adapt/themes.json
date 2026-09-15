@@ -1,0 +1,339 @@
+{
+  "_description": "Shopify theme capabilities matrix — covers free and popular premium themes with their section inventories and features",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify Theme Store Q1 2026, Dawn 15.0",
+  "themes": {
+    "dawn": {
+      "name": "Dawn",
+      "version": "15.0",
+      "os2": true,
+      "free": true,
+      "reference": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere",
+        "app-blocks",
+        "mega-menu",
+        "quick-add",
+        "product-media-gallery",
+        "predictive-search",
+        "color-schemes",
+        "custom-liquid-section",
+        "image-zoom",
+        "breadcrumbs",
+        "product-recommendations",
+        "cart-drawer",
+        "sticky-header",
+        "announcement-bar",
+        "collapsible-content",
+        "newsletter",
+        "blog",
+        "gift-card-template"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "featured-product",
+        "newsletter", "contact-form", "blog-posts", "custom-liquid",
+        "featured-blog", "page", "multirow"
+      ],
+      "blockTypes": [
+        "heading", "text", "button", "caption", "link", "image", "price",
+        "rating", "variant-picker", "quantity-selector", "buy-buttons",
+        "description", "custom-liquid", "collapsible-tab", "popup",
+        "share", "sku", "inventory-status"
+      ]
+    },
+    "sense": {
+      "name": "Sense",
+      "version": "10.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header", "breadcrumbs"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "craft": {
+      "name": "Craft",
+      "version": "9.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header", "breadcrumbs"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "newsletter", "contact-form",
+        "blog-posts", "custom-liquid"
+      ]
+    },
+    "ride": {
+      "name": "Ride",
+      "version": "4.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header", "mega-menu"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "taste": {
+      "name": "Taste",
+      "version": "4.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "studio": {
+      "name": "Studio",
+      "version": "4.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header", "parallax-sections"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "colorblock": {
+      "name": "Colorblock",
+      "version": "3.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "newsletter", "contact-form",
+        "blog-posts", "custom-liquid"
+      ]
+    },
+    "crave": {
+      "name": "Crave",
+      "version": "3.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "origin": {
+      "name": "Origin",
+      "version": "3.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "newsletter", "contact-form",
+        "blog-posts", "custom-liquid"
+      ]
+    },
+    "prestige": {
+      "name": "Prestige",
+      "version": "8.0",
+      "os2": true,
+      "free": false,
+      "price": "$350",
+      "developer": "Maestrooo",
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "mega-menu", "quick-view",
+        "product-media-gallery", "predictive-search", "color-schemes",
+        "cart-drawer", "sticky-header", "breadcrumbs", "back-to-top",
+        "size-chart-popup", "lookbook", "before-after-image",
+        "collection-sidebar-filters", "product-badges"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid", "logo-list",
+        "testimonials", "timeline", "before-after", "lookbook",
+        "featured-product", "press", "map"
+      ]
+    },
+    "impulse": {
+      "name": "Impulse",
+      "version": "8.0",
+      "os2": true,
+      "free": false,
+      "price": "$380",
+      "developer": "Archetype Themes",
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "mega-menu", "quick-view",
+        "product-media-gallery", "predictive-search", "color-schemes",
+        "cart-drawer", "sticky-header", "breadcrumbs", "back-to-top",
+        "collection-sidebar-filters", "product-badges", "countdown-timer",
+        "recently-viewed", "wishlist", "age-verifier"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid", "logo-list",
+        "testimonials", "countdown", "hotspots", "featured-product",
+        "recently-viewed", "promotions-grid"
+      ]
+    },
+    "warehouse": {
+      "name": "Warehouse",
+      "version": "5.0",
+      "os2": true,
+      "free": false,
+      "price": "$320",
+      "developer": "Maestrooo",
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "mega-menu", "quick-view",
+        "product-media-gallery", "predictive-search", "cart-drawer",
+        "sticky-header", "breadcrumbs", "collection-sidebar-filters",
+        "product-badges", "recently-viewed", "high-volume-catalog"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid", "logo-list",
+        "testimonials", "featured-product"
+      ]
+    },
+    "flex": {
+      "name": "Flex",
+      "version": "5.0",
+      "os2": true,
+      "free": false,
+      "price": "$350",
+      "developer": "Out of the Sandbox",
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "mega-menu", "quick-view",
+        "product-media-gallery", "predictive-search", "color-schemes",
+        "cart-drawer", "sticky-header", "breadcrumbs", "back-to-top",
+        "collection-sidebar-filters", "product-badges", "advanced-grid-layouts",
+        "product-tabs", "size-chart"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid", "logo-list",
+        "testimonials", "featured-product", "gallery", "map"
+      ]
+    },
+    "publisher": {
+      "name": "Publisher",
+      "version": "4.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header", "editorial-layouts"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "spotlight": {
+      "name": "Spotlight",
+      "version": "3.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    },
+    "refresh": {
+      "name": "Refresh",
+      "version": "3.0",
+      "os2": true,
+      "free": true,
+      "maxSectionsPerTemplate": 25,
+      "features": [
+        "sections-everywhere", "app-blocks", "predictive-search",
+        "color-schemes", "product-media-gallery", "cart-drawer",
+        "sticky-header", "product-quick-add"
+      ],
+      "sections": [
+        "announcement-bar", "header", "footer", "image-banner", "image-with-text",
+        "featured-collection", "collection-list", "rich-text", "multicolumn",
+        "collapsible-content", "video", "slideshow", "newsletter",
+        "contact-form", "blog-posts", "custom-liquid"
+      ]
+    }
+  }
+}

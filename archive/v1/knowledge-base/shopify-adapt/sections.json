@@ -1,0 +1,311 @@
+{
+  "_description": "Comprehensive Shopify section type reference — every section available in OS 2.0 themes with blocks, settings, capabilities, and limitations",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify OS 2.0, Dawn 15.0, Sections Everywhere GA",
+  "sections": {
+    "announcement-bar": {
+      "displayName": "Announcement bar",
+      "category": "header",
+      "availableIn": "all-os2",
+      "blocks": ["announcement"],
+      "maxBlocks": 12,
+      "settings": ["color_scheme", "auto_rotate", "rotation_speed"],
+      "supports": ["text", "link", "auto-rotation", "color-scheme", "dismissible"],
+      "doesNotSupport": ["images-in-bar", "countdown-timer", "multiple-rows"],
+      "notes": "Single bar in Dawn. Some premium themes support multiple announcement bars or rotating banners with images."
+    },
+    "header": {
+      "displayName": "Header",
+      "category": "header",
+      "availableIn": "all-os2",
+      "blocks": ["mega-menu-link-list"],
+      "settings": ["logo", "logo_width", "sticky_header", "menu", "color_scheme", "show_search", "search_type"],
+      "supports": ["logo", "navigation", "search", "cart-icon", "account-icon", "sticky-header", "mega-menu", "country-language-selector"],
+      "doesNotSupport": ["custom-HTML-in-header", "multiple-header-rows", "top-bar-separate-from-nav"],
+      "notes": "Mega menu available in Dawn 8+. Mobile always collapses to hamburger menu. Limited control over mobile menu layout."
+    },
+    "footer": {
+      "displayName": "Footer",
+      "category": "footer",
+      "availableIn": "all-os2",
+      "blocks": ["link_list", "text", "image", "brand_information"],
+      "maxBlocks": 12,
+      "settings": ["color_scheme", "show_payment_icons", "show_social_icons"],
+      "supports": ["navigation-columns", "newsletter-signup", "social-icons", "payment-icons", "text-blocks", "brand-info", "country-selector"],
+      "doesNotSupport": ["custom-layout-grid", "embedded-maps", "multi-row-footer"],
+      "notes": "Footer layout is columnar and auto-responsive. Limited control over column widths."
+    },
+    "image-banner": {
+      "displayName": "Image banner",
+      "category": "hero",
+      "availableIn": "all-os2",
+      "blocks": ["heading", "text", "button"],
+      "maxBlocks": 3,
+      "settings": ["image", "image_overlay_opacity", "desktop_content_position", "mobile_content_alignment", "full_width", "adapt_height_first_image", "color_scheme"],
+      "supports": ["desktop-image", "mobile-image", "heading", "subheading", "up-to-2-buttons", "color-scheme", "overlay-opacity", "content-positioning"],
+      "doesNotSupport": ["parallax", "carousel-slider", "countdown-timer", "custom-HTML-overlay", "ken-burns-animation", "video-background"],
+      "notes": "For video backgrounds, use the Video section or Slideshow with video. No built-in animation effects."
+    },
+    "slideshow": {
+      "displayName": "Slideshow",
+      "category": "hero",
+      "availableIn": "all-os2",
+      "blocks": ["slide"],
+      "maxBlocks": 5,
+      "settings": ["auto_rotate", "rotation_speed", "full_width", "accessibility_info"],
+      "supports": ["multiple-slides", "image-per-slide", "heading", "subheading", "button", "auto-rotation", "navigation-arrows", "pagination-dots"],
+      "doesNotSupport": ["video-slides", "ken-burns", "parallax", "custom-transition-effects", "thumbnail-navigation"],
+      "notes": "5 slides max in Dawn. Each slide has its own image, heading, subtext, and button. No video slide support natively."
+    },
+    "image-with-text": {
+      "displayName": "Image with text",
+      "category": "content",
+      "availableIn": "all-os2",
+      "blocks": ["heading", "text", "button"],
+      "maxBlocks": 3,
+      "settings": ["image", "desktop_image_width", "desktop_content_position", "desktop_content_alignment", "image_height", "color_scheme"],
+      "supports": ["image", "heading", "text", "button", "layout-options", "image-sizing", "color-scheme"],
+      "doesNotSupport": ["video-instead-of-image", "multiple-images", "animation", "icon-lists"],
+      "notes": "Good for about-us, brand story, USP sections. Image can be left or right."
+    },
+    "featured-collection": {
+      "displayName": "Featured collection",
+      "category": "product",
+      "availableIn": "all-os2",
+      "blocks": [],
+      "settings": ["collection", "products_to_show", "columns_desktop", "show_secondary_image", "show_vendor", "show_rating", "enable_quick_add", "image_ratio", "color_scheme"],
+      "supports": ["product-grid", "quick-add", "secondary-image-hover", "vendor-name", "rating-stars", "configurable-columns", "view-all-link"],
+      "doesNotSupport": ["slider-mode", "filters", "sort", "infinite-scroll", "product-badges-native"],
+      "limitations": {
+        "maxProducts": 25,
+        "columns": "1-5 desktop, 1-2 mobile"
+      },
+      "notes": "Shows products from a single collection. Max 25 products. No filtering or sorting — for that, use the collection template."
+    },
+    "collection-list": {
+      "displayName": "Collection list",
+      "category": "product",
+      "availableIn": "all-os2",
+      "blocks": ["collection"],
+      "maxBlocks": 15,
+      "settings": ["heading", "heading_size", "image_ratio", "columns_desktop", "color_scheme"],
+      "supports": ["collection-cards", "collection-images", "configurable-columns", "heading"],
+      "doesNotSupport": ["slider-mode", "custom-images-per-card", "overlay-text-styles"],
+      "notes": "Displays collection images as a grid. Up to 15 collections. Good for category navigation."
+    },
+    "rich-text": {
+      "displayName": "Rich text",
+      "category": "content",
+      "availableIn": "all-os2",
+      "blocks": ["heading", "text", "button"],
+      "maxBlocks": 6,
+      "settings": ["desktop_content_position", "full_width", "color_scheme"],
+      "supports": ["heading", "paragraph-text", "button", "content-alignment", "full-width", "color-scheme"],
+      "doesNotSupport": ["images-inline", "icons", "columns", "custom-HTML"],
+      "notes": "Simple text section. For mixed content, use Custom Liquid or Multicolumn."
+    },
+    "multicolumn": {
+      "displayName": "Multicolumn",
+      "category": "content",
+      "availableIn": "all-os2",
+      "blocks": ["column"],
+      "maxBlocks": 6,
+      "settings": ["heading", "image_width", "image_ratio", "columns_desktop", "column_alignment", "button_label", "button_link", "color_scheme"],
+      "supports": ["image-per-column", "heading-per-column", "text-per-column", "link-per-column", "configurable-columns", "color-scheme"],
+      "doesNotSupport": ["icons-instead-of-images", "different-column-widths", "nested-content"],
+      "notes": "Great for USPs, features, team members. Each column gets an image, heading, and text. For icons, use Custom Liquid."
+    },
+    "collapsible-content": {
+      "displayName": "Collapsible content",
+      "category": "content",
+      "availableIn": "all-os2",
+      "blocks": ["collapsible_row"],
+      "maxBlocks": 16,
+      "settings": ["caption", "heading", "heading_size", "image", "desktop_layout", "open_first_collapsible_row", "color_scheme"],
+      "supports": ["accordion-rows", "heading", "caption", "side-image", "open-first-by-default", "rich-text-in-rows", "color-scheme"],
+      "doesNotSupport": ["nested-accordions", "icons-per-row", "search-within-FAQ", "categories-tabs"],
+      "notes": "Perfect for FAQ sections. Each row has a heading and rich text content. Can pair with a side image."
+    },
+    "video": {
+      "displayName": "Video",
+      "category": "media",
+      "availableIn": "all-os2",
+      "blocks": [],
+      "settings": ["heading", "heading_size", "video_url", "cover_image", "description", "full_width", "color_scheme"],
+      "supports": ["youtube-embed", "vimeo-embed", "shopify-hosted-video", "cover-image", "heading", "description", "full-width", "alt-text"],
+      "doesNotSupport": ["autoplay-background", "multiple-videos", "video-playlist", "custom-player-controls"],
+      "notes": "Embeds YouTube or Vimeo. Shopify-hosted video also supported. For background video, some premium themes offer this."
+    },
+    "featured-product": {
+      "displayName": "Featured product",
+      "category": "product",
+      "availableIn": "all-os2",
+      "blocks": ["text", "title", "price", "variant_picker", "buy_buttons", "description", "rating", "share", "custom_liquid", "collapsible_tab", "popup", "sku", "inventory"],
+      "maxBlocks": 16,
+      "settings": ["product", "color_scheme", "secondary_background", "media_position", "media_size", "constrain_to_viewport", "enable_video_looping"],
+      "supports": ["product-media-gallery", "variant-picker", "buy-buttons", "price", "description", "reviews-rating", "share", "custom-blocks", "collapsible-tabs", "size-popup"],
+      "doesNotSupport": ["compare-at-price-styling", "countdown-timer", "custom-badges", "zoom-outside-gallery"],
+      "notes": "Full product display on any page. Uses the same block system as product template. Can add custom Liquid blocks."
+    },
+    "newsletter": {
+      "displayName": "Email signup",
+      "category": "marketing",
+      "availableIn": "all-os2",
+      "blocks": ["heading", "paragraph", "email_form"],
+      "maxBlocks": 3,
+      "settings": ["color_scheme", "full_width", "background_style"],
+      "supports": ["heading", "subtext", "email-input", "submit-button", "color-scheme", "full-width"],
+      "doesNotSupport": ["name-field", "custom-fields", "double-opt-in-config", "popup-mode"],
+      "notes": "Integrates with Shopify email. For advanced email capture (popups, spin-to-win), use apps like Klaviyo, Privy, or Justuno."
+    },
+    "contact-form": {
+      "displayName": "Contact form",
+      "category": "marketing",
+      "availableIn": "all-os2",
+      "blocks": [],
+      "settings": ["heading", "heading_size", "color_scheme"],
+      "supports": ["name-field", "email-field", "phone-field", "message-field", "heading"],
+      "doesNotSupport": ["custom-fields", "file-upload", "conditional-logic", "department-routing"],
+      "notes": "Basic contact form only. Submissions go to store email. For custom forms, use Hulk Form Builder or similar app."
+    },
+    "blog-posts": {
+      "displayName": "Blog posts",
+      "category": "content",
+      "availableIn": "all-os2",
+      "blocks": [],
+      "settings": ["heading", "blog", "post_limit", "columns_desktop", "show_image", "show_date", "show_author", "show_view_all", "color_scheme"],
+      "supports": ["blog-selection", "post-limit", "featured-image", "date", "author", "excerpt", "view-all-link", "configurable-columns"],
+      "doesNotSupport": ["tags-filter", "categories", "search-within-blog", "infinite-scroll", "featured-post-layout"],
+      "notes": "Displays posts from a selected blog. Shopify blogging is basic compared to WordPress — limited taxonomy, no custom post types."
+    },
+    "custom-liquid": {
+      "displayName": "Custom Liquid",
+      "category": "advanced",
+      "availableIn": "all-os2",
+      "blocks": [],
+      "settings": ["custom_liquid"],
+      "supports": ["any-liquid-code", "html", "css", "javascript", "access-liquid-objects", "metafields"],
+      "doesNotSupport": [],
+      "notes": "The escape hatch. Can render any Liquid/HTML/CSS/JS. Use for components not available as native sections. Performance impact if overused."
+    },
+    "multirow": {
+      "displayName": "Multirow",
+      "category": "content",
+      "availableIn": ["dawn"],
+      "blocks": ["row"],
+      "maxBlocks": 6,
+      "settings": ["heading", "image_height", "desktop_image_width", "heading_size", "color_scheme"],
+      "supports": ["alternating-image-text-rows", "heading", "text", "button", "configurable-image-size"],
+      "doesNotSupport": ["video-in-rows", "custom-layout-per-row", "icons"],
+      "notes": "Alternating image-text rows. Good for storytelling, process steps, or feature breakdowns."
+    },
+    "before-after-image": {
+      "displayName": "Before/After Image",
+      "category": "media",
+      "availableIn": ["Prestige"],
+      "blocks": [],
+      "maxBlocks": 0,
+      "settings": ["before_image", "after_image", "heading"],
+      "supports": ["drag-slider-comparison", "heading", "before-after-labels"],
+      "doesNotSupport": ["video-comparison", "multiple-comparisons", "vertical-mode"],
+      "notes": "Only available in Prestige theme natively. For other themes, use custom JS library (e.g., TwentyTwenty.js) in custom Liquid section."
+    },
+    "logo-list": {
+      "displayName": "Logo list / Brand bar",
+      "category": "social-proof",
+      "availableIn": ["Prestige", "Impulse", "Warehouse", "Flex"],
+      "blocks": ["logo"],
+      "maxBlocks": 20,
+      "settings": ["heading", "autoplay", "image_width", "color_scheme"],
+      "supports": ["logo-images", "links-per-logo", "auto-scroll-carousel", "heading"],
+      "doesNotSupport": ["grayscale-filter", "hover-tooltip", "grid-mode"],
+      "notes": "Not in free themes. For Dawn, use Multicolumn with logo images as a workaround, or custom Liquid section."
+    },
+    "testimonials": {
+      "displayName": "Testimonials / Reviews showcase",
+      "category": "social-proof",
+      "availableIn": ["Prestige", "Impulse", "Warehouse", "Flex"],
+      "blocks": ["testimonial"],
+      "maxBlocks": 12,
+      "settings": ["heading", "layout", "color_scheme"],
+      "supports": ["quote-text", "author-name", "author-image", "star-rating", "carousel-or-grid"],
+      "doesNotSupport": ["video-testimonials", "linked-to-products", "dynamic-from-review-app"],
+      "notes": "Not in free themes. For Dawn, use Multicolumn with custom styled blocks, or Custom Liquid section."
+    },
+    "countdown": {
+      "displayName": "Countdown timer",
+      "category": "marketing",
+      "availableIn": ["Impulse"],
+      "blocks": [],
+      "settings": ["end_date", "heading", "text", "button_label", "button_link", "background_image"],
+      "supports": ["date-countdown", "heading", "subtext", "CTA-button", "background-image"],
+      "doesNotSupport": ["recurring-countdown", "evergreen-countdown", "timezone-auto-adjust"],
+      "notes": "Only in Impulse theme natively. For other themes, build with custom Liquid + JavaScript Date countdown. Apps also available."
+    },
+    "hotspots": {
+      "displayName": "Image hotspots / Shoppable image",
+      "category": "interactive",
+      "availableIn": ["Impulse"],
+      "blocks": ["hotspot"],
+      "maxBlocks": 8,
+      "settings": ["image", "heading", "layout"],
+      "supports": ["clickable-markers", "product-popup", "positioned-pins", "heading"],
+      "doesNotSupport": ["drag-to-reposition-in-editor", "video-hotspots", "hover-preview"],
+      "notes": "Only in Impulse. Custom implementation needs absolute-positioned elements over image with JS popup logic. Medium effort."
+    },
+    "timeline": {
+      "displayName": "Timeline / History",
+      "category": "content",
+      "availableIn": ["Prestige"],
+      "blocks": ["timeline_entry"],
+      "maxBlocks": 12,
+      "settings": ["heading", "color_scheme"],
+      "supports": ["date-entries", "text-per-entry", "image-per-entry", "vertical-timeline-layout"],
+      "doesNotSupport": ["horizontal-timeline", "scroll-animation", "milestone-markers"],
+      "notes": "Only in Prestige. For other themes, achievable with Custom Liquid + CSS flexbox/grid. 4-6 hours custom."
+    },
+    "gallery": {
+      "displayName": "Image gallery / Masonry",
+      "category": "media",
+      "availableIn": ["Flex"],
+      "blocks": ["image"],
+      "maxBlocks": 20,
+      "settings": ["heading", "layout", "image_ratio", "columns_desktop", "enable_lightbox"],
+      "supports": ["image-grid", "lightbox-zoom", "configurable-columns", "heading"],
+      "doesNotSupport": ["masonry-layout", "video-in-gallery", "infinite-scroll-load"],
+      "notes": "Flex has a gallery section. For Dawn, use Multicolumn with images or Custom Liquid with a lightbox library (PhotoSwipe)."
+    },
+    "map": {
+      "displayName": "Map / Store location",
+      "category": "content",
+      "availableIn": ["Prestige", "Flex"],
+      "blocks": [],
+      "settings": ["api_key", "address", "heading", "description", "map_style"],
+      "supports": ["google-maps-embed", "address-text", "heading", "description"],
+      "doesNotSupport": ["multiple-pins", "store-search", "directions-link", "custom-map-styles"],
+      "notes": "Prestige and Flex include map sections. For other themes, use Custom Liquid with Google Maps embed iframe or API."
+    },
+    "press-logos": {
+      "displayName": "Press / As seen in",
+      "category": "social-proof",
+      "availableIn": ["Prestige"],
+      "blocks": ["press_item"],
+      "maxBlocks": 10,
+      "settings": ["heading", "color_scheme"],
+      "supports": ["publication-logo", "quote-text", "link"],
+      "doesNotSupport": ["auto-carousel", "date-display"],
+      "notes": "Only in Prestige. For other themes, use Multicolumn section with publication logos and quotes."
+    },
+    "promotions-grid": {
+      "displayName": "Promotions grid",
+      "category": "marketing",
+      "availableIn": ["Impulse"],
+      "blocks": ["promotion"],
+      "maxBlocks": 6,
+      "settings": ["heading", "layout", "color_scheme"],
+      "supports": ["image-cards", "overlay-text", "link-per-card", "mixed-sizes"],
+      "doesNotSupport": ["countdown-per-card", "product-link-preview", "animation"],
+      "notes": "Only in Impulse. For other themes, achievable with Custom Liquid or creative use of Collection List with custom collection images."
+    }
+  }
+}

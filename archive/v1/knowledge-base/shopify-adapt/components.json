@@ -1,0 +1,521 @@
+{
+  "_description": "Component support matrix — for every common ecommerce UI component, defines native Shopify support, app alternatives, and custom development paths",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify Editions Winter 2026, Dawn 15.0, App Store pricing Q1 2026",
+  "components": {
+    "mega-menu": {
+      "native": true,
+      "sinceTheme": "Dawn 8.0",
+      "depth": 3,
+      "supports": ["images", "featured-collections", "promo-blocks", "multiple-columns"],
+      "limitations": ["No flyout animation customization", "Mobile falls back to accordion", "Limited column layout control", "No icon support in menu items"],
+      "customAlternative": "Custom header section with Liquid mega-menu block",
+      "effort": "8-16 hours custom dev",
+      "apps": [],
+      "premiumThemes": ["Prestige", "Impulse", "Warehouse", "Flex"]
+    },
+    "sticky-header": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["reduce-on-scroll", "always-show", "show-on-scroll-up"],
+      "limitations": ["Limited animation options", "Cannot change content on scroll"],
+      "effort": "0 (native)",
+      "complexity": "none",
+      "notes": "Built into all modern OS 2.0 themes"
+    },
+    "sticky-add-to-cart": {
+      "native": false,
+      "solution": "app-or-custom",
+      "complexity": "low",
+      "apps": [
+        {"name": "Sticky Add to Cart Booster Pro", "price": "$6.92/mo", "rating": 4.9},
+        {"name": "Essential Sticky Add to Cart", "price": "Free plan available", "rating": 4.8},
+        {"name": "Qikify Sticky Add To Cart", "price": "Free plan available", "rating": 4.8}
+      ],
+      "customApproach": "Custom section with position:sticky, clone product-form JS, attach to scroll event",
+      "effort": "2-4 hours custom dev",
+      "notes": "Very common request. Most implementations are straightforward CSS position:sticky with a product form clone."
+    },
+    "quick-view": {
+      "native": false,
+      "sinceTheme": "Dawn (quick-add only, not full quick-view)",
+      "nativePartial": true,
+      "supports": ["quick-add-to-cart"],
+      "limitations": ["Dawn only has quick-add (single variant), not full quick-view modal with images/description"],
+      "apps": [
+        {"name": "Quick View Plus", "price": "$4.99/mo", "rating": 4.7},
+        {"name": "Qikify Quick View", "price": "Free plan available", "rating": 4.8}
+      ],
+      "customApproach": "AJAX product fetch + modal overlay with product template clone",
+      "effort": "8-12 hours custom dev",
+      "premiumThemes": ["Prestige", "Impulse", "Warehouse", "Flex"]
+    },
+    "product-tabs": {
+      "native": false,
+      "nativeWorkaround": true,
+      "workaround": "Use collapsible-content section blocks on product template — renders as accordion (not tabs)",
+      "apps": [
+        {"name": "EasyTabs", "price": "$7.99/mo", "rating": 4.8},
+        {"name": "Tabs by Station", "price": "$5/mo", "rating": 4.7}
+      ],
+      "customApproach": "Custom product section with tabbed blocks using CSS/JS tab switching",
+      "effort": "4-8 hours custom dev",
+      "notes": "Collapsible content is the native alternative. For proper tab UI, custom development or app is needed."
+    },
+    "size-chart": {
+      "native": false,
+      "nativeWorkaround": true,
+      "workaround": "Product metafield (JSON or rich text) + collapsible tab block or popup block in product section",
+      "apps": [
+        {"name": "Kiwi Size Chart", "price": "Free plan available", "rating": 4.9},
+        {"name": "ESC Size Charts & Recommender", "price": "$7.99/mo", "rating": 4.9},
+        {"name": "Avada Size Chart", "price": "Free", "rating": 4.9}
+      ],
+      "customApproach": "Product metafield (JSON) + popup/drawer section with size table rendering",
+      "effort": "4-8 hours custom dev",
+      "notes": "Metaobjects are a clean native solution — create a 'Size Chart' metaobject, link to products via metafield reference."
+    },
+    "wishlist": {
+      "native": false,
+      "apps": [
+        {"name": "Wishlist Plus", "price": "Free plan available", "rating": 4.9},
+        {"name": "Wishlist Hero", "price": "Free plan available", "rating": 4.6},
+        {"name": "Growave", "price": "$9/mo", "rating": 4.8}
+      ],
+      "customApproach": "Local storage or customer metafields + custom Liquid/JS",
+      "effort": "16-24 hours custom dev",
+      "complexity": "medium",
+      "notes": "Complex to build custom — requires handling logged-in vs guest users, persistence, and wishlist page."
+    },
+    "recently-viewed": {
+      "native": false,
+      "apps": [
+        {"name": "Wiser", "price": "Free plan available", "rating": 4.9},
+        {"name": "Also Bought", "price": "$9.99/mo", "rating": 4.9}
+      ],
+      "customApproach": "Browser localStorage tracking + AJAX product card rendering",
+      "effort": "4-8 hours custom dev",
+      "complexity": "low",
+      "notes": "Relatively simple with localStorage. Store product handles, fetch via Storefront API or /products/handle.json.",
+      "premiumThemes": ["Impulse"]
+    },
+    "product-recommendations": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["AI-powered-recommendations", "manual-override-via-Search-Discovery-app"],
+      "limitations": ["Recommendations are auto-generated", "Limited control over algorithm", "Only on product pages"],
+      "effort": "0 (native)",
+      "complexity": "none",
+      "notes": "Uses Shopify's recommendation API. Install Search & Discovery app for manual recommendation control."
+    },
+    "image-zoom": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["hover-zoom", "lightbox-zoom", "pinch-zoom-mobile"],
+      "limitations": ["Only on product media", "Cannot customize zoom level in theme settings"],
+      "effort": "0 (native)",
+      "complexity": "none",
+      "notes": "Built into product media gallery in all modern themes."
+    },
+    "breadcrumbs": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["automatic-hierarchy", "collection-based-trail"],
+      "limitations": ["Limited styling options", "Cannot add custom breadcrumb levels"],
+      "effort": "0 (native)",
+      "complexity": "none",
+      "notes": "Auto-generated based on product/collection hierarchy."
+    },
+    "cart-drawer": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["slide-out-cart", "quantity-adjustments", "remove-items", "cart-note", "subtotal"],
+      "limitations": ["Limited upsell options natively", "No cross-sell blocks in Dawn", "Cannot show shipping calculator"],
+      "effort": "0 (native)",
+      "complexity": "none",
+      "notes": "Alternative is cart page. For upsell/cross-sell in cart, use apps like ReConvert or CartHook."
+    },
+    "countdown-timer": {
+      "native": false,
+      "apps": [
+        {"name": "Hurrify", "price": "Free plan available", "rating": 4.8},
+        {"name": "Sales Countdown Timer Bar", "price": "$8.95/mo", "rating": 4.9},
+        {"name": "Urgency+ Countdown Timer", "price": "Free plan available", "rating": 4.9}
+      ],
+      "customApproach": "Custom Liquid section with JavaScript countdown + metafield for end date",
+      "effort": "2-4 hours custom dev",
+      "complexity": "low",
+      "premiumThemes": ["Impulse"]
+    },
+    "reviews": {
+      "native": false,
+      "apps": [
+        {"name": "Judge.me", "price": "Free plan available", "rating": 5.0},
+        {"name": "Loox", "price": "$9.99/mo", "rating": 4.9},
+        {"name": "Yotpo", "price": "Free plan available", "rating": 4.8},
+        {"name": "Stamped.io", "price": "Free plan available", "rating": 4.8},
+        {"name": "Okendo", "price": "$19/mo", "rating": 4.9}
+      ],
+      "customApproach": "Not recommended — reviews require moderation, email collection, anti-spam, media uploads",
+      "effort": "App: 1-2 hours setup. Custom: 80+ hours dev",
+      "complexity": "very-high",
+      "notes": "Always use an app for reviews. Building custom is not practical."
+    },
+    "live-chat": {
+      "native": false,
+      "apps": [
+        {"name": "Tidio", "price": "Free plan available", "rating": 4.7},
+        {"name": "Gorgias", "price": "$10/mo", "rating": 4.6},
+        {"name": "Zendesk", "price": "Free plan available", "rating": 3.5},
+        {"name": "Shopify Inbox", "price": "Free", "rating": 4.5}
+      ],
+      "effort": "2-4 hours (app install)",
+      "complexity": "very-low",
+      "notes": "Shopify Inbox is free and built by Shopify. For advanced features (chatbots, helpdesk integration), use Tidio or Gorgias."
+    },
+    "currency-switcher": {
+      "native": true,
+      "requires": "Shopify Markets",
+      "supports": ["auto-detect-country", "manual-selection", "geo-IP-redirect"],
+      "limitations": ["Requires Shopify Payments", "Rounding rules limited", "Some apps don't support multi-currency"],
+      "effort": "0 (native, requires Shopify Markets setup)",
+      "complexity": "low",
+      "notes": "Shopify Markets handles multi-currency, multi-language, and regional pricing. No app needed for basic currency switching."
+    },
+    "age-verification": {
+      "native": false,
+      "apps": [
+        {"name": "AgeCheq", "price": "$3.99/mo", "rating": 4.6},
+        {"name": "Real ID Age Verification", "price": "Free", "rating": 4.8}
+      ],
+      "customApproach": "JavaScript modal on page load with cookie-based remember",
+      "effort": "2-4 hours custom dev",
+      "complexity": "low",
+      "premiumThemes": ["Impulse"]
+    },
+    "back-in-stock": {
+      "native": false,
+      "apps": [
+        {"name": "Back in Stock", "price": "Free plan available", "rating": 4.9},
+        {"name": "Notify Me!", "price": "Free plan available", "rating": 4.8},
+        {"name": "Klaviyo", "price": "Free plan available", "rating": 4.6, "notes": "Part of Klaviyo email platform"}
+      ],
+      "customApproach": "Form submission to Klaviyo/Mailchimp list + product variant webhook",
+      "effort": "4-8 hours custom dev",
+      "complexity": "medium"
+    },
+    "product-bundles": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Shopify Bundles app (free, by Shopify) — basic bundle support",
+      "apps": [
+        {"name": "Shopify Bundles", "price": "Free", "rating": 4.5, "notes": "Official Shopify app"},
+        {"name": "Bundle Bear", "price": "$24.99/mo", "rating": 4.9},
+        {"name": "PickyStory", "price": "$49.50/mo", "rating": 4.8}
+      ],
+      "customApproach": "Line item properties + Shopify Scripts (Plus) for bundle pricing",
+      "effort": "24-40 hours custom dev",
+      "complexity": "high",
+      "notes": "Bundle pricing logic requires Shopify Scripts (Plus only) or an app. Shopify's free Bundles app handles basic use cases."
+    },
+    "subscription": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Shopify Subscriptions app (free, by Shopify) — basic subscription support",
+      "apps": [
+        {"name": "ReCharge", "price": "$99/mo", "rating": 4.6},
+        {"name": "Bold Subscriptions", "price": "$49.99/mo", "rating": 4.2},
+        {"name": "Shopify Subscriptions", "price": "Free", "rating": 3.8, "notes": "Official Shopify app"},
+        {"name": "Seal Subscriptions", "price": "Free plan available", "rating": 4.8},
+        {"name": "Loop Subscriptions", "price": "$99/mo", "rating": 4.9}
+      ],
+      "effort": "App: 2-4 hours setup. Custom: 40+ hours",
+      "complexity": "high",
+      "notes": "Subscriptions require selling plan APIs. ReCharge is the market leader. Shopify's free app covers basic subscribe-and-save."
+    },
+    "loyalty-program": {
+      "native": false,
+      "apps": [
+        {"name": "Smile.io", "price": "Free plan available", "rating": 4.8},
+        {"name": "Yotpo Loyalty", "price": "Free plan available", "rating": 4.7},
+        {"name": "LoyaltyLion", "price": "$199/mo", "rating": 4.6},
+        {"name": "BON Loyalty", "price": "Free plan available", "rating": 4.9}
+      ],
+      "effort": "App: 2-4 hours setup. Custom: not recommended",
+      "complexity": "very-high",
+      "notes": "Always use an app. Building a custom loyalty program from scratch is not feasible on Shopify."
+    },
+    "product-360-view": {
+      "native": false,
+      "apps": [
+        {"name": "Magic 360", "price": "$5.90/mo", "rating": 4.8},
+        {"name": "Modelry 3D & AR", "price": "Varies", "rating": 4.5}
+      ],
+      "customApproach": "Custom Liquid section + JS library (e.g., three.js or Sirv 360) with image sprites",
+      "effort": "16-24 hours custom dev",
+      "complexity": "high",
+      "notes": "Shopify natively supports 3D models (.glb files) and AR on product pages. For 360 spin from images, use an app or custom JS."
+    },
+    "advanced-filters": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "requires": "Shopify Search & Discovery app (free)",
+      "supports": ["tag-based-filters", "price-range", "availability", "product-type", "vendor", "metafield-filters", "color-swatches"],
+      "limitations": ["Filter UI customization limited in Dawn", "No horizontal filter bar natively", "Cannot combine AND/OR logic easily"],
+      "apps": [
+        {"name": "Boost Product Filter & Search", "price": "$19/mo", "rating": 4.7},
+        {"name": "Searchanise", "price": "Free plan available", "rating": 4.7}
+      ],
+      "notes": "Native filtering is good for most use cases. For complex faceted search, use Boost or Searchanise."
+    },
+    "product-comparison": {
+      "native": false,
+      "apps": [
+        {"name": "Product Compare", "price": "$3.99/mo", "rating": 4.7},
+        {"name": "Comparify", "price": "$4.99/mo", "rating": 4.5}
+      ],
+      "customApproach": "LocalStorage-based comparison list + comparison page with metafield-driven specs table",
+      "effort": "16-24 hours custom dev",
+      "complexity": "medium"
+    },
+    "infinite-scroll": {
+      "native": false,
+      "apps": [
+        {"name": "Infinite Scroll", "price": "Free plan available", "rating": 4.7},
+        {"name": "Ajaxify", "price": "$5/mo", "rating": 4.6}
+      ],
+      "customApproach": "Intersection Observer + AJAX collection page fetch + DOM append",
+      "effort": "4-8 hours custom dev",
+      "complexity": "low",
+      "notes": "Relatively simple with modern JavaScript. Some SEO considerations — ensure paginated URLs still work."
+    },
+    "popup-modal": {
+      "native": false,
+      "apps": [
+        {"name": "Privy", "price": "Free plan available", "rating": 4.6},
+        {"name": "Justuno", "price": "Free plan available", "rating": 4.6},
+        {"name": "OptiMonk", "price": "Free plan available", "rating": 4.8},
+        {"name": "Klaviyo", "price": "Free plan available", "rating": 4.6}
+      ],
+      "customApproach": "Custom Liquid section + JS for trigger logic (exit intent, time delay, scroll depth)",
+      "effort": "4-8 hours custom dev",
+      "complexity": "low-medium",
+      "notes": "For email capture popups, most email platforms (Klaviyo, Privy) include popup builders."
+    },
+    "store-locator": {
+      "native": false,
+      "apps": [
+        {"name": "Store Locator", "price": "$5.99/mo", "rating": 4.8},
+        {"name": "Storemapper", "price": "$24/mo", "rating": 4.7}
+      ],
+      "customApproach": "Google Maps API + metaobjects for store data + custom page template",
+      "effort": "12-20 hours custom dev",
+      "complexity": "medium"
+    },
+    "social-proof-notifications": {
+      "native": false,
+      "apps": [
+        {"name": "Sales Pop", "price": "Free plan available", "rating": 4.8},
+        {"name": "Nudgify", "price": "Free plan available", "rating": 4.7},
+        {"name": "Fomo", "price": "$25/mo", "rating": 4.6}
+      ],
+      "customApproach": "Webhook-triggered toast notifications using AJAX or websockets",
+      "effort": "8-12 hours custom dev",
+      "complexity": "medium"
+    },
+    "gift-cards": {
+      "native": true,
+      "sinceVersion": "All plans",
+      "supports": ["digital-gift-cards", "custom-amounts", "email-delivery", "custom-design"],
+      "limitations": ["Physical gift cards need app", "Cannot customize email template extensively"],
+      "effort": "0 (native)",
+      "complexity": "none",
+      "notes": "Built-in to Shopify. Gift card template is customizable in theme."
+    },
+    "b2b-wholesale": {
+      "native": true,
+      "requires": "Shopify Plus (B2B on Shopify) or app",
+      "apps": [
+        {"name": "Wholesale Club", "price": "$24/mo", "rating": 4.5},
+        {"name": "SparkLayer B2B", "price": "$49/mo", "rating": 4.9},
+        {"name": "Bold Custom Pricing", "price": "$19.99/mo", "rating": 4.5}
+      ],
+      "plusFeatures": ["company-accounts", "custom-catalogs", "volume-pricing", "payment-terms", "net-payment"],
+      "effort": "Plus: 0 (native). Non-Plus: app install",
+      "complexity": "medium",
+      "notes": "Shopify Plus includes native B2B features. For non-Plus stores, use wholesale apps."
+    },
+    "multi-language": {
+      "native": true,
+      "requires": "Shopify Markets",
+      "supports": ["auto-translation", "manual-translation", "language-selector", "hreflang-tags"],
+      "apps": [
+        {"name": "Langify", "price": "$17.50/mo", "rating": 4.7},
+        {"name": "Transcy", "price": "Free plan available", "rating": 4.8},
+        {"name": "Weglot", "price": "$15/mo", "rating": 4.6}
+      ],
+      "effort": "Native via Shopify Markets. 2-4 hours setup",
+      "complexity": "low",
+      "notes": "Shopify Markets handles multi-language natively. Translation apps add AI translation and better management UIs."
+    },
+    "announcement-bar-advanced": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Dawn supports single announcement bar with auto-rotation. For multiple bars, countdown, or images, use app or custom.",
+      "apps": [
+        {"name": "Essential Announcement Bar", "price": "Free plan available", "rating": 4.8},
+        {"name": "Starter Announcement Bar", "price": "Free", "rating": 4.7}
+      ],
+      "customApproach": "Custom section with multiple announcement blocks, JS rotation, and close/dismiss logic",
+      "effort": "4-6 hours custom dev",
+      "complexity": "low"
+    },
+    "video-background": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Video section supports YouTube/Vimeo embed but not autoplay background. Some premium themes support video background natively.",
+      "apps": [],
+      "customApproach": "HTML5 video element with autoplay muted loop in custom Liquid section, positioned absolute behind content",
+      "effort": "2-4 hours custom dev",
+      "complexity": "low",
+      "premiumThemes": ["Prestige", "Impulse"],
+      "notes": "Performance concern: large video files impact page load. Use compressed MP4 and consider lazy loading."
+    },
+    "parallax-scrolling": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Studio theme has parallax sections. For other themes, custom CSS/JS needed.",
+      "apps": [],
+      "customApproach": "CSS background-attachment:fixed or JS-based IntersectionObserver parallax with transform3d",
+      "effort": "2-6 hours custom dev depending on complexity",
+      "complexity": "low-medium",
+      "premiumThemes": ["Studio"],
+      "notes": "CSS-only parallax is simple but limited. JS parallax gives more control but can impact performance on mobile."
+    },
+    "product-color-swatches": {
+      "native": true,
+      "sinceTheme": "Dawn 7.0",
+      "supports": ["color-swatch-picker", "variant-images", "swatch-customization-via-metafields"],
+      "limitations": ["Swatch colors defined via product variant metafields or CSV", "Limited shape options (circle only in Dawn)", "No image swatches natively"],
+      "apps": [
+        {"name": "Variant Image Swatch", "price": "Free plan available", "rating": 4.8},
+        {"name": "Globo Product Options", "price": "Free plan available", "rating": 4.9}
+      ],
+      "customApproach": "Custom variant picker with metafield-driven color values or swatch images",
+      "effort": "4-8 hours custom dev",
+      "notes": "Dawn 7.0+ supports color swatches via variant metafields. For image-based swatches (fabric textures, patterns), use custom or app."
+    },
+    "product-badges": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Sale badge is native (shows when compare-at price set). Custom badges (New, Bestseller, Low Stock) require metafields + Liquid.",
+      "apps": [
+        {"name": "Badges by ModeMagic", "price": "Free plan available", "rating": 4.7},
+        {"name": "BSS Product Labels", "price": "Free plan available", "rating": 4.9}
+      ],
+      "customApproach": "Product metafield (single_line_text or list) + Liquid conditional in product card snippet",
+      "effort": "2-4 hours custom dev",
+      "complexity": "low",
+      "notes": "Very common request. Sale badge is automatic. For custom badges, a product tag or metafield approach works well."
+    },
+    "upsell-cross-sell": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Product recommendations section exists natively but limited to 'You may also like' style. No cart upsell natively.",
+      "apps": [
+        {"name": "ReConvert Upsell & Cross-Sell", "price": "$4.99/mo", "rating": 4.9},
+        {"name": "Candy Rack", "price": "$29.99/mo", "rating": 4.9},
+        {"name": "In Cart Upsell & Cross-Sell", "price": "Free plan available", "rating": 4.9},
+        {"name": "Selleasy", "price": "Free plan available", "rating": 4.9}
+      ],
+      "customApproach": "Cart drawer modification + AJAX product fetch based on cart contents. Can use metafields for manual upsell assignments.",
+      "effort": "8-16 hours custom dev",
+      "complexity": "medium",
+      "notes": "Post-purchase upsells require Plus (Checkout Extensibility). Pre-purchase upsells in cart can be done on any plan."
+    },
+    "pickup-availability": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["store-pickup", "location-based-availability", "estimated-delivery"],
+      "limitations": ["Requires Shopify POS locations configured", "Cannot customize pickup time slots natively"],
+      "notes": "Native 'Pickup availability' block in product section. Shows which locations have the product in stock."
+    },
+    "search-predictive": {
+      "native": true,
+      "sinceTheme": "Dawn 1.0",
+      "supports": ["product-search", "collection-search", "page-search", "article-search", "instant-results"],
+      "limitations": ["Limited visual customization of results dropdown", "No typo tolerance natively", "Cannot weight results by custom criteria"],
+      "apps": [
+        {"name": "Searchanise", "price": "Free plan available", "rating": 4.7},
+        {"name": "Boost Product Filter & Search", "price": "$19/mo", "rating": 4.7},
+        {"name": "Smart Search & Instant Search", "price": "Free plan available", "rating": 4.9}
+      ],
+      "notes": "Native predictive search works well for most stores. For AI-powered, typo-tolerant, merchandised search, use Searchanise or Boost."
+    },
+    "scroll-to-top": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Some themes include back-to-top button (Prestige, Impulse, Flex). For others, trivial custom JS.",
+      "customApproach": "Fixed-position button with scroll event listener and smooth scrollTo",
+      "effort": "1-2 hours custom dev",
+      "complexity": "very-low",
+      "premiumThemes": ["Prestige", "Impulse", "Flex"]
+    },
+    "image-hotspots": {
+      "native": false,
+      "apps": [
+        {"name": "Lookbook", "price": "Free plan available", "rating": 4.7},
+        {"name": "Visual Merchandiser", "price": "$9.99/mo", "rating": 4.5}
+      ],
+      "customApproach": "Custom section with positioned markers over image, tooltip/popup on click, metafield-driven coordinates",
+      "effort": "8-16 hours custom dev",
+      "complexity": "medium",
+      "premiumThemes": ["Impulse"],
+      "notes": "Impulse theme has native 'hotspots' section. For other themes, fully custom."
+    },
+    "mega-footer": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Default footer supports columns with link lists, text, images, newsletter, and social/payment icons. For more complex footers, custom Liquid.",
+      "customApproach": "Custom footer section group with multiple section types (links, newsletter, social, map, etc.)",
+      "effort": "4-8 hours custom dev",
+      "complexity": "low-medium"
+    },
+    "product-customizer": {
+      "native": false,
+      "apps": [
+        {"name": "Product Customizer", "price": "$9.99/mo", "rating": 4.6},
+        {"name": "Zepto Product Personalizer", "price": "$9.99/mo", "rating": 4.8},
+        {"name": "Kickflip Product Customizer", "price": "$49/mo", "rating": 4.5}
+      ],
+      "customApproach": "Line item properties for text inputs + file upload via AJAX. Canvas-based preview for visual customization.",
+      "effort": "24-40+ hours custom dev",
+      "complexity": "high",
+      "notes": "Text engraving is simple (line item properties). Visual product builders (design-your-own) are very complex — always use an app."
+    },
+    "shipping-calculator": {
+      "native": false,
+      "apps": [
+        {"name": "Estimated Delivery Date", "price": "Free plan available", "rating": 4.9},
+        {"name": "Shipping Rates Calculator", "price": "Free plan available", "rating": 4.7}
+      ],
+      "customApproach": "AJAX call to Shopify Shipping Rate API from cart page + display logic",
+      "effort": "4-8 hours custom dev",
+      "complexity": "medium",
+      "notes": "Cart page shipping estimator requires address input and API call to Shopify's rate endpoint."
+    },
+    "order-tracking": {
+      "native": false,
+      "nativePartial": true,
+      "workaround": "Shopify order status page shows basic tracking with carrier links. For branded tracking pages, use app.",
+      "apps": [
+        {"name": "Parcel Panel", "price": "Free plan available", "rating": 4.9},
+        {"name": "AfterShip Order Tracking", "price": "Free plan available", "rating": 4.7},
+        {"name": "Rush Order Tracking", "price": "$9/mo", "rating": 4.8}
+      ],
+      "effort": "16-24 hours custom dev",
+      "complexity": "high",
+      "notes": "Building custom requires carrier API integrations. Apps are strongly recommended."
+    }
+  }
+}

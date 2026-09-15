@@ -1,0 +1,53 @@
+# EchoFlow 2.0 — working notes
+
+Read [`docs/CONCEPT.md`](docs/CONCEPT.md) first. It is the source of record; the
+code is downstream of it. If a change contradicts the concept, the change needs a
+reason.
+
+## The one rule
+
+**Everything is a Finding.** One record type. Axis pages and surface pages are
+queries over the same pile, linked rather than copied. If something cannot be
+expressed as a Finding, it does not belong in the output.
+
+Adding a second record type, a second score, or a per-axis ranking is how this
+becomes v1 again.
+
+## Things that will trip you up
+
+- **`effort` is inverted.** 10 means *trivial to fix*, not "lots of work".
+  `priority = impact × effort` so high-impact-and-easy ranks first.
+- **`spread` in `weigh()` is distinct things to fix**, not total occurrences. A
+  button whose colour, radius and height all drift is ONE snippet to rebuild.
+  Getting this backwards buries the most structural findings.
+- **Colour needs two tolerances.** Accidental chromatic forks (ΔE ~1.7–3.7) sit
+  *above* deliberate neutral steps (ΔE ~2.2). One threshold must either merge real
+  surface tints or miss real forks. See the calibration table in `consistency.js`.
+- **Use Lab chroma, not HSL saturation**, to decide if a colour is neutral. HSL
+  saturation is unstable near white — `#f8f9fa` reports 17% saturation and gets
+  filed as a brand colour.
+- **`core/collect-dom.js` closes over nothing.** It is serialised into the page by
+  `page.evaluate()` and injected by the extension. No imports, no module scope.
+  Breaking that splits the two collectors apart.
+- **Unmeasured ≠ passing.** A dimension that could not run is excluded from the
+  score and reported in `skipped`. Never default it to 100.
+
+## After changing core/
+
+```bash
+node scripts/sync-core.js    # the extension loads its own copy
+node test/run.js
+```
+
+## Testing against a real page
+
+`test/fixture-site/` is a deliberately inconsistent storefront (three PDPs that
+drift in button style, nav, price format and section skeleton).
+
+```bash
+python3 -m http.server 8099 --directory test/fixture-site &
+node analyzer/src/cli/index.js http://127.0.0.1:8099/ --out /tmp/ef
+```
+
+In a sandbox, Chromium may need `ECHOFLOW_CHROMIUM`, `ECHOFLOW_NO_SANDBOX=1` and
+`ECHOFLOW_PROXY`.

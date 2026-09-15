@@ -1,0 +1,262 @@
+{
+  "_description": "Common migration scenarios — maps platform-specific patterns and features to Shopify equivalents",
+  "_lastUpdated": "2026-04-14",
+  "_shopifyReference": "Shopify Admin API 2026-01, Matrixify v5, LitExtension 2026",
+  "platforms": {
+    "wordpress-woocommerce": {
+      "name": "WordPress + WooCommerce",
+      "commonSignatures": ["wp-content", "woocommerce", "wp-includes", "wp-json", "wordpress"],
+      "migration": {
+        "products": {
+          "method": "CSV export/import or migration app",
+          "tools": ["LitExtension", "Cart2Cart", "Matrixify"],
+          "notes": "WooCommerce product attributes map to Shopify product options (max 3). Custom fields → metafields.",
+          "gotchas": ["Variable products → Shopify variants (max 100)", "Grouped products → Shopify bundles app", "Downloadable products → Shopify Digital Downloads app"]
+        },
+        "content": {
+          "pages": "Recreate as Shopify pages (Liquid) or use metaobjects for structured content",
+          "blog": "Export blog posts via RSS → import to Shopify blog. Shopify blogs are simpler (no categories, limited taxonomy)",
+          "customPostTypes": "No equivalent — use metaobjects, pages, or apps",
+          "widgets": "No equivalent — use theme sections and app blocks",
+          "shortcodes": "No equivalent — convert to Liquid snippets in custom Liquid sections"
+        },
+        "seo": {
+          "urlRedirects": "Critical — set up 301 redirects for all changed URLs via Shopify admin or bulk CSV",
+          "sitemaps": "Shopify auto-generates sitemap.xml",
+          "metaTags": "Handled via Shopify SEO settings per product/page/collection",
+          "structuredData": "Most themes include JSON-LD for products. May need custom for breadcrumbs, FAQs",
+          "gotchas": ["WordPress URL structures differ from Shopify (/product/ vs /products/)", "Category URLs → collection URLs need redirects", "Tag pages may not have direct Shopify equivalent"]
+        },
+        "plugins": {
+          "contactForm7": "Shopify contact form section or form builder app",
+          "yoastSeo": "Shopify handles basic SEO; use apps like SEO Manager for advanced",
+          "elementor": "No visual builder — use Shopify theme customizer + sections",
+          "wooCommerceSubscriptions": "ReCharge or Shopify Subscriptions",
+          "wpml": "Shopify Markets for multi-language",
+          "gravityForms": "Hulk Form Builder or JEEMA Form Builder"
+        },
+        "effort": "medium",
+        "estimatedDays": "5-15 depending on catalog size and customization"
+      }
+    },
+    "magento": {
+      "name": "Magento / Adobe Commerce",
+      "commonSignatures": ["magento", "mage", "varien", "Magento_", "catalogsearch", "checkout/onepage"],
+      "migration": {
+        "products": {
+          "method": "Migration app or custom script via APIs",
+          "tools": ["LitExtension", "Cart2Cart", "Matrixify"],
+          "notes": "Magento's attribute system is much more complex. Map key attributes to Shopify options/metafields.",
+          "gotchas": [
+            "Configurable products → Shopify variants (option limit: 3 axes, 100 variants)",
+            "Bundled products → use Shopify Bundles app or line item properties",
+            "Custom options → product metafields + custom variant picker",
+            "Tiered pricing → Shopify Scripts (Plus) or pricing app",
+            "Multi-store → Shopify Markets or expansion stores (Plus)"
+          ]
+        },
+        "content": {
+          "cmsPages": "Recreate as Shopify pages. Magento widget/block system → Shopify sections",
+          "cmsBlocks": "Convert to Shopify Liquid snippets or custom Liquid sections",
+          "categories": "Map to Shopify collections (manual or smart collections)"
+        },
+        "seo": {
+          "urlRedirects": "Essential — Magento URLs are very different",
+          "layeredNavigation": "Shopify Search & Discovery app or Boost Commerce",
+          "gotchas": ["Magento category tree → flat Shopify collection structure", "Layered navigation URLs need redirect strategy"]
+        },
+        "effort": "high",
+        "estimatedDays": "15-40 depending on catalog complexity"
+      }
+    },
+    "bigcommerce": {
+      "name": "BigCommerce",
+      "commonSignatures": ["bigcommerce", "bc-sf-filter", "stencilutils", "/api/storefront"],
+      "migration": {
+        "products": {
+          "method": "CSV export/import or migration app",
+          "tools": ["LitExtension", "Cart2Cart", "Matrixify"],
+          "notes": "BigCommerce product structure is similar to Shopify. Most fields map directly.",
+          "gotchas": ["BigCommerce allows more variant options (250+) vs Shopify (100)", "Product rules/modifiers → metafields or customization apps"]
+        },
+        "content": {
+          "pages": "Direct mapping to Shopify pages",
+          "blog": "Export/import blog posts — both platforms have similar blog capabilities"
+        },
+        "effort": "low-medium",
+        "estimatedDays": "3-10"
+      }
+    },
+    "squarespace": {
+      "name": "Squarespace",
+      "commonSignatures": ["squarespace", "sqsp", "static.squarespace", "squarespace-cdn"],
+      "migration": {
+        "products": {
+          "method": "CSV export from Squarespace → format for Shopify import",
+          "tools": ["Manual CSV", "LitExtension"],
+          "notes": "Squarespace product data is simpler. Export via Squarespace settings.",
+          "gotchas": ["Squarespace digital products → Shopify Digital Downloads app", "Squarespace membership/subscription → use apps"]
+        },
+        "content": {
+          "pages": "Recreate in Shopify. Squarespace's visual builder doesn't export to code cleanly",
+          "blog": "Export via Squarespace → import to Shopify",
+          "galleries": "Recreate using Shopify gallery sections or custom Liquid"
+        },
+        "design": {
+          "notes": "Squarespace designs tend to be very visual with custom layouts. Shopify section-based approach is more structured — may need creative section combinations or custom Liquid to replicate exact layouts."
+        },
+        "effort": "medium",
+        "estimatedDays": "5-12"
+      }
+    },
+    "wix": {
+      "name": "Wix",
+      "commonSignatures": ["wix.com", "wixsite", "parastorage.com", "static.wixstatic.com", "wix-code"],
+      "migration": {
+        "products": {
+          "method": "CSV export from Wix → format for Shopify import",
+          "tools": ["Manual CSV", "LitExtension"],
+          "notes": "Wix ecommerce is limited. Most products transfer easily.",
+          "gotchas": ["Wix product options don't always map cleanly to Shopify's 3-option limit"]
+        },
+        "content": {
+          "pages": "Must be recreated. Wix uses a proprietary visual builder with no code export",
+          "blog": "Export via RSS or Wix export → import to Shopify",
+          "dynamicPages": "Wix dynamic pages → Shopify metaobjects + custom templates"
+        },
+        "design": {
+          "notes": "Wix allows pixel-perfect placement. Shopify themes are responsive and section-based. Exact layout replication is usually not possible — focus on equivalent UX, not pixel-perfect match."
+        },
+        "effort": "medium",
+        "estimatedDays": "5-15"
+      }
+    },
+    "vtex": {
+      "name": "VTEX",
+      "commonSignatures": ["vtex", "vtexcommercestable", "vtexassets", "vteximg"],
+      "migration": {
+        "products": {
+          "method": "VTEX API export → CSV format → Shopify import or Admin API",
+          "tools": ["Matrixify", "Custom API scripts"],
+          "notes": "VTEX has complex catalog structure with SKUs, specifications, and categories. Map specifications to metafields.",
+          "gotchas": [
+            "VTEX SKU model differs from Shopify variants — may need to consolidate",
+            "VTEX product specifications → Shopify metafields",
+            "VTEX trade policies → Shopify Markets or customer-specific pricing (Plus)",
+            "VTEX marketplace integrations need re-evaluation for Shopify"
+          ]
+        },
+        "content": {
+          "pages": "Recreate CMS content in Shopify pages or metaobjects",
+          "layouts": "VTEX Site Editor layouts → Shopify theme sections",
+          "notes": "VTEX CMS is very custom. Most content needs manual recreation."
+        },
+        "seo": {
+          "urlRedirects": "Critical — VTEX URL patterns are very different from Shopify",
+          "gotchas": ["VTEX intelligent search → Shopify Search & Discovery or third-party", "VTEX category tree → Shopify collections (flat structure)"]
+        },
+        "effort": "high",
+        "estimatedDays": "15-40 depending on catalog and customization complexity"
+      }
+    },
+    "salesforce-commerce": {
+      "name": "Salesforce Commerce Cloud (SFCC / Demandware)",
+      "commonSignatures": ["demandware", "salesforce", "dw/shop", "on/demandware", "sfcc"],
+      "migration": {
+        "products": {
+          "method": "SFCC data export via OCAPI or batch jobs → CSV → Shopify import",
+          "tools": ["Matrixify", "Custom migration scripts", "LitExtension"],
+          "notes": "SFCC has complex product model with master/variation products, product sets, and bundles. Requires careful mapping.",
+          "gotchas": [
+            "SFCC variation groups → Shopify variants (max 100 variants, 3 options)",
+            "SFCC product sets → Shopify bundles app",
+            "SFCC catalogs → Shopify product types + collections",
+            "SFCC pricebooks → Shopify Markets pricing or Scripts (Plus)",
+            "SFCC content slots → Shopify sections",
+            "SFCC customer groups → Shopify customer tags + segmentation"
+          ]
+        },
+        "content": {
+          "pages": "Recreate in Shopify. SFCC Content Assets → Shopify pages or metaobjects",
+          "contentSlots": "SFCC Content Slots → Shopify theme sections + app blocks",
+          "pageDesigner": "SFCC Page Designer components → Shopify sections (not 1:1 mapping)"
+        },
+        "seo": {
+          "urlRedirects": "Essential — SFCC URLs are completely different from Shopify structure",
+          "gotchas": [
+            "SFCC uses /on/demandware.store/... URL patterns",
+            "Category URLs need comprehensive redirect mapping",
+            "SFCC's URL aliases may not have direct equivalents"
+          ]
+        },
+        "integrations": {
+          "notes": "SFCC is often deeply integrated with Salesforce ecosystem (Marketing Cloud, Service Cloud, CDP). Plan for replacement or re-integration.",
+          "commonReplacements": {
+            "Marketing Cloud": "Klaviyo, Mailchimp, or Shopify Email",
+            "Service Cloud": "Gorgias, Zendesk, or Shopify Inbox",
+            "Commerce Cloud Einstein": "Shopify Search & Discovery + product recommendations",
+            "Order Management": "Shopify's native OMS or third-party (Brightpearl, Linnworks)"
+          }
+        },
+        "effort": "very-high",
+        "estimatedDays": "30-60+ depending on complexity and integrations"
+      }
+    },
+    "custom-ecommerce": {
+      "name": "Custom-built ecommerce",
+      "commonSignatures": [],
+      "migration": {
+        "products": {
+          "method": "API export to CSV → Shopify import or Shopify Admin API bulk create",
+          "tools": ["Matrixify", "Shopify Admin API"],
+          "notes": "Requires understanding the custom system's data model and mapping to Shopify's.",
+          "gotchas": [
+            "Custom product types → Shopify product types + metafields",
+            "Custom pricing logic → Shopify Scripts (Plus) or apps",
+            "Custom user auth → Shopify customer accounts (limited customization)",
+            "Custom checkout → Shopify checkout (standard plans: no customization; Plus: Checkout Extensibility)"
+          ]
+        },
+        "content": {
+          "notes": "All content must be recreated using Shopify pages, sections, metaobjects, or custom Liquid"
+        },
+        "seo": {
+          "urlRedirects": "Map all existing URLs to Shopify URL structure. Set up 301 redirects.",
+          "notes": "Custom sites may have very different URL patterns — comprehensive redirect mapping is critical"
+        },
+        "effort": "high",
+        "estimatedDays": "10-30+ depending on complexity"
+      }
+    },
+    "prestashop": {
+      "name": "PrestaShop",
+      "commonSignatures": ["prestashop", "presta", "modules/", "themes/classic"],
+      "migration": {
+        "products": {
+          "method": "Migration app or CSV export/import",
+          "tools": ["LitExtension", "Cart2Cart"],
+          "gotchas": ["PrestaShop combinations → Shopify variants (100 max)", "PrestaShop features → metafields"]
+        },
+        "effort": "medium",
+        "estimatedDays": "7-20"
+      }
+    }
+  },
+  "universalMigrationChecklist": [
+    "Export all product data (CSV or API)",
+    "Export all customer data (with password reset plan)",
+    "Document all URL patterns for redirect mapping",
+    "Inventory all third-party integrations (payment, shipping, email, analytics)",
+    "Catalog all custom functionality for Shopify equivalent research",
+    "Plan SEO redirect strategy (301 redirects for all indexed URLs)",
+    "Test payment gateway compatibility",
+    "Plan email platform migration or integration",
+    "Set up analytics (GA4, Shopify analytics)",
+    "Plan DNS and domain transfer",
+    "Schedule maintenance window for cutover",
+    "Post-launch: monitor 404s, test checkout flow, verify redirects",
+    "Audit all automation workflows (email flows, order processing rules) for recreation",
+    "Document API integrations for third-party services (ERP, WMS, CRM)",
+    "Plan staff training on Shopify admin"
+  ]
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EchoFlow</title>
+<link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+<header>
+  <div class="brand">EchoFlow <span>2.0</span></div>
+  <div class="host" id="host">—</div>
+</header>
+
+<div class="controls">
+  <div class="axes" id="axes">
+    <label><input type="checkbox" value="design" checked> Design</label>
+    <label><input type="checkbox" value="ux" checked> UX</label>
+    <label><input type="checkbox" value="engine" checked> Engine</label>
+  </div>
+  <button id="scan" class="primary">Analyse this page</button>
+  <p class="scope-note">
+    Single page: extractive checks only. Comparative checks — the ones that measure
+    consistency <em>across</em> the site — need the CLI.
+  </p>
+</div>
+
+<nav class="tabs" id="tabs" hidden>
+  <button data-tab="review" class="on">Design review</button>
+  <button data-tab="findings">Findings</button>
+  <button data-tab="structure">Structure</button>
+</nav>
+
+<main id="out">
+  <div class="empty">Open a storefront and hit <strong>Analyse this page</strong>.</div>
+</main>
+
+<footer id="foot" hidden>
+  <button id="export">Export wiki bundle</button>
+  <button id="copyjson" class="ghost">Copy JSON</button>
+</footer>
+
+<script type="module" src="sidepanel.js"></script>
+</body>
+</html>

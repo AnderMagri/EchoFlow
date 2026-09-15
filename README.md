@@ -1,124 +1,148 @@
-# EchoFlow — UX Audit Chrome Extension `v1.6`
+# EchoFlow 2.0
 
-EchoFlow is an internal UX audit tool that analyses any website directly in Chrome. It runs rule-based UX audits, captures a full design inventory, detects tech stacks, maps pages for Shopify migration, and lets you run AI-powered analysis with Claude or Gemini — all from a single popup, without leaving the browser.
+**A Shopify consistency audit.** It answers one question: *how far is this site
+from a clean system, and what do I fix first?*
 
----
+Not a generic site analyser. Shopify is the product — for sites that **are** one
+or **will be** one.
 
-## Install (takes ~1 minute)
-
-> EchoFlow is a developer-mode Chrome extension — no Chrome Web Store required.
-
-### Step 1 — Download
-
-**[⬇ Download EchoFlow.zip](https://github.com/AnderMagri/EchoFlow/raw/main/EchoFlow.zip)**
-
-Save it anywhere and unzip it.
-
-### Step 2 — Load in Chrome
-
-1. Open Chrome and navigate to **`chrome://extensions`**
-2. Toggle **Developer mode** ON (top-right corner)
-3. Click **Load unpacked**
-4. Select the unzipped **`EchoFlow`** folder
-5. The EchoFlow icon appears in your toolbar — pin it for quick access
-
-> **Chrome will show a "Developer mode extensions" banner on startup.** This is normal for any extension loaded this way — it's not a security issue.
+> v1 (the screenshot tool) is retired and lives in [`archive/v1`](archive/). 2.0
+> shares no code with it. The reasoning behind the rewrite is in
+> [`docs/CONCEPT.md`](docs/CONCEPT.md).
 
 ---
 
-## Setup — API Key (required for AI features)
+## What makes it different
 
-EchoFlow's AI analysis requires a Claude or Gemini API key.
+**Consistency is the measuring instrument, not a score.** Design, UX and Engine
+are not three methods — they are the same three primitives pointed at different
+evidence, which is what lets one number legitimately span all three.
 
-1. Click the EchoFlow icon → run an audit → open the Results page
-2. Click **Settings** (top-right)
-3. Choose your provider and paste your API key
-4. Keys are stored locally in your browser and only sent to the provider's API
+| Primitive | Measures | Scope |
+|---|---|---|
+| Vocabulary coherence | How close the values used for one property are to a *designed* set — near-duplicates and sprawl | Extractive |
+| Cross-page agreement | For a role that should be invariant, what share of pages agree | Comparative |
+| Rhythm adherence | What share of numeric values sit on the *detected* base unit | Extractive |
 
-Get a Claude key at [console.anthropic.com](https://console.anthropic.com) · Get a Gemini key at [aistudio.google.com](https://aistudio.google.com)
+**One primitive, one ranking.** Everything is a Finding. `priority = impact × effort`.
+No second score, no per-axis weights that are comparable by accident.
 
----
+**It says what it did not measure.** Comparative dimensions are *skipped*, never
+guessed, when there is only one page — and a score built on partial coverage is
+labelled provisional, because the dimensions that go missing are exactly the ones
+that detect inconsistency.
 
-## The Popup — 4 Tabs
-
-### Design
-Scans the current page and extracts a full design inventory in seconds.
-
-- **Health Score (0–100)** — weighted across Color, Typography, Layout, and Accessibility
-- **Color System** — full palette with tokens, raw values, effects, and A11Y contrast check
-- **Typography** — font families, sizes, weights, line heights, letter spacing
-- **Layout & Structure** — spacing base unit, Flex/Grid/Block distribution, container widths, column patterns
-- **Accessibility** — heading hierarchy, alt text, ARIA, contrast issues
-- **Tech Stack** — detects UI framework, icon library, CMS, analytics, and more
-
-### Page Review
-Runs a full rule-based UX audit of the current page.
-
-1. Choose your **vertical** — Generic UX, Shopify, Fintech, or Crypto
-2. Choose a **page type** — Homepage, Landing Page, Pricing, PDP, Checkout… (varies by vertical)
-3. Choose your **device** — Desktop, Mobile (390×844), Tablet (820×1180), or Compare
-4. Choose **screenshot mode** — Viewport or Full Page
-5. Click **Run Audit**
-
-The results page opens with rule-based findings, ICE scores, screenshot markers, and AI analysis.
-
-### Explorer
-Maps and understands the full structure of a site.
-
-- **Detect Tech Stack** — identifies UI framework, CMS, analytics, and more without running a full audit
-- **Discover Pages** — crawls the site via sitemap or link-crawl and groups pages by template type
-- **Recent Explorations** — quick access to previously crawled sites; reload any discovery into the Page Review tab
-
-### Migration
-Evaluates how well the current site can be rebuilt in Shopify.
-
-- **Analyse Current Page** — maps sections and components to Shopify equivalents (Native / App / Custom)
-- **Analyse Whole Site** — runs the analysis across all page types discovered by Explorer, produces a full component inventory and theme recommendation
+**The design output is a rebuild seed.** The clusters the consistency pass had to
+compute anyway come out as CSS properties, W3C DTCG tokens, a Tailwind config, and
+Shopify theme settings.
 
 ---
 
-## Results Page
+## Install
 
-After a Page Review audit the results page opens with:
+```bash
+git clone https://github.com/AnderMagri/EchoFlow.git
+cd EchoFlow/analyzer && npm install && npx playwright install chromium
+```
 
-| Tab | What you get |
-|-----|-------------|
-| **Rules** | Rule-based findings with ICE scores and numbered markers on the screenshot |
-| **Design** | Full design inventory — colors, typography, spacing, layout system, shadows, images |
-| **AI Analysis** | UX analysis with vision (reads the screenshot), dark pattern scan, copy intelligence |
-| **Compare** | Side-by-side desktop vs mobile findings |
+## Use it — CLI
 
-### AI Analysis (requires API key)
-- **UX Analysis** — top issues, quick wins, UX score, design score. Includes **Vision Layer**: Claude reads the actual screenshot for visual hierarchy critique
-- **Dark Pattern Detector** — scans for 12 manipulative UI patterns with EU DSA / GDPR / US FTC / CCPA regulatory references
-- **Copy Intelligence** — scores value proposition, CTAs, headlines, reading level, trust signals, microcopy, emotional resonance. Includes rewrite suggestions
+```bash
+node analyzer/src/cli/index.js https://shop.example.com
+```
 
-### Export
-- **Save** as `.echoflow` file (reimport anytime)
-- **Figma Presentation** — auto-generates slides per finding
-- **PDF Report**
-- **Copy for Notion** — markdown formatted
-- **Copy JSON for Claude**
+```
+  73/100 — mostly-held
+  A system is visible, with drift at the edges. Tighten before rebuilding, not after.
+
+  design   80
+  ux       53
+  engine   78
+
+  15 findings (4 critical, 7 high)
+
+  Report:  ./echoflow-shop.example.com/site/index.html
+  Data:    ./echoflow-shop.example.com/data/analysis.json
+  Agents:  ./echoflow-shop.example.com/CLAUDE.md
+```
+
+| Option | |
+|---|---|
+| `--scope page\|site` | `site` discovers and samples pages by template type (default) |
+| `--axes design,ux,engine` | Which axes to run |
+| `--viewports desktop,mobile` | Render at one or both |
+| `--limit 12` | Max pages in a site run |
+| `--out <dir>` | Output directory |
+
+## Use it — Chrome sidebar
+
+```bash
+node scripts/sync-core.js     # copy core/ into the extension
+```
+
+`chrome://extensions` → Developer mode → **Load unpacked** → pick `extension/`.
+
+The sidebar is the working surface: browse the client's site and analyse from
+where you are. Three tabs —
+
+- **Design review** — the extracted system (palette, ramp, type scale, spacing
+  rhythm, radii) right in the tab, no report needed.
+- **Findings** — ranked, with recommendations.
+- **Structure** — draws the box skeleton **on the live page**. Sections, all
+  boxes, or a 12-column overlay. Scroll the site with it on.
+
+Export writes the same wiki bundle the CLI produces, as a `.zip`.
 
 ---
 
-## Updating
+## The output bundle
 
-When a new version is available:
+One analysis, one folder, three readers — and no copy of the truth:
 
-1. [Re-download EchoFlow.zip](https://github.com/AnderMagri/EchoFlow/raw/main/EchoFlow.zip) and replace the contents of your folder
-2. Go to `chrome://extensions`
-3. Click the **↺ refresh** icon on the EchoFlow card
+```
+site/          static HTML. Unzip and open, or host anywhere. The client's copy.
+pages/         markdown with YAML front-matter.
+findings/      one file per finding, stable filename.
+data/          JSON — the source everything else is rendered from.
+CLAUDE.md      how an AI agent should navigate the folder.
+manifest.json  index of the bundle.
+```
+
+`data/analysis.json` is the single source. Every other file is a projection of it.
+
+**Two densities, one document.** The report has a Full/Client toggle in the header
+— a filter, not a second export. Maintaining two designs would double the work
+forever, and they would drift.
+
+**Built for Cowork.** Drop the folder in a synced directory and both you and Claude
+can work from it. `CLAUDE.md` states where the truth is, what `effort` means (it is
+inverted — 10 is *trivial to fix*), and what **not** to conclude from the score.
 
 ---
 
-## Requirements
+## Layout
 
-- Google Chrome (version 109+)
-- Claude API key **or** Gemini API key for AI features (optional — rule-based audit works without a key)
+```
+core/          zero-dependency ESM. Runs in Node AND the browser.
+  finding.js       the Finding primitive — the only record type
+  consistency.js   the three measurement primitives + aggregation
+  dimensions.js    17 consistency dimensions across the three axes
+  synthesis.js     cross-axis meta-findings
+  tokens.js        the design system seed
+  collect-dom.js   the DOM collector (shared by both collectors)
+  wiki/            model + markdown + HTML + structure renderers
+analyzer/      Node + Playwright. Renders pages, runs core, writes the bundle.
+extension/     MV3 sidebar. Injects the same collector, runs the same core.
+knowledge/     Shopify domain knowledge (themes, sections, components, platform)
+archive/v1/    the retired screenshot tool
+```
 
----
+`core/` is shared verbatim — `scripts/sync-core.js` copies it into the extension.
+There is no second implementation, so a score in the sidebar and a score from the
+CLI cannot disagree.
 
-## Questions?
+## Test
 
-Ping **@andermagri** on Slack.
+```bash
+node test/run.js
+```
