@@ -15,6 +15,7 @@ import { dedupe, rank } from './finding.js';
 import { normalizeObservation } from './observation.js';
 import { synthesize } from './synthesis.js';
 import { buildTokenSeed } from './tokens.js';
+import { runQualityChecks } from './checks.js';
 
 /**
  * @param {object} input
@@ -66,6 +67,15 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
     }
   }
 
+  // Tokens are built before the quality checks because some of them (contrast)
+  // examine the extracted system itself, not the raw page.
+  const tokens = axes.includes('design') ? buildTokenSeed(observations) : null;
+
+  // Quality checks: real defects that are NOT inconsistencies. They produce
+  // Findings but deliberately do not feed the consistency score — see
+  // core/checks.js for why keeping the score pure matters.
+  findings.push(...runQualityChecks({ ...ctx, tokens }, axes));
+
   const consistency = aggregate(measured.map(({ key, axis, score, weight }) => ({ key, axis, score, weight })));
   consistency.verdict = GRADE_COPY[consistency.grade];
   consistency.dimensions = measured;
@@ -87,7 +97,7 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
     // Carried for the structure view. Stripped out of data/analysis.json by the
     // bundler — layout trees are large and belong in their own files.
     observations,
-    tokens: axes.includes('design') ? buildTokenSeed(observations) : null,
+    tokens,
     skipped: measured.filter((m) => m.score == null).map((m) => ({ key: m.key, reason: m.reason })),
   };
 }

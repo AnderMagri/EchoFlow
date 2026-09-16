@@ -109,16 +109,32 @@ const RULES = [
   {
     id: 'ready-to-port',
     when: ({ overall }) => overall != null && overall >= 82,
-    build: ({ overall, byAxis }, findings) => ({
-      title: 'This site is ready to rebuild as-is',
-      impact: 6, effort: 9,
-      evidence: {
-        overall, byAxis,
-        reading: 'Decisions were made once and held across the site. The design system is recoverable from the markup.',
-      },
-      recommendation: 'Take the extracted tokens straight into theme settings and build components against them. The audit findings that remain are polish, not blockers — ship the migration and fix them in the new theme.',
-      derivedFrom: topIds(findings, 3),
-    }),
+    build: ({ overall, byAxis }, findings) => {
+      // The consistency score deliberately excludes quality defects, so a site
+      // can score 90 for coherence while carrying a critical contrast failure.
+      // Saying "what remains is polish, not blockers" in that situation is
+      // simply false, and it is the sentence a client would quote back. Check
+      // the pile before making the claim.
+      const blockers = findings.filter((f) => f.priority >= 63 && f.kind !== 'meta');
+      return {
+        title: blockers.length
+          ? 'Consistent enough to port — but not before the blockers are fixed'
+          : 'This site is ready to rebuild as-is',
+        impact: blockers.length ? 7 : 6,
+        effort: 9,
+        evidence: {
+          overall, byAxis,
+          blockingFindings: blockers.map((f) => ({ id: f.id, title: f.title, priority: f.priority })),
+          reading: blockers.length
+            ? 'Decisions were made once and held, so the system is portable. Separately, there are defects that the consistency score does not measure and that should not travel into the new theme.'
+            : 'Decisions were made once and held across the site. The design system is recoverable from the markup.',
+        },
+        recommendation: blockers.length
+          ? `Take the extracted tokens straight into theme settings — the system is portable. But ${blockers.length} finding${blockers.length === 1 ? '' : 's'} above are defects rather than drift, and porting them forward makes them the new theme's problem. Fix those first.`
+          : 'Take the extracted tokens straight into theme settings and build components against them. The audit findings that remain are polish, not blockers — ship the migration and fix them in the new theme.',
+        derivedFrom: blockers.length ? blockers.slice(0, 4).map((f) => f.id) : topIds(findings, 3),
+      };
+    },
   },
 ];
 

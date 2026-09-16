@@ -310,6 +310,68 @@ t('analysis.json excludes the bulky layout trees', () => {
   ok(!JSON.parse(files['data/analysis.json']).observations, 'observations stripped from analysis.json');
 });
 
+// --- quality checks --------------------------------------------------------
+
+t('collected a11y data produces findings — nothing measured is discarded', () => {
+  const obs = messySite();
+  obs[0].a11y = { smallTapTargets: 9, imagesMissingAlt: 6, imagesTotal: 10,
+    headingJumps: 2, unlabeledControls: 3, contrastFailures: [] };
+  const r = analyze({ observations: obs, site: 'm' });
+  const ids = r.findings.map((f) => f.checkId);
+  ok(ids.includes('design-tap-targets'), 'tap targets must surface');
+  ok(ids.includes('design-heading-jumps'), 'heading jumps must surface');
+  ok(ids.includes('ux-missing-alt'), 'missing alt must surface');
+  ok(ids.includes('ux-unlabeled-controls'), 'unlabeled controls must surface');
+});
+
+t('a contrast failure in the token seed becomes a Finding', () => {
+  const obs = cleanSite();
+  // A primary that fails AA as text on white.
+  for (const o of obs) o.roles.primaryButton.background = '#dd3844';
+  const r = analyze({ observations: obs, site: 'c' });
+  const f = r.findings.find((x) => x.checkId === 'design-contrast-token');
+  ok(f, 'the design review showed this; the findings report must too');
+  ok(f.priority >= 63, `a trivially-fixable legibility failure should rank high, got ${f.priority}`);
+});
+
+t('quality checks do NOT move the consistency score', () => {
+  const clean = analyze({ observations: cleanSite(), site: 'c' });
+  const dirty = cleanSite();
+  for (const o of dirty) {
+    o.a11y = { smallTapTargets: 30, imagesMissingAlt: 20, imagesTotal: 20,
+      headingJumps: 5, unlabeledControls: 8, contrastFailures: [] };
+  }
+  const withDefects = analyze({ observations: dirty, site: 'c' });
+  eq(withDefects.consistency.overall, clean.consistency.overall,
+    'the score measures consistency only — defects must not bleed into it');
+  ok(withDefects.findings.length > clean.findings.length, 'but the findings must appear');
+});
+
+t('rhythmAdherence never reports a meaningless 2px or 3px base', () => {
+  // Every value here is even, so a 2px base would fit perfectly and say nothing.
+  const r = rhythmAdherence([[10, 50], [20, 40], [30, 30], [50, 20]].map(([value, count]) => ({ value, count })));
+  ok(r.base >= 4, `base ${r.base} is arithmetic, not a design decision`);
+  eq(r.base, 10, 'should take the coarsest base actually honoured');
+});
+
+t('rhythmAdherence reports low adherence rather than inventing a fine base', () => {
+  const r = rhythmAdherence([[8, 10], [13, 10], [21, 10], [34, 10]].map(([value, count]) => ({ value, count })));
+  ok(r.base >= 4, 'no sub-4px bases');
+  ok(r.adherence < 0.8, 'a site with no grid should report as having no grid');
+});
+
+t('ready-to-port does not call a site clean while blockers exist', () => {
+  const obs = cleanSite();
+  for (const o of obs) o.roles.primaryButton.background = '#dd3844'; // fails AA
+  const r = analyze({ observations: obs, site: 'c' });
+  const meta = r.findings.find((f) => f.checkId === 'meta-ready-to-port');
+  if (meta) {
+    ok(!/polish, not blockers/.test(meta.recommendation),
+      'must not claim the remainder is polish when a critical finding exists');
+    ok(meta.evidence.blockingFindings.length > 0, 'and must name the blockers');
+  }
+});
+
 // --- report ----------------------------------------------------------------
 
 for (const [status, name] of results) {

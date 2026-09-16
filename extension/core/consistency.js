@@ -177,20 +177,32 @@ export function crossPageAgreement({ observations, distance, tolerance = 0, form
  * @param {{value:number,count:number}[]} entries
  * @param {number[]} [candidates]
  */
-export function rhythmAdherence(entries, candidates = [8, 4, 6, 5, 10, 3, 2]) {
+export function rhythmAdherence(entries, candidates = [16, 12, 10, 8, 6, 5, 4]) {
   const usable = entries.filter((e) => e.value > 0);
   const totalUses = usable.reduce((s, e) => s + e.count, 0);
   if (!totalUses) return { score: 100, base: null, adherence: 1, strays: [] };
 
   const fits = (v, base) => Math.abs(v - Math.round(v / base) * base) <= 0.51;
+  const adherenceFor = (c) => usable.reduce((s, e) => s + (fits(e.value, c) ? e.count : 0), 0) / totalUses;
 
-  let base = null, bestWeight = -1;
+  // Take the COARSEST base the site actually honours, not the best-fitting one.
+  //
+  // Best-fit is the wrong objective and produced a real bug: a 2px base fits
+  // every even number, so it always "wins" and reports a meaningless 2px grid
+  // with high adherence. A base only tells you something if it is coarse enough
+  // to have excluded values — so walk from coarse to fine and stop at the first
+  // one the site genuinely respects. Candidates stop at 4 because no design
+  // system has a 2px or 3px unit; below that you are describing arithmetic, not
+  // a decision.
+  const HONOURED = 0.75;
+  let base = null;
   for (const c of candidates) {
-    const weight = usable.reduce((s, e) => s + (fits(e.value, c) ? e.count : 0), 0)
-      // Prefer the largest base that still explains the data: a 2px base
-      // "explains" every even number and tells you nothing.
-      * (1 + c / 100);
-    if (weight > bestWeight) { bestWeight = weight; base = c; }
+    if (adherenceFor(c) >= HONOURED) { base = c; break; }
+  }
+  // Nothing was honoured: report the closest thing to a grid, and the low
+  // adherence that comes with it IS the finding.
+  if (base == null) {
+    base = candidates.reduce((best, c) => (adherenceFor(c) > adherenceFor(best) ? c : best), candidates[0]);
   }
 
   const onScale = usable.filter((e) => fits(e.value, base));

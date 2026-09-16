@@ -13,6 +13,27 @@ expressed as a Finding, it does not belong in the output.
 Adding a second record type, a second score, or a per-axis ranking is how this
 becomes v1 again.
 
+## Two kinds of check, one kind of output
+
+| | Feeds the score | Produces Findings |
+|---|---|---|
+| `core/dimensions.js` — consistency dimensions | yes | yes |
+| `core/checks.js` — quality checks | **no** | yes |
+
+The consistency score answers one question: how far is this site from a coherent
+system. A failing contrast ratio is a real defect but it is not an inconsistency —
+a site can be perfectly consistent and consistently illegible. Folding defects
+into the score would quietly turn the north star into a general quality average.
+
+So the score stays pure and the finding pile stays complete. If you collect a
+signal, something must consume it: the collector once measured tap targets, alt
+text, heading structure and contrast and threw all of it away, while the Design
+review tab showed contrast warnings the findings report knew nothing about. That
+was the one rule being broken quietly.
+
+When adding a check, ask: *is this drift, or is it a defect?* Drift goes in
+`dimensions.js` and moves the score. Defects go in `checks.js` and do not.
+
 ## Things that will trip you up
 
 - **`effort` is inverted.** 10 means *trivial to fix*, not "lots of work".
@@ -31,6 +52,14 @@ becomes v1 again.
   Breaking that splits the two collectors apart.
 - **Unmeasured ≠ passing.** A dimension that could not run is excluded from the
   score and reported in `skipped`. Never default it to 100.
+- **No spacing base below 4px.** `rhythmAdherence` takes the *coarsest* base the
+  site honours, not the best-fitting one. Best-fit is the wrong objective: a 2px
+  base fits every even number, always wins, and reports a meaningless grid at
+  high adherence. Below 4px you are describing arithmetic, not a decision.
+- **A high consistency score does not mean "ship it."** Quality defects do not
+  move the score, so narrative findings that draw conclusions from it (see
+  `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
+  blockers before claiming the remainder is polish.
 
 ## After changing core/
 
