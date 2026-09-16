@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "EchoFlow",
+  "name": "EchoFlow 2.0",
   "version": "2.0.0",
   "description": "Shopify consistency audit — measures how far a site is from a clean system, in the sidebar, without leaving the page.",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel", "downloads"],
