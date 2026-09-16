@@ -56,7 +56,7 @@ export const DIMENSIONS = [
   // ===== DESIGN =========================================================
 
   {
-    key: 'color-chromatic', axis: 'design', weight: 3, scope: 'extractive',
+    key: 'color-chromatic', axis: 'design', weight: 3, group: 'Colour', scope: 'extractive',
     label: 'Brand colour vocabulary',
     question: 'Are the brand colours a chosen set, or an accumulation?',
     measure(ctx) {
@@ -98,7 +98,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'color-neutral', axis: 'design', weight: 2, scope: 'extractive',
+    key: 'color-neutral', axis: 'design', weight: 2, group: 'Colour', scope: 'extractive',
     label: 'Neutral ramp',
     question: 'Is the grey ramp a ladder, or a pile?',
     measure(ctx) {
@@ -122,7 +122,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'type-scale', axis: 'design', weight: 3, scope: 'extractive',
+    key: 'type-scale', axis: 'design', weight: 3, group: 'Typography', scope: 'extractive',
     label: 'Type scale',
     question: 'Do the font sizes form a scale, or a list of guesses?',
     measure(ctx) {
@@ -160,7 +160,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'type-families', axis: 'design', weight: 2, scope: 'extractive',
+    key: 'type-families', axis: 'design', weight: 2, group: 'Typography', scope: 'extractive',
     label: 'Font families',
     question: 'How many typefaces are actually loaded?',
     measure(ctx) {
@@ -186,11 +186,16 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'spacing-rhythm', axis: 'design', weight: 3, scope: 'extractive',
+    key: 'spacing-rhythm', axis: 'design', weight: 3, group: 'Spacing', scope: 'extractive',
     label: 'Spacing rhythm',
     question: 'Does spacing sit on a base unit, or wherever it landed?',
     measure(ctx) {
-      return rhythmAdherence(numericTallies(mergeTallies(ctx.observations, 'spacing')));
+      // Same 4px floor as the token seed: sub-4px values are hairlines and
+      // border compensation, not spacing decisions, and scoring them as rhythm
+      // violations punishes a site for having 1px borders.
+      return rhythmAdherence(
+        numericTallies(mergeTallies(ctx.observations, 'spacing')).filter((e) => e.value >= 4)
+      );
     },
     findings(r, ctx) {
       if (!r.strays.length || r.score >= 92) return [];
@@ -200,13 +205,13 @@ export const DIMENSIONS = [
         title: `${pct(1 - r.adherence)} of spacing values ignore the ${r.base}px base unit`,
         ...weigh(r.score, { spread: r.strays.length, systemic: true }),
         evidence: { base: r.base, adherence: r.adherence, strays: r.strays.slice(0, 15) },
-        recommendation: `Snap stray values to the nearest multiple of ${r.base}px (e.g. ${r.strays.slice(0, 3).map((s) => `${s.value}px -> ${s.nearest}px`).join(', ')}). Shopify section padding settings are already stepped, so this aligns with how the theme editor works.`,
+        recommendation: `Snap stray values to the nearest multiple of ${r.base}px (e.g. ${r.strays.slice(0, 3).map((s) => `${Math.round(s.value * 10) / 10}px -> ${Math.max(r.base, s.nearest)}px`).join(', ')}). Shopify section padding settings are already stepped, so this aligns with how the theme editor works.`,
       })];
     },
   },
 
   {
-    key: 'radius-scale', axis: 'design', weight: 1, scope: 'extractive',
+    key: 'radius-scale', axis: 'design', weight: 1, group: 'Shape', scope: 'extractive',
     label: 'Corner radius',
     question: 'Is roundness a token or a mood?',
     measure(ctx) {
@@ -230,7 +235,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'elevation-scale', axis: 'design', weight: 1, scope: 'extractive',
+    key: 'elevation-scale', axis: 'design', weight: 1, group: 'Shape', scope: 'extractive',
     label: 'Elevation',
     question: 'Are shadows a system, or copy-paste?',
     measure(ctx) {
@@ -254,7 +259,7 @@ export const DIMENSIONS = [
 
   // The comparative design dimension — the one that pays for crawling the site.
   {
-    key: 'component-drift', axis: 'design', weight: 4, scope: 'comparative',
+    key: 'component-drift', axis: 'design', weight: 4, group: 'Components', scope: 'comparative',
     label: 'Component drift',
     question: 'Does the same component look the same on every page?',
     measure(ctx) {
@@ -345,7 +350,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'layout-skeleton', axis: 'design', weight: 3, scope: 'comparative',
+    key: 'layout-skeleton', axis: 'design', weight: 3, group: 'Layout', scope: 'comparative',
     label: 'Layout skeleton',
     question: 'Do pages of the same type have the same box structure?',
     measure(ctx) {
@@ -392,7 +397,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'column-systems', axis: 'design', weight: 2, scope: 'extractive',
+    key: 'column-systems', axis: 'design', weight: 2, group: 'Layout', scope: 'extractive',
     label: 'Column systems',
     question: 'How many different grids is the page running?',
     measure(ctx) {
@@ -431,7 +436,7 @@ export const DIMENSIONS = [
   // ===== UX =============================================================
 
   {
-    key: 'cta-language', axis: 'ux', weight: 3, scope: 'comparative',
+    key: 'cta-language', axis: 'ux', weight: 3, group: 'Language', scope: 'comparative',
     label: 'CTA language',
     question: 'Is the same action called the same thing everywhere?',
     measure(ctx) {
@@ -454,7 +459,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'nav-stability', axis: 'ux', weight: 2, scope: 'comparative',
+    key: 'nav-stability', axis: 'ux', weight: 2, group: 'Navigation', scope: 'comparative',
     label: 'Navigation stability',
     question: 'Does the main navigation stay put?',
     measure(ctx) {
@@ -478,7 +483,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'template-anatomy', axis: 'ux', weight: 3, scope: 'comparative',
+    key: 'template-anatomy', axis: 'ux', weight: 3, group: 'Templates', scope: 'comparative',
     label: 'Template anatomy',
     question: 'Do pages of the same type contain the same parts?',
     measure(ctx) {
@@ -550,7 +555,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'price-format', axis: 'ux', weight: 1, scope: 'extractive',
+    key: 'price-format', axis: 'ux', weight: 1, group: 'Language', scope: 'extractive',
     label: 'Price formatting',
     question: 'Is money written the same way everywhere?',
     measure(ctx) {
@@ -576,7 +581,7 @@ export const DIMENSIONS = [
   // ===== ENGINE =========================================================
 
   {
-    key: 'app-footprint', axis: 'engine', weight: 3, scope: 'comparative',
+    key: 'app-footprint', axis: 'engine', weight: 3, group: 'Apps', scope: 'comparative',
     label: 'App and script footprint',
     question: 'Do the same third-party scripts load on every page?',
     measure(ctx) {
@@ -600,7 +605,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'perf-variance', axis: 'engine', weight: 2, scope: 'comparative',
+    key: 'perf-variance', axis: 'engine', weight: 2, group: 'Performance', scope: 'comparative',
     label: 'Performance variance',
     question: 'Do pages of the same type perform the same?',
     measure(ctx) {
@@ -634,7 +639,7 @@ export const DIMENSIONS = [
   },
 
   {
-    key: 'section-reuse', axis: 'engine', weight: 2, scope: 'extractive',
+    key: 'section-reuse', axis: 'engine', weight: 2, group: 'Theme', scope: 'extractive',
     label: 'Section reuse',
     question: 'Is the same job done by one section type, or several?',
     measure(ctx) {

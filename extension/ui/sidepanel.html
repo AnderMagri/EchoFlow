@@ -7,7 +7,7 @@
 </head>
 <body>
 <header>
-  <div class="brand">EchoFlow <span>2.0</span></div>
+  <div class="brand">EchoFlow <em>2.0</em></div>
   <div class="host" id="host">—</div>
 </header>
 
@@ -17,10 +17,21 @@
     <label><input type="checkbox" value="ux" checked> UX</label>
     <label><input type="checkbox" value="engine" checked> Engine</label>
   </div>
-  <button id="scan" class="primary">Analyse this page</button>
-  <p class="scope-note">
-    Single page: extractive checks only. Comparative checks — the ones that measure
-    consistency <em>across</em> the site — need the CLI.
+
+  <div class="btn-row">
+    <button id="scan" class="btn btn-main">Analyse this page</button>
+    <button id="add" class="btn" title="Collect this page and keep browsing">+ Add page</button>
+  </div>
+
+  <div class="pages" id="pages" hidden>
+    <div class="pages-head"><b id="pagecount">0</b> <span id="pageword">pages collected</span></div>
+    <ul id="pagelist"></ul>
+  </div>
+
+  <p class="hint" id="hint">
+    Comparative checks — the ones that measure consistency <b>across</b> pages —
+    need at least two pages of the same type. Browse to another product and hit
+    <b>+ Add page</b>.
   </p>
 </div>
 
@@ -35,8 +46,8 @@
 </main>
 
 <footer id="foot" hidden>
-  <button id="export">Export wiki bundle</button>
-  <button id="copyjson" class="ghost">Copy JSON</button>
+  <button id="export" class="btn">Export wiki bundle</button>
+  <button id="copyjson" class="btn">Copy JSON</button>
 </footer>
 
 <script type="module" src="sidepanel.js"></script>

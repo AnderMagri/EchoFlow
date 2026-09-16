@@ -79,6 +79,8 @@ export function buildWikiModel(analysis) {
 
   return {
     site: analysis.site,
+    platform: analysis.platform,
+    isShopify: analysis.isShopify,
     generatedAt: analysis.generatedAt,
     scope: analysis.scope,
     axes: axesPresent,

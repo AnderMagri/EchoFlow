@@ -91,7 +91,9 @@
 /** @typedef {{ctas:string[], headings:{level:number,text:string}[], wordCount:number,
  *             priceFormats:string[], trustSignals:string[]}} CopySample */
 
-/** @typedef {{scripts:string[], apps:string[], isShopify:boolean, theme:string|null,
+/** @typedef {{scripts:string[], apps:string[], isShopify:boolean, platform:string,
+ *             platformSignals:Record<string,number>, fontFaces:{family:string,src:string,weight:string,style:string}[],
+ *             theme:string|null,
  *             themeVersion:string|null, requests:number, transferBytes:number,
  *             vitals:{lcp:number|null,cls:number|null,inp:number|null,ttfb:number|null},
  *             sections:string[]}} EngineSample */
@@ -151,7 +153,8 @@ export function normalizeObservation(raw) {
       ...(raw.copy || {}),
     },
     engine: {
-      scripts: [], apps: [], isShopify: false, theme: null, themeVersion: null,
+      scripts: [], apps: [], isShopify: false, platform: 'unknown', platformSignals: {},
+      fontFaces: [], theme: null, themeVersion: null,
       requests: 0, transferBytes: 0,
       vitals: { lcp: null, cls: null, inp: null, ttfb: null },
       sections: [], ...(raw.engine || {}),

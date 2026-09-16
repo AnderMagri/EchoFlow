@@ -34,6 +34,11 @@ was the one rule being broken quietly.
 When adding a check, ask: *is this drift, or is it a defect?* Drift goes in
 `dimensions.js` and moves the score. Defects go in `checks.js` and do not.
 
+Every dimension also carries a `group` (Colour, Typography, Spacing, Shape,
+Components, Layout, Language, …). `consistency.byGroup` is the same weighted
+mean partitioned by that field, so the score can be *explained* rather than
+asserted. It is a decomposition, not a second score: nothing is ranked by it.
+
 ## Things that will trip you up
 
 - **`effort` is inverted.** 10 means *trivial to fix*, not "lots of work".
@@ -56,6 +61,17 @@ When adding a check, ask: *is this drift, or is it a defect?* Drift goes in
   site honours, not the best-fitting one. Best-fit is the wrong objective: a 2px
   base fits every even number, always wins, and reports a meaningless grid at
   high adherence. Below 4px you are describing arithmetic, not a decision.
+- **Never use `document.fonts.check()` to test if a font resolved.** It reports
+  whether CSS font-matching would succeed, and matching always succeeds via
+  fallback — it returns `true` for a family name you invented. Measure text
+  width against several generics instead (`fontResolves` in `sidepanel.js`).
+- **Spacing below 4px is not spacing.** Hairlines and border compensation are
+  excluded from rhythm in both `tokens.js` and the `spacing-rhythm` dimension.
+  Including them produced "snap 1px to 0px", which is not a fix.
+- **Scale step names must be unique.** Naming by size ratio collides (30px and
+  32px both land in "2xl"), and a token set with two steps of the same name is
+  unusable. Names are assigned by rank; past 14 steps it switches to numbering,
+  because a site with 19 sizes has no t-shirt scale to describe.
 - **A high consistency score does not mean "ship it."** Quality defects do not
   move the score, so narrative findings that draw conclusions from it (see
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for

@@ -300,7 +300,7 @@ export const TOLERANCES = {
  * single-page run) are *excluded*, never defaulted to 100. Awarding credit for
  * something you did not measure is how a score stops meaning anything.
  *
- * @param {{key:string, axis:string, score:number|null, weight:number}[]} dimensions
+ * @param {{key:string, axis:string, group?:string, score:number|null, weight:number}[]} dimensions
  */
 export function aggregate(dimensions) {
   const measured = dimensions.filter((d) => typeof d.score === 'number');
@@ -311,6 +311,28 @@ export function aggregate(dimensions) {
     const w = inAxis.reduce((s, d) => s + d.weight, 0);
     byAxis[axis] = w
       ? Math.round(inAxis.reduce((s, d) => s + d.score * d.weight, 0) / w)
+      : null;
+  }
+
+  // Decomposition by group — the SAME weighted mean, partitioned so the score
+  // can be explained ("colour is fine, components are not") instead of just
+  // asserted. This is not a second score: no finding is ranked by it and it
+  // introduces no new number, it only shows where the one number came from.
+  const byGroup = {};
+  for (const d of dimensions) {
+    const g = d.group || 'Other';
+    (byGroup[g] ||= { axis: d.axis, score: null, weight: 0, measured: 0, declared: 0, keys: [] });
+    byGroup[g].declared++;
+    byGroup[g].keys.push(d.key);
+    if (typeof d.score === 'number') {
+      byGroup[g].measured++;
+      byGroup[g].weight += d.weight;
+    }
+  }
+  for (const [g, entry] of Object.entries(byGroup)) {
+    const inGroup = measured.filter((d) => (d.group || 'Other') === g);
+    entry.score = entry.weight
+      ? Math.round(inGroup.reduce((s, d) => s + d.score * d.weight, 0) / entry.weight)
       : null;
   }
 
@@ -331,6 +353,7 @@ export function aggregate(dimensions) {
   return {
     overall,
     byAxis,
+    byGroup,
     grade: grade(overall),
     coverage,
     confidence: confidenceOf(coverage),

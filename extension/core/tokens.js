@@ -139,7 +139,7 @@ function buildTypography(observations) {
   // Name the steps relative to the body size — the most-used size is the body
   // size, near enough always, and naming off it survives a site with a 15px body.
   const bodyPx = [...sizes].sort((a, b) => b.uses - a.uses)[0]?.px || 16;
-  const scale = sizes.map((s) => ({ ...s, name: stepName(s.px, bodyPx) }));
+  const scale = nameScale(sizes, bodyPx);
 
   const heading = families[0]?.stack || null;
   const body = families[1]?.stack || families[0]?.stack || null;
@@ -153,17 +153,44 @@ function buildTypography(observations) {
   };
 }
 
-function stepName(px, body) {
-  const r = px / body;
-  if (r <= 0.7) return '2xs';
-  if (r <= 0.82) return 'xs';
-  if (r <= 0.95) return 'sm';
-  if (r <= 1.08) return 'base';
-  if (r <= 1.3) return 'lg';
-  if (r <= 1.6) return 'xl';
-  if (r <= 2.1) return '2xl';
-  if (r <= 2.8) return '3xl';
-  return '4xl';
+/**
+ * Name every step, uniquely.
+ *
+ * Naming by size ratio alone collides: on a site with 30px and 32px headings
+ * both land in the same band and the scale comes out with two steps called
+ * "2xl". A token set with duplicate names is not a token set — you cannot
+ * reference either one — so names are assigned by RANK outward from the body
+ * size instead, which is unique by construction and still carries the meaning.
+ *
+ * @param {{px:number,uses:number}[]} sizes ascending
+ * @param {number} bodyPx
+ */
+function nameScale(sizes, bodyPx) {
+  const asc = [...sizes].sort((a, b) => a.px - b.px);
+  // The step closest to the body size is "base"; everything else is measured
+  // from it in steps, not in ratios.
+  let baseIdx = 0, bestGap = Infinity;
+  asc.forEach((s, i) => {
+    const gap = Math.abs(s.px - bodyPx);
+    if (gap < bestGap) { bestGap = gap; baseIdx = i; }
+  });
+
+  const DOWN = ['sm', 'xs', '2xs', '3xs', '4xs', '5xs'];
+  const UP = ['lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl'];
+
+  // Past a certain size a t-shirt scale stops describing anything. Running out
+  // of names and continuing "…7xl, xl-9, xl-10" implies a semantic ladder that
+  // is not there — the honest reading of 19 distinct sizes is that the site has
+  // no scale, so number them and let the sprawl finding say the rest.
+  if (asc.length > DOWN.length + UP.length) {
+    const width = String(asc.length).length;
+    return asc.map((s, i) => ({ ...s, name: `size-${String(i + 1).padStart(width, '0')}` }));
+  }
+
+  return asc.map((s, i) => {
+    const d = i - baseIdx;
+    return { ...s, name: d === 0 ? 'base' : d < 0 ? DOWN[-d - 1] : UP[d - 1] };
+  });
 }
 
 /** The median step ratio — tells you whether a modular scale was ever intended. */
@@ -179,13 +206,32 @@ function detectRatio(pxs) {
 // --- spacing / radius / shadow ---------------------------------------------
 
 function buildSpacing(observations) {
-  const entries = numericTallies(mergeTallies(observations, 'spacing'));
+  // Values under 4px are hairlines, icon nudges and border compensation — not
+  // spacing decisions. Including them produced advice like "snap 1px to 0px",
+  // which is not a fix, and dragged adherence down for no reason.
+  const MIN_SPACING = 4;
+  const entries = numericTallies(mergeTallies(observations, 'spacing'))
+    .filter((e) => e.value >= MIN_SPACING);
+
   const rhythm = rhythmAdherence(entries);
   const base = rhythm.base || 8;
   const steps = [...new Set(entries
-    .filter((e) => Math.abs(e.value - Math.round(e.value / base) * base) <= 0.51 && e.value > 0)
+    .filter((e) => Math.abs(e.value - Math.round(e.value / base) * base) <= 0.51)
     .map((e) => Math.round(e.value)))].sort((a, b) => a - b).slice(0, 12);
-  return { base, steps, adherence: rhythm.adherence, strays: rhythm.strays.slice(0, 10) };
+
+  return {
+    base,
+    steps,
+    adherence: rhythm.adherence,
+    // Round for display, and never propose snapping to zero — the nearest
+    // MEANINGFUL step is at least one base unit.
+    strays: rhythm.strays.slice(0, 10).map((s) => ({
+      value: Math.round(s.value * 10) / 10,
+      uses: s.uses,
+      nearest: Math.max(base, Math.round(s.value / base) * base),
+    })),
+    ignoredBelow: MIN_SPACING,
+  };
 }
 
 function buildScale(observations, key, tolerance, distance, label) {

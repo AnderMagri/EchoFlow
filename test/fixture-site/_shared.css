@@ -18,3 +18,10 @@ footer{background:#333333;color:#f8f9fa;padding:48px 40px;margin-top:64px}
 .gallery{background:#f8f9fa;min-height:420px;border-radius:4px}
 .breadcrumb{font-size:13px;color:#555555;padding:12px 0}
 .reviews{padding:40px 0;border-top:1px solid #e5e5e5}
+
+/* Deliberately points at a file that is not served. Exercises the branch that
+   matters most: the @font-face URL is captured, the font then fails to load,
+   and the specimen must say so instead of showing a fallback under the real
+   font's name. No binary in the repo to keep it green. */
+@font-face{font-family:'FixtureSans';src:url('/TestFace.ttf');font-weight:400;font-style:normal;font-display:swap}
+.hero h1{font-family:'FixtureSans',Montserrat,sans-serif}

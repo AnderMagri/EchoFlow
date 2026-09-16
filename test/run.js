@@ -372,6 +372,47 @@ t('ready-to-port does not call a site clean while blockers exist', () => {
   }
 });
 
+t('type scale step names are always unique', () => {
+  for (const obs of [cleanSite(), messySite()]) {
+    const scale = analyze({ observations: obs, site: 't' }).tokens.typography.scale;
+    const names = scale.map((s) => s.name);
+    eq(new Set(names).size, names.length,
+      `duplicate step names make the scale unusable as tokens: ${names.join(' ')}`);
+  }
+});
+
+t('spacing never advises snapping a value to 0px', () => {
+  for (const obs of [cleanSite(), messySite()]) {
+    const sp = analyze({ observations: obs, site: 't' }).tokens.spacing;
+    ok(sp.strays.every((s) => s.nearest >= sp.base), 'nearest step is at least one base unit');
+  }
+});
+
+t('sub-4px hairlines are excluded from spacing rhythm', () => {
+  const obs = cleanSite();
+  // A pile of 1px borders must not read as a rhythm violation.
+  for (const o of obs) o.styles.spacing = [...o.styles.spacing, { value: '1px', count: 900 }];
+  const r = analyze({ observations: obs, site: 't' });
+  ok(r.tokens.spacing.adherence > 0.9, `1px borders dragged adherence to ${r.tokens.spacing.adherence}`);
+  ok(!r.tokens.spacing.steps.includes(1), 'and 1px is not a spacing step');
+});
+
+t('the score decomposes into groups that cover every dimension', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const grouped = Object.values(r.consistency.byGroup).reduce((n, g) => n + g.declared, 0);
+  eq(grouped, r.consistency.dimensions.length, 'every dimension belongs to exactly one group');
+  for (const [, g] of Object.entries(r.consistency.byGroup)) {
+    if (g.measured === 0) eq(g.score, null, 'an unmeasured group scores null, not 0');
+  }
+});
+
+t('platform is detected and carried through to the report', () => {
+  const obs = messySite();
+  for (const o of obs) o.engine.platform = 'wordpress-woocommerce';
+  const r = analyze({ observations: obs, site: 'm' });
+  eq(r.platform, 'wordpress-woocommerce');
+});
+
 // --- report ----------------------------------------------------------------
 
 for (const [status, name] of results) {

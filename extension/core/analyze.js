@@ -50,7 +50,7 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
     }
 
     measured.push({
-      key: dim.key, axis: dim.axis, label: dim.label, question: dim.question,
+      key: dim.key, axis: dim.axis, group: dim.group, label: dim.label, question: dim.question,
       weight: dim.weight, scope: dim.scope,
       score: typeof result?.score === 'number' ? result.score : null,
       reason: result?.reason || null,
@@ -76,7 +76,7 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
   // core/checks.js for why keeping the score pure matters.
   findings.push(...runQualityChecks({ ...ctx, tokens }, axes));
 
-  const consistency = aggregate(measured.map(({ key, axis, score, weight }) => ({ key, axis, score, weight })));
+  const consistency = aggregate(measured.map(({ key, axis, group, score, weight }) => ({ key, axis, group, score, weight })));
   consistency.verdict = GRADE_COPY[consistency.grade];
   consistency.dimensions = measured;
   consistency.caveat = consistency.provisional ? provisionalNote(consistency) : null;
@@ -86,8 +86,19 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
   const metaFindings = axes.length > 1 ? synthesize(consistency, findings) : [];
   findings = rank(dedupe([...findings, ...metaFindings]));
 
+  // What platform is this? The tool is Shopify-first, so a non-Shopify site is
+  // a legitimate subject (pre-migration) but has to be LABELLED — several
+  // checks read Shopify conventions and mean less without them.
+  const platforms = observations.map((o) => o.engine?.platform).filter((p) => p && p !== 'unknown');
+  const platform = platforms.length
+    ? platforms.sort((a, b) =>
+        platforms.filter((p) => p === b).length - platforms.filter((p) => p === a).length)[0]
+    : 'unknown';
+
   return {
     site: site || hostOf(observations[0]?.url),
+    platform,
+    isShopify: observations.some((o) => o.engine?.isShopify),
     generatedAt: new Date().toISOString(),
     scope: isSiteWide ? 'site' : 'page',
     axes,

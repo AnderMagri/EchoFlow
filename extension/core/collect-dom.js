@@ -259,6 +259,82 @@ export function collectFromDocument(options) {
     if (sid) sections[sid.replace(/\d{6,}/g, '').replace(/^[-_]+|[-_]+$/g, '')] = true;
   }
 
+  // --- platform ----------------------------------------------------------
+  // Signatures inlined rather than imported because this function closes over
+  // nothing. Kept in sync with knowledge/shopify/migration-patterns.json.
+  var PLATFORM_SIGNATURES = {
+    shopify: ['cdn.shopify.com', 'shopifycloud', 'myshopify.com', '/cdn/shop/'],
+    'wordpress-woocommerce': ['wp-content', 'woocommerce', 'wp-includes', 'wp-json'],
+    magento: ['magento', 'varien', 'Magento_', 'catalogsearch'],
+    bigcommerce: ['bigcommerce', 'bc-sf-filter', 'stencilutils'],
+    squarespace: ['squarespace', 'sqsp', 'squarespace-cdn'],
+    wix: ['wixsite', 'parastorage.com', 'wixstatic.com'],
+    vtex: ['vtexcommercestable', 'vtexassets', 'vteximg'],
+    'salesforce-commerce': ['demandware', 'on/demandware', 'sfcc'],
+    prestashop: ['prestashop', 'themes/classic'],
+    webflow: ['webflow.com', 'assets.website-files.com', 'cdn.prod.website-files.com'],
+    squarespace7: ['static1.squarespace.com'],
+  };
+
+  var haystack = '';
+  try {
+    haystack = (document.documentElement.outerHTML || '').slice(0, 600000).toLowerCase();
+  } catch (e) { haystack = ''; }
+
+  var platformHits = {};
+  for (var plat in PLATFORM_SIGNATURES) {
+    var sigs = PLATFORM_SIGNATURES[plat];
+    for (var sg = 0; sg < sigs.length; sg++) {
+      if (haystack.indexOf(sigs[sg].toLowerCase()) !== -1) {
+        platformHits[plat] = (platformHits[plat] || 0) + 1;
+      }
+    }
+  }
+
+  var isShopifyStore = !!(window.Shopify || document.querySelector('[id^="shopify-section-"]')
+    || platformHits.shopify);
+
+  var detectedPlatform = 'unknown';
+  var bestHits = 0;
+  for (var ph in platformHits) {
+    if (platformHits[ph] > bestHits) { bestHits = platformHits[ph]; detectedPlatform = ph; }
+  }
+  if (isShopifyStore) detectedPlatform = 'shopify';
+  // Something is clearly being served, we just do not recognise it.
+  if (detectedPlatform === 'unknown' && document.querySelector('form[action*="cart"], [class*="cart" i], [class*="product" i]')) {
+    detectedPlatform = 'custom-ecommerce';
+  }
+
+  // --- webfonts ----------------------------------------------------------
+  // Capture real @font-face sources so a preview can render in the ACTUAL
+  // typeface rather than in whatever the viewer happens to have installed.
+  // Cross-origin stylesheets throw on .cssRules, which is expected and ignored.
+  var fontFaces = [];
+  try {
+    for (var si = 0; si < document.styleSheets.length && fontFaces.length < 24; si++) {
+      var rules = null;
+      try { rules = document.styleSheets[si].cssRules; } catch (e) { continue; }
+      if (!rules) continue;
+      for (var ri = 0; ri < rules.length && fontFaces.length < 24; ri++) {
+        var rule = rules[ri];
+        if (!rule || rule.type !== 5 /* CSSFontFaceRule */) continue;
+        var fam = (rule.style.getPropertyValue('font-family') || '').replace(/^["']|["']$/g, '');
+        var src = rule.style.getPropertyValue('src') || '';
+        var urlMatch = src.match(/url\((["']?)([^"')]+)\1\)/);
+        if (!fam || !urlMatch) continue;
+        var href = urlMatch[2];
+        try { href = new URL(href, document.styleSheets[si].href || location.href).href; } catch (e) { continue; }
+        if (!/^https?:/.test(href)) continue;
+        fontFaces.push({
+          family: fam,
+          src: href,
+          weight: rule.style.getPropertyValue('font-weight') || '400',
+          style: rule.style.getPropertyValue('font-style') || 'normal',
+        });
+      }
+    }
+  } catch (e) { /* stylesheet access denied */ }
+
   var vitals = { lcp: null, cls: null, inp: null, ttfb: null };
   try {
     var nav = performance.getEntriesByType('navigation')[0];
@@ -406,7 +482,10 @@ export function collectFromDocument(options) {
     engine: {
       scripts: scripts.slice(0, 80),
       apps: Object.keys(apps),
-      isShopify: !!(window.Shopify || document.querySelector('[id^="shopify-section-"]')),
+      isShopify: isShopifyStore,
+      platform: detectedPlatform,
+      platformSignals: platformHits,
+      fontFaces: fontFaces,
       theme: (window.Shopify && window.Shopify.theme && window.Shopify.theme.name) || null,
       themeVersion: (window.Shopify && window.Shopify.theme && window.Shopify.theme.theme_store_id) || null,
       requests: requests, transferBytes: transferBytes,

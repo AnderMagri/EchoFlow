@@ -88,10 +88,7 @@ h2 { font-size: 19px; letter-spacing: -0.01em; margin: 40px 0 12px;
 h3 { font-size: 15px; margin: 26px 0 10px; }
 p.lede { color: var(--muted); margin: 0 0 24px; font-size: 16px; }
 
-.verdict {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 26px; margin: 24px 0;
-}
+.verdict { padding: 4px 0 26px; margin: 18px 0 0; border-bottom: 1px solid var(--border-strong); }
 .verdict .score { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .verdict .num { font-size: 56px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; }
 .verdict .grade {
@@ -104,29 +101,56 @@ p.lede { color: var(--muted); margin: 0 0 24px; font-size: 16px; }
   margin: 18px 0 0; padding-left: 14px; border-left: 2px solid var(--border-strong);
   color: var(--muted); font-size: 15px;
 }
-.meter { height: 5px; background: var(--raised); border-radius: 3px; overflow: hidden; margin-top: 18px; }
-.meter i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.meter { height: 3px; background: var(--border); margin-top: 18px; }
+.meter i { display: block; height: 100%; background: var(--ink); }
+
+/* Score decomposition — the same weighted mean, partitioned, so the number is
+   explained rather than asserted. */
+.bd { margin: 22px 0 0; }
+.bd-row { display: grid; grid-template-columns: 132px 1fr 34px; gap: 14px; align-items: center; padding: 4px 0; }
+.bd-row .k { font-size: 13px; color: var(--muted); }
+.bd-row .v { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.bd-row .track { height: 2px; background: var(--border); position: relative; }
+.bd-row .track i { position: absolute; inset: 0 auto 0 0; background: var(--ink); }
+.bd-row.dim .k, .bd-row.dim .v { color: var(--faint); font-style: italic; }
+.bd-row.dim .track i { width: 100% !important; background: repeating-linear-gradient(90deg,var(--border-strong) 0 3px,transparent 3px 6px); }
+.platform-tag {
+  display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em; padding: 3px 7px;
+  background: var(--ink); color: var(--bg); margin-bottom: 12px;
+}
+.platform-tag.warn { background: var(--high); }
 
 .axes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 18px 0 0; }
-.axis-card {
-  background: var(--raised); border-radius: var(--radius); padding: 13px 15px;
-}
+.axis-card { padding: 11px 0 0; border-top: 2px solid var(--ink); }
 .axis-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; }
 .axis-card .val { font-size: 26px; font-weight: 350; letter-spacing: -0.02em; margin-top: 2px; }
 .axis-card .read { font-size: 12px; color: var(--muted); }
 
+/* Findings are hairline-separated rows with a hanging priority, not bordered
+   cards. A card per finding spends its border and padding on decoration, and a
+   coloured left edge on a rounded box is generic dashboard chrome — it says
+   "severity" less clearly than the number itself does. */
 .finding {
-  background: var(--surface); border: 1px solid var(--border);
-  border-left: 3px solid var(--border-strong);
-  border-radius: var(--radius); padding: 15px 17px; margin: 9px 0;
+  display: grid; grid-template-columns: 46px 1fr; gap: 16px;
+  padding: 16px 0; border-top: 1px solid var(--border);
 }
-.finding.critical { border-left-color: var(--critical); }
-.finding.high { border-left-color: var(--high); }
-.finding.medium { border-left-color: var(--medium); }
-.finding.low { border-left-color: var(--low); }
-.finding .top { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 5px; }
-.finding .title { font-weight: 600; font-size: 15px; flex: 1; min-width: 220px; }
-.finding .rec { color: var(--muted); font-size: 14px; margin: 7px 0 0; }
+.finding:first-of-type { border-top: 0; }
+.finding .pri {
+  font-family: var(--mono); font-size: 17px; font-weight: 600;
+  font-variant-numeric: tabular-nums; line-height: 1.25;
+}
+.finding.critical .pri { color: var(--critical); }
+.finding.high     .pri { color: var(--high); }
+.finding.medium   .pri { color: var(--medium); }
+.finding.low      .pri { color: var(--low); }
+.finding .pri small {
+  display: block; font-size: 9.5px; font-weight: 650; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); margin-top: 2px; font-family: var(--sans);
+}
+.finding .top { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 4px; }
+.finding .title { font-weight: 600; font-size: 15px; flex: 1; min-width: 200px; }
+.finding .rec { color: var(--muted); font-size: 14px; margin: 5px 0 0; }
 
 .tag {
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
@@ -274,18 +298,20 @@ function navFor(model, current) {
 function findingCard(f) {
   const band = priorityBand(f.priority);
   return `<article class="finding ${band}" data-priority="${f.priority}" id="${esc(f.id)}">
-  <div class="top">
-    <span class="title">${esc(f.title)}</span>
-    ${f.kind === 'meta' ? '<span class="tag meta">cross-axis</span>' : ''}
-    <span class="tag axis">${esc(AXIS_LABELS[f.axis])}</span>
-    <span class="tag ${band}">${esc(band)} ${f.priority}</span>
+  <div class="pri">${f.priority}<small>${esc(band)}</small></div>
+  <div>
+    <div class="top">
+      <span class="title">${esc(f.title)}</span>
+      ${f.kind === 'meta' ? '<span class="tag meta">cross-axis</span>' : ''}
+      <span class="tag axis">${esc(AXIS_LABELS[f.axis])}</span>
+    </div>
+    <p class="rec">${esc(f.recommendation)}</p>
+    <div class="meta-line">
+      Impact ${f.impact}/10 · effort to fix: ${esc(effortLabel(f.effort))} ·
+      ${esc(SURFACE_LABELS[f.surface] || f.surface)} · ${esc(f.scope)} check
+    </div>
+    <details class="evidence"><summary>Evidence</summary><pre>${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>
   </div>
-  <p class="rec">${esc(f.recommendation)}</p>
-  <div class="meta-line">
-    Impact ${f.impact}/10 · effort to fix: ${esc(effortLabel(f.effort))} ·
-    ${esc(SURFACE_LABELS[f.surface] || f.surface)} · ${esc(f.scope)} check
-  </div>
-  <details class="evidence"><summary>Evidence</summary><pre>${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>
 </article>`;
 }
 
@@ -296,6 +322,8 @@ export function renderIndexHTML(model) {
   const body = `
 <h1>Consistency verdict</h1>
 <p class="lede">${esc(model.site)} · ${model.scope === 'site' ? 'whole site' : 'single page'} · ${model.axes.map((a) => AXIS_LABELS[a]).join(' + ')}</p>
+${model.platform ? `<div class="platform-tag ${model.isShopify ? '' : 'warn'}">${esc(model.platform === 'shopify' ? 'Shopify' : model.platform.replace(/-/g, ' '))}</div>
+${model.isShopify ? '' : '<div class="note">This is <strong>not a Shopify store</strong>. Design and UX measurements are all valid; Shopify-specific checks (theme sections, app embeds, money format) have nothing to read. Treat it as a pre-migration audit.</div>'}` : ''}
 
 <div class="verdict">
   <div class="score">
@@ -306,6 +334,16 @@ export function renderIndexHTML(model) {
   <div class="meter"><i style="width:${c.overall ?? 0}%"></i></div>
   <blockquote>${esc(GRADE_COPY[c.grade])}</blockquote>
   ${c.caveat ? `<div class="note" style="margin-top:16px"><strong>Provisional — confidence ${esc(c.confidence)}.</strong> ${esc(c.caveat)}</div>` : ''}
+  <div class="bd">
+    ${Object.entries(model.consistency.byGroup || {})
+      .filter(([, g]) => model.axes.includes(g.axis))
+      .sort((a, b) => (a[1].score ?? 999) - (b[1].score ?? 999))
+      .map(([name, g]) => `<div class="bd-row ${g.score == null ? 'dim' : ''}">
+        <span class="k">${esc(name)}</span>
+        <span class="track"><i style="width:${g.score ?? 0}%"></i></span>
+        <span class="v">${g.score ?? '—'}</span>
+      </div>`).join('')}
+  </div>
   <div class="axes">
     ${model.axes.map((a) => `<div class="axis-card">
       <div class="label">${esc(AXIS_LABELS[a])}</div>
