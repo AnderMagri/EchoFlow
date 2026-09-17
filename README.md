@@ -27,6 +27,12 @@ evidence, which is what lets one number legitimately span all three.
 **One primitive, one ranking.** Everything is a Finding. `priority = impact × effort`.
 No second score, no per-axis weights that are comparable by accident.
 
+**Every claim declares what licenses it.** A cited WCAG criterion, a convergent
+convention, and someone else's A/B result are three different kinds of statement,
+and the report never lets one borrow the authority of another. A `prescriptive`
+finding cannot exist without a citation — the schema rejects it. Full provenance
+for every threshold is in [`docs/REFERENCE.md`](docs/REFERENCE.md).
+
 **It says what it did not measure.** Comparative dimensions are *skipped*, never
 guessed, when there is only one page — and a score built on partial coverage is
 labelled provisional, because the dimensions that go missing are exactly the ones
@@ -73,6 +79,28 @@ node analyzer/src/cli/index.js https://shop.example.com
 | `--viewports desktop,mobile` | Render at one or both |
 | `--limit 12` | Max pages in a site run |
 | `--out <dir>` | Output directory |
+
+## Use it — MCP
+
+```bash
+cd mcp && npm install
+```
+
+```json
+{ "mcpServers": { "echoflow": { "command": "node", "args": ["/path/to/EchoFlow/mcp/server.js"] } } }
+```
+
+Six tools. The design constraint is context, not capability: an analysis is ~80KB
+of JSON, so every tool summarises by default and offers a narrower query to drill in.
+
+| Tool | |
+|---|---|
+| `echoflow_analyze` | Render and measure a site. Returns the verdict and top findings; writes the full bundle to disk. |
+| `echoflow_findings` | Filter by axis, surface, band, basis or kind. One line each. |
+| `echoflow_finding` | One finding in full — evidence, recommendation, criterion. |
+| `echoflow_tokens` | The extracted design system as css / dtcg / tailwind / shopify / json. |
+| `echoflow_structure` | Section skeleton for a surface. |
+| `echoflow_explain` | What the tool measures and what a score does and does not mean. |
 
 ## Use it — Chrome sidebar
 
@@ -124,16 +152,21 @@ inverted — 10 is *trivial to fix*), and what **not** to conclude from the scor
 
 ```
 core/          zero-dependency ESM. Runs in Node AND the browser.
-  finding.js       the Finding primitive — the only record type
-  consistency.js   the three measurement primitives + aggregation
-  dimensions.js    17 consistency dimensions across the three axes
-  synthesis.js     cross-axis meta-findings
-  tokens.js        the design system seed
-  collect-dom.js   the DOM collector (shared by both collectors)
-  wiki/            model + markdown + HTML + structure renderers
+  finding.js         the Finding primitive — the only record type
+  consistency.js     the three measurement primitives + aggregation
+  dimensions.js      17 consistency dimensions — these move the score
+  checks.js          quality defects — findings only, no score effect
+  checks-geometry.js fold, depth, targets, measure, choice load, strengths
+  checks-patterns.js manipulative patterns, mechanically detected
+  synthesis.js       cross-axis meta-findings
+  tokens.js          the design system seed
+  collect-dom.js     the DOM collector (shared by both collectors)
+  wiki/              model + markdown + HTML + structure renderers
 analyzer/      Node + Playwright. Renders pages, runs core, writes the bundle.
 extension/     MV3 sidebar. Injects the same collector, runs the same core.
+mcp/           MCP server. Same core, exposed as six tools over stdio.
 knowledge/     Shopify domain knowledge (themes, sections, components, platform)
+docs/          CONCEPT.md (source of record) · REFERENCE.md (threshold provenance)
 archive/v1/    the retired screenshot tool
 ```
 
@@ -144,5 +177,6 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js
+node test/run.js        # 52 tests — core, calibration, checks, bundle
+cd mcp && node test.mjs # MCP protocol surface
 ```

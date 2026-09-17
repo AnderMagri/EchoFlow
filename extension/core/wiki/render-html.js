@@ -11,7 +11,7 @@
  * @module core/wiki/render-html
  */
 
-import { AXIS_LABELS, SURFACE_LABELS, effortLabel, priorityBand } from '../finding.js';
+import { AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, SURFACE_LABELS, effortLabel, priorityBand } from '../finding.js';
 import { GRADE_COPY } from '../consistency.js';
 
 const esc = (s) => String(s ?? '')
@@ -162,6 +162,16 @@ p.lede { color: var(--muted); margin: 0 0 24px; font-size: 16px; }
 .tag.low { background: var(--low-bg); color: var(--low); }
 .tag.axis { background: var(--raised); color: var(--muted); }
 .tag.meta { background: var(--accent); color: var(--surface); }
+/* The three kinds of claim must look different, or a convention borrows the
+   authority of a standard. */
+.tag.prescriptive { background: var(--ink); color: var(--bg); }
+.tag.practice { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.tag.directional { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px var(--border); font-style: italic; }
+.finding.strength .pri { color: var(--medium); }
+.finding.strength .pri small { color: var(--medium); }
+.cite { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 4px; }
+.limits { margin-top: 12px; }
+.limits li { color: var(--muted); font-size: 13.5px; margin-bottom: 3px; }
 
 .meta-line { font-size: 12px; color: var(--faint); margin-top: 8px; }
 details.evidence { margin-top: 10px; }
@@ -298,18 +308,20 @@ function navFor(model, current) {
 function findingCard(f) {
   const band = priorityBand(f.priority);
   return `<article class="finding ${band}" data-priority="${f.priority}" id="${esc(f.id)}">
-  <div class="pri">${f.priority}<small>${esc(band)}</small></div>
+  <div class="pri">${f.kind === 'strength' ? '&#10003;' : f.priority}<small>${f.kind === 'strength' ? 'strength' : esc(band)}</small></div>
   <div>
     <div class="top">
       <span class="title">${esc(f.title)}</span>
       ${f.kind === 'meta' ? '<span class="tag meta">cross-axis</span>' : ''}
       <span class="tag axis">${esc(AXIS_LABELS[f.axis])}</span>
+      <span class="tag ${esc(f.basis)}" title="${esc(BASIS_NOTE[f.basis] || '')}">${esc(BASIS_LABELS[f.basis] || f.basis)}</span>
     </div>
     <p class="rec">${esc(f.recommendation)}</p>
     <div class="meta-line">
       Impact ${f.impact}/10 · effort to fix: ${esc(effortLabel(f.effort))} ·
       ${esc(SURFACE_LABELS[f.surface] || f.surface)} · ${esc(f.scope)} check
     </div>
+    ${f.citation ? `<div class="cite">${esc(f.citation)}</div>` : ''}
     <details class="evidence"><summary>Evidence</summary><pre>${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>
   </div>
 </article>`;
@@ -369,6 +381,23 @@ ${c.dimensions.map((d) => `<tr${d.score == null ? ' class="unmeasured"' : ''}>
   <td>${esc(d.scope)}</td></tr>`).join('')}
 </tbody>
 </table>
+<h2>How to read this</h2>
+<table>
+<thead><tr><th>Label</th><th>What it licenses</th></tr></thead>
+<tbody>
+${Object.entries(BASIS_LABELS).map(([k, label]) =>
+  `<tr><td><span class="tag ${k}">${esc(label)}</span></td><td>${esc(BASIS_NOTE[k])}</td></tr>`).join('')}
+</tbody>
+</table>
+${model.method ? `<p style="color:var(--muted);font-size:13.5px">
+Fold lines declared at ${esc(Object.entries(model.method.foldLines).map(([v, h]) => `${v} ${h}px`).join(', '))}.
+${esc(model.method.viewportNote.join(' '))} ${esc(model.method.measureApproximation)}</p>` : ''}
+
+${model.notAssessed?.length ? `<h2>Not assessed</h2>
+<p style="color:var(--muted);font-size:13.5px">This is a layout, token and geometry audit. It does not cover:</p>
+<ul class="limits">${model.notAssessed.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+<div class="note">A score that implies accessibility or performance coverage it does not have is worse than no score. Everything above was outside what this run measured.</div>` : ''}
+
 ${model.skipped.length ? `<div class="note"><strong>${model.skipped.length} dimension${model.skipped.length === 1 ? '' : 's'} not measured</strong> — excluded from the score rather than counted as passing. ${esc(model.skipped.map((s) => `${s.key} (${s.reason})`).join('; '))}.</div>` : ''}
 `;
   return layout({ title: 'Verdict', site: model.site, nav: navFor(model, 'index'), body, generatedAt: model.generatedAt });

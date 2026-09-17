@@ -49,7 +49,38 @@ export const AXIS_LABELS = {
 export const SCOPES = /** @type {const} */ (['extractive', 'comparative']);
 
 /** Meta-findings come from cross-axis synthesis, not from a single check. */
-export const KINDS = /** @type {const} */ (['finding', 'meta']);
+export const KINDS = /** @type {const} */ (['finding', 'meta', 'strength']);
+
+/**
+ * What licenses the claim.
+ *
+ * The failure mode of an audit tool is sounding more certain than the evidence
+ * allows, and the fix is to make the three kinds of claim visibly different in
+ * the output rather than letting a convention borrow the authority of a
+ * standard.
+ *
+ *   prescriptive  A published criterion with a number. Pass/fail, checkable,
+ *                 citable (WCAG 2.5.8, 1.4.3). State plainly.
+ *   practice      Strong convergent convention with no governing body — the
+ *                 45-75 character measure, the 12px floor, token budgets. Say
+ *                 "outside established practice", never "fails".
+ *   directional   Effects observed elsewhere (conversion ranges, benchmarks).
+ *                 Quote as a range, attribute to others, pair with "worth
+ *                 testing on your traffic". Never project onto this client.
+ */
+export const BASES = /** @type {const} */ (['prescriptive', 'practice', 'directional']);
+
+export const BASIS_LABELS = {
+  prescriptive: 'Standard',
+  practice: 'Established practice',
+  directional: 'Directional',
+};
+
+export const BASIS_NOTE = {
+  prescriptive: 'A published criterion with a threshold. This is pass/fail and can be cited.',
+  practice: 'Convergent convention, not a governing standard. Outside established practice, not "failing".',
+  directional: 'An effect observed on other catalogues. A reason to test on your traffic, not a projection.',
+};
 
 const clamp10 = (n) => Math.max(0, Math.min(10, Math.round(Number(n) || 0)));
 
@@ -85,13 +116,15 @@ function fingerprint(parts) {
  * @param {string} [input.selector]    element it points at
  * @param {string[]} [input.refs]      knowledge-base keys backing the recommendation
  * @param {string[]} [input.derivedFrom] ids of findings a meta-finding synthesises
+ * @param {string} [input.basis]       'prescriptive' | 'practice' | 'directional'
+ * @param {string} [input.citation]    the specific criterion, e.g. "WCAG 2.2 SC 2.5.8"
  * @returns {Finding}
  */
 export function createFinding(input) {
   const {
     checkId, title, surface, axis, impact, effort, evidence, recommendation,
     scope = 'extractive', kind = 'finding', url = null, selector = null,
-    refs = [], derivedFrom = [],
+    refs = [], derivedFrom = [], basis = 'practice', citation = null,
   } = input;
 
   if (!checkId) throw new Error('Finding requires checkId');
@@ -100,6 +133,13 @@ export function createFinding(input) {
   if (!AXES.includes(axis)) throw new Error(`Finding ${checkId}: bad axis "${axis}"`);
   if (!SCOPES.includes(scope)) throw new Error(`Finding ${checkId}: bad scope "${scope}"`);
   if (!KINDS.includes(kind)) throw new Error(`Finding ${checkId}: bad kind "${kind}"`);
+  if (!BASES.includes(basis)) throw new Error(`Finding ${checkId}: bad basis "${basis}"`);
+  // A prescriptive claim without a criterion to point at is an opinion wearing
+  // a lab coat, and vague appeals to "accessibility guidelines" are exactly what
+  // make a client suspect the whole report.
+  if (basis === 'prescriptive' && !citation) {
+    throw new Error(`Finding ${checkId}: basis "prescriptive" requires a citation (e.g. "WCAG 2.2 SC 2.5.8")`);
+  }
   if (!recommendation) throw new Error(`Finding ${checkId} requires a recommendation`);
   if (evidence == null || typeof evidence !== 'object') {
     throw new Error(`Finding ${checkId} requires an evidence object — a finding without evidence is an opinion`);
@@ -115,6 +155,7 @@ export function createFinding(input) {
     effort: e,
     priority: i * e,
     evidence, recommendation, scope, url, selector,
+    basis, citation,
     refs: Object.freeze([...refs]),
     derivedFrom: Object.freeze([...derivedFrom]),
   });
@@ -153,13 +194,22 @@ export const BAND_ORDER = ['critical', 'high', 'medium', 'low'];
 export const CLIENT_THRESHOLD = 40;
 
 /**
+ * Strengths are Findings too — same record, positive valence. Naming what works
+ * and why is what lets it survive the next redesign, and a report that only
+ * ever accuses is easy to dismiss wholesale.
+ */
+export const isStrength = (f) => f.kind === 'strength';
+
+/**
  * Sort a pile of Findings the way the report reads: worst-first, ties broken by
  * impact so a big-and-hard beats a small-and-easy at equal priority.
  * @param {Finding[]} findings
  */
 export function rank(findings) {
+  // Strengths never outrank problems — they are context, not work.
   return [...findings].sort((a, b) =>
-    b.priority - a.priority || b.impact - a.impact || a.checkId.localeCompare(b.checkId));
+    (isStrength(a) - isStrength(b))
+    || b.priority - a.priority || b.impact - a.impact || a.checkId.localeCompare(b.checkId));
 }
 
 /**

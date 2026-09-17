@@ -22,6 +22,8 @@
 
 import { createFinding } from './finding.js';
 import { contrastRatio, parseColor } from './color.js';
+import { GEOMETRY_CHECKS } from './checks-geometry.js';
+import { PATTERN_CHECKS } from './checks-patterns.js';
 
 const sum = (observations, path) =>
   observations.reduce((n, o) => n + (path.split('.').reduce((v, k) => v?.[k], o) || 0), 0);
@@ -54,6 +56,8 @@ export const QUALITY_CHECKS = [
         out.push(createFinding({
           checkId: 'design-contrast-token', axis: 'design', surface: ctx.scopeSurface,
           scope: 'extractive',
+          basis: 'prescriptive',
+          citation: 'WCAG 2.2 SC 1.4.3 Contrast (Minimum), Level AA',
           title: `${w.pair} is ${w.ratio}:1 — below the ${w.required}:1 minimum for text`,
           // Contrast is objectively wrong rather than a judgement call, and the
           // fix is a colour value, so impact is high and effort is trivial.
@@ -73,6 +77,8 @@ export const QUALITY_CHECKS = [
         out.push(createFinding({
           checkId: 'design-contrast-elements', axis: 'design', surface: ctx.scopeSurface,
           scope: 'extractive',
+          basis: 'prescriptive',
+          citation: 'WCAG 2.2 SC 1.4.3 Contrast (Minimum), Level AA',
           title: `${failures.length} text element${failures.length === 1 ? '' : 's'} below WCAG AA contrast`,
           impact: 8, effort: 7,
           evidence: { count: failures.length, worst, samples: failures.slice(0, 10) },
@@ -85,25 +91,6 @@ export const QUALITY_CHECKS = [
   },
 
   {
-    id: 'tap-targets',
-    axis: 'design',
-    run(ctx) {
-      const total = sum(ctx.observations, 'a11y.smallTapTargets');
-      if (total < 3) return [];
-      return [createFinding({
-        checkId: 'design-tap-targets', axis: 'design', surface: ctx.scopeSurface,
-        scope: 'extractive',
-        title: `${total} interactive element${total === 1 ? '' : 's'} smaller than the 44x44px touch minimum`,
-        impact: total > 12 ? 7 : 5,
-        effort: 7,
-        evidence: { total, pages: worstPages(ctx.observations, 'smallTapTargets'), minimum: '44x44px' },
-        recommendation: 'Most storefront traffic is mobile, so these are missed taps on the way to checkout. Raise the padding rather than the font size — the hit area is what matters, not the glyph.',
-        refs: ['wcag/2.5.8'],
-      })];
-    },
-  },
-
-  {
     id: 'heading-structure',
     axis: 'design',
     run(ctx) {
@@ -112,6 +99,8 @@ export const QUALITY_CHECKS = [
       return [createFinding({
         checkId: 'design-heading-jumps', axis: 'design', surface: ctx.scopeSurface,
         scope: 'extractive',
+        basis: 'prescriptive',
+        citation: 'WCAG 2.2 SC 1.3.1 Info and Relationships, Level A',
         title: `Heading hierarchy skips levels in ${total} place${total === 1 ? '' : 's'}`,
         impact: 5, effort: 8,
         evidence: { jumps: total, pages: worstPages(ctx.observations, 'headingJumps') },
@@ -135,6 +124,8 @@ export const QUALITY_CHECKS = [
       return [createFinding({
         checkId: 'ux-missing-alt', axis: 'ux', surface: ctx.scopeSurface,
         scope: 'extractive',
+        basis: 'prescriptive',
+        citation: 'WCAG 2.2 SC 1.1.1 Non-text Content, Level A',
         title: `${missing} of ${total} images have no alt text (${Math.round(share * 100)}%)`,
         impact: share > 0.5 ? 7 : 5,
         effort: 6,
@@ -154,6 +145,8 @@ export const QUALITY_CHECKS = [
       return [createFinding({
         checkId: 'ux-unlabeled-controls', axis: 'ux', surface: ctx.scopeSurface,
         scope: 'extractive',
+        basis: 'prescriptive',
+        citation: 'WCAG 2.2 SC 3.3.2 Labels or Instructions, Level A',
         title: `${total} form control${total === 1 ? '' : 's'} with no associated label`,
         impact: 7, effort: 8,
         evidence: { total, pages: worstPages(ctx.observations, 'unlabeledControls') },
@@ -245,7 +238,7 @@ export const QUALITY_CHECKS = [
  */
 export function runQualityChecks(ctx, axes) {
   const out = [];
-  for (const check of QUALITY_CHECKS) {
+  for (const check of [...QUALITY_CHECKS, ...GEOMETRY_CHECKS, ...PATTERN_CHECKS]) {
     if (!axes.includes(check.axis)) continue;
     try {
       out.push(...check.run(ctx));

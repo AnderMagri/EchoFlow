@@ -81,6 +81,8 @@ export function buildWikiModel(analysis) {
     site: analysis.site,
     platform: analysis.platform,
     isShopify: analysis.isShopify,
+    method: analysis.method,
+    notAssessed: analysis.notAssessed,
     generatedAt: analysis.generatedAt,
     scope: analysis.scope,
     axes: axesPresent,

@@ -15,7 +15,7 @@
  * @module core/wiki/render-md
  */
 
-import { AXIS_LABELS, SURFACE_LABELS, effortLabel, priorityBand } from '../finding.js';
+import { AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, SURFACE_LABELS, effortLabel, priorityBand } from '../finding.js';
 import { GRADE_COPY } from '../consistency.js';
 
 const yamlValue = (v) => {
@@ -51,6 +51,8 @@ export function renderFinding(f) {
     axis: f.axis,
     surface: f.surface,
     scope: f.scope,
+    basis: f.basis,
+    citation: f.citation || undefined,
     impact: f.impact,
     effort: f.effort,
     effort_label: effortLabel(f.effort),
@@ -63,6 +65,8 @@ export function renderFinding(f) {
     `# ${f.title}`,
     '',
     `**${AXIS_LABELS[f.axis]}** · ${SURFACE_LABELS[f.surface] || f.surface} · priority **${f.priority}** (${band}) · impact ${f.impact}/10 · effort to fix: ${effortLabel(f.effort)}`,
+    '',
+    `> **${BASIS_LABELS[f.basis]}.** ${BASIS_NOTE[f.basis]}${f.citation ? ` \n> Criterion: \`${f.citation}\`` : ''}`,
     '',
     '## Recommendation',
     '',
@@ -128,6 +132,18 @@ export function renderIndex(model) {
     model.skipped.length
       ? `> **${model.skipped.length} dimension(s) not measured.** They are excluded from the score rather than counted as passing: ${model.skipped.map((s) => `\`${s.key}\` (${s.reason})`).join(', ')}.\n`
       : '',
+    '## Method',
+    '',
+    model.method ? `Fold lines declared at ${Object.entries(model.method.foldLines).map(([v, h]) => `**${v} ${h}px**`).join(', ')}. ${model.method.viewportNote.join(' ')} ${model.method.measureApproximation}` : '',
+    '',
+    '## Not assessed',
+    '',
+    'This is a layout, token and geometry audit. It does not cover:',
+    '',
+    ...(model.notAssessed || []).map((n) => `- ${n}`),
+    '',
+    '> A score that implies accessibility or performance coverage it does not have is worse than no score.',
+    '',
     '## Pages',
     '',
     ...model.pages.filter((p) => p.slug !== 'index').map((p) => `- [${p.title}](./${p.slug}.md)`),

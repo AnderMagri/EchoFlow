@@ -32,7 +32,25 @@ review tab showed contrast warnings the findings report knew nothing about. That
 was the one rule being broken quietly.
 
 When adding a check, ask: *is this drift, or is it a defect?* Drift goes in
-`dimensions.js` and moves the score. Defects go in `checks.js` and do not.
+`dimensions.js` and moves the score. Defects go in `checks.js` (which also
+pulls in `checks-geometry.js` and `checks-patterns.js`) and do not.
+
+## Every finding declares what licenses its claim
+
+`basis` is `prescriptive` | `practice` | `directional`. They are not
+interchangeable, and blurring them is how an audit loses an argument:
+
+- **prescriptive** — a published criterion with a number. **The schema REJECTS a
+  prescriptive finding with no `citation`.** Cite the specific criterion
+  (`WCAG 2.2 SC 2.5.8`); vague appeals to "accessibility guidelines" are what
+  make a client suspect the whole report.
+- **practice** — convergent convention (45–75 measure, 12px floor, token
+  budgets). Say "outside established practice", never "fails".
+- **directional** — effects from other catalogues. A range, attributed, paired
+  with "worth testing on your traffic". Never a projection.
+
+`docs/REFERENCE.md` lists every threshold and its provenance. Adding a check
+means adding a row there.
 
 Every dimension also carries a `group` (Colour, Typography, Spacing, Shape,
 Components, Layout, Language, …). `consistency.byGroup` is the same weighted
@@ -72,6 +90,20 @@ asserted. It is a decomposition, not a second score: nothing is ranked by it.
   32px both land in "2xl"), and a token set with two steps of the same name is
   unusable. Names are assigned by rank; past 14 steps it switches to numbering,
   because a site with 19 sizes has no t-shirt scale to describe.
+- **Visibility is inherited.** `collect-dom.js` walks the ancestor chain. A node
+  with its own `display:block` inside a hidden section is not on the page;
+  checking only the node was the largest source of false positives.
+- **Classify controls by role, not by class name.** A `div.chip` is not
+  tappable. Name-based classification is how an audit turns into damage.
+- **Viewports are USABLE heights** (`USABLE_VIEWPORT`): mobile 390×**640**,
+  desktop 1440×**800**. Device height flatters every design by about a quarter.
+  The fold is declared in `analysis.method.foldLines` — an audit whose fold is
+  undeclared cannot be checked.
+- **WCAG 2.5.8 exempts inline links.** Flagging every in-paragraph link is noise
+  and loses trust. The exemption count travels in the evidence.
+- **Dark-pattern findings are accusations.** Always carry the literal matched
+  string, and describe the PATTERN, never the intent. A regex cannot establish
+  motive, and urgency cues are reported as a prompt to verify, not a verdict.
 - **A high consistency score does not mean "ship it."** Quality defects do not
   move the score, so narrative findings that draw conclusions from it (see
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
@@ -82,6 +114,7 @@ asserted. It is a decomposition, not a second score: nothing is ranked by it.
 ```bash
 node scripts/sync-core.js    # the extension loads its own copy
 node test/run.js
+cd mcp && node test.mjs      # MCP protocol surface
 ```
 
 ## Testing against a real page

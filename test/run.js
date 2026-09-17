@@ -314,15 +314,171 @@ t('analysis.json excludes the bulky layout trees', () => {
 
 t('collected a11y data produces findings — nothing measured is discarded', () => {
   const obs = messySite();
-  obs[0].a11y = { smallTapTargets: 9, imagesMissingAlt: 6, imagesTotal: 10,
-    headingJumps: 2, unlabeledControls: 3, contrastFailures: [] };
+  obs[0].a11y = {
+    targetsUnder24: 9, targetsUnder44: 12, controlsTotal: 40, inlineLinksExempt: 5,
+    tinyTargets: [{ tag: 'a', w: 18, h: 18, label: 'x' }],
+    textUnder12: 7, tinyTextSamples: [{ px: 10, sample: 'legal copy' }],
+    imagesMissingAlt: 6, imagesTotal: 10, headingJumps: 2, unlabeledControls: 3,
+    contrastFailures: [],
+  };
   const r = analyze({ observations: obs, site: 'm' });
   const ids = r.findings.map((f) => f.checkId);
-  ok(ids.includes('design-tap-targets'), 'tap targets must surface');
+  ok(ids.includes('design-target-under-24'), 'sub-24px targets must surface');
+  ok(ids.includes('design-text-under-12'), 'sub-12px text must surface');
   ok(ids.includes('design-heading-jumps'), 'heading jumps must surface');
   ok(ids.includes('ux-missing-alt'), 'missing alt must surface');
   ok(ids.includes('ux-unlabeled-controls'), 'unlabeled controls must surface');
 });
+
+t('a WCAG target finding cites the criterion it fails', () => {
+  const obs = messySite();
+  obs[0].a11y = { ...obs[0].a11y, targetsUnder24: 5, controlsTotal: 20, tinyTargets: [] };
+  const f = analyze({ observations: obs, site: 'm' })
+    .findings.find((x) => x.checkId === 'design-target-under-24');
+  eq(f.basis, 'prescriptive');
+  ok(/2\.5\.8/.test(f.citation), `must name the criterion, got "${f.citation}"`);
+});
+
+t('the 24px WCAG floor and the 44px convention are separate findings', () => {
+  const obs = messySite();
+  obs[0].a11y = { ...obs[0].a11y, targetsUnder24: 0, targetsUnder44: 12, controlsTotal: 30, tinyTargets: [] };
+  const fs = analyze({ observations: obs, site: 'm' }).findings;
+  ok(!fs.some((f) => f.checkId === 'design-target-under-24'), 'nothing fails 2.5.8');
+  const soft = fs.find((f) => f.checkId === 'design-target-under-44');
+  ok(soft, 'but platform convention still reports');
+  eq(soft.basis, 'practice', 'and it must NOT claim to be a standard');
+});
+
+t('inline links in body text are exempt from the 24px rule', () => {
+  // SC 2.5.8 exempts inline targets. Flagging every in-paragraph link is noise.
+  const obs = messySite();
+  obs[0].a11y = { ...obs[0].a11y, targetsUnder24: 4, controlsTotal: 20, inlineLinksExempt: 30, tinyTargets: [] };
+  const f = analyze({ observations: obs, site: 'm' })
+    .findings.find((x) => x.checkId === 'design-target-under-24');
+  eq(f.evidence.inlineLinksExempted, 30, 'the exemption must be stated in the evidence');
+});
+
+t('dark patterns are reported with the literal matched text', () => {
+  const obs = messySite();
+  obs[0].darkPatterns = {
+    confirmshaming: ["No thanks, I don't want to save money"],
+    preCheckedOptIns: ['Subscribe me to marketing emails'],
+    urgency: ['Only 2 left'], countdownTimers: 1,
+    hardToLeave: [], lateCosts: [], disguisedAds: 0,
+  };
+  const fs = analyze({ observations: obs, site: 'm' }).findings;
+  const shame = fs.find((f) => f.checkId === 'ux-confirmshaming');
+  ok(shame, 'confirmshaming must surface');
+  ok(shame.evidence.matched[0].includes("save money"), 'evidence carries the actual string');
+  ok(fs.some((f) => f.checkId === 'ux-pre-checked-optin'), 'pre-ticked consent must surface');
+  // Urgency is a prompt to verify, not a verdict — it must not claim intent.
+  const urg = fs.find((f) => f.checkId === 'ux-urgency-pressure');
+  ok(urg && /cannot tell/.test(urg.evidence.note), 'urgency must state its own uncertainty');
+});
+
+t('a buy control below the declared fold is found, and the fold is stated', () => {
+  const obs = messySite();
+  obs[0].surface = 'pdp';
+  obs[0].viewport = { width: 390, height: 640, label: 'mobile' };
+  obs[0].geometry = { pageHeight: 9000, viewportHeight: 640, firstPriceY: 1200,
+    firstActionY: 1500, firstActionLabel: 'Add to cart', coreContentY: null,
+    stickyControls: [], sections: [], footerHeight: 400, navItemCount: 4 };
+  const f = analyze({ observations: obs, site: 'm' })
+    .findings.find((x) => x.checkId.startsWith('ux-action-below-fold'));
+  ok(f, 'must find a below-fold buy control');
+  eq(f.evidence.foldLine, 640, 'the fold must be declared, not implied');
+  ok(f.impact >= 8, 'no persistent control means this is expensive');
+});
+
+t('a persistent buy control softens the below-fold finding', () => {
+  const mk = (sticky) => {
+    const obs = messySite();
+    obs[0].surface = 'pdp';
+    obs[0].viewport = { width: 390, height: 640, label: 'mobile' };
+    obs[0].geometry = { pageHeight: 9000, viewportHeight: 640, firstPriceY: 1200,
+      firstActionY: 1500, firstActionLabel: 'Add to cart', coreContentY: null,
+      stickyControls: sticky ? [{ tag: 'div', position: 'fixed', height: 60, hasAction: true }] : [],
+      sections: [], footerHeight: 400, navItemCount: 4 };
+    return analyze({ observations: obs, site: 'm' })
+      .findings.find((x) => x.checkId.startsWith('ux-action-below-fold'));
+  };
+  ok(mk(true).impact < mk(false).impact, 'a sticky control must reduce the impact');
+});
+
+t('measure findings use Bringhurst bounds and claim only practice', () => {
+  const obs = messySite();
+  obs[0].typography = { measures: Array.from({ length: 6 }, () => ({ cpl: 110, px: 16, width: 850, sample: 'x' })) };
+  const f = analyze({ observations: obs, site: 'm' })
+    .findings.find((x) => x.checkId === 'design-measure-wide');
+  ok(f, 'over-90 measure must surface');
+  eq(f.basis, 'practice', 'the 45-75 measure is convention, not a standard');
+});
+
+t('strengths are findings, and never outrank problems', () => {
+  const obs = messySite();
+  obs[0].surface = 'pdp';
+  obs[0].viewport = { width: 390, height: 640, label: 'mobile' };
+  obs[0].geometry = { pageHeight: 3000, viewportHeight: 640, firstPriceY: 200,
+    firstActionY: 300, firstActionLabel: 'Add to cart', coreContentY: null,
+    stickyControls: [{ tag: 'div', position: 'fixed', height: 60, hasAction: true }],
+    sections: [], footerHeight: 200, navItemCount: 4 };
+  const fs = analyze({ observations: obs, site: 'm' }).findings;
+  const strengths = fs.filter((f) => f.kind === 'strength');
+  ok(strengths.length > 0, 'a sticky control and an above-fold buy path are strengths');
+  const firstStrengthIdx = fs.findIndex((f) => f.kind === 'strength');
+  const lastProblemIdx = fs.map((f) => f.kind !== 'strength').lastIndexOf(true);
+  ok(firstStrengthIdx > lastProblemIdx, 'every problem ranks above every strength');
+});
+
+t('page depth is measured against the USABLE viewport, not the device height', () => {
+  const obs = messySite();
+  obs[0].surface = 'home';
+  obs[0].viewport = { width: 390, height: 844, label: 'mobile' };
+  obs[0].geometry = { pageHeight: 11455, viewportHeight: 844, firstPriceY: null,
+    firstActionY: 400, firstActionLabel: 'Shop', coreContentY: null,
+    stickyControls: [], sections: [], footerHeight: 900, navItemCount: 4 };
+  const f = analyze({ observations: obs, site: 'm' })
+    .findings.find((x) => x.checkId === 'ux-page-depth-home');
+  ok(f, 'must flag an 11455px homepage');
+  eq(f.evidence.foldLine, 640, 'fold is the usable 640, not the 844 device height');
+  ok(f.evidence.screens > 17, `11455/640 is ~17.9 screens, got ${f.evidence.screens}`);
+});
+
+t('responsive differences are not reported as drift', () => {
+  // The same three pages captured at two viewports. A button that is 48px on
+  // desktop and 44px on mobile is responsive design; comparing across viewports
+  // would report every such decision as drift, and would fire hardest on sites
+  // that did responsive properly.
+  const desktop = cleanSite().slice(0, 3).map((o) => ({
+    ...o, viewport: { width: 1440, height: 800, label: 'desktop' },
+  }));
+  const mobile = desktop.map((o) => ({
+    ...o,
+    viewport: { width: 390, height: 640, label: 'mobile' },
+    roles: { ...o.roles, primaryButton: { ...o.roles.primaryButton, height: 44, fontSize: 15 } },
+  }));
+
+  const oneViewport = analyze({ observations: desktop, site: 't' });
+  const bothViewports = analyze({ observations: [...desktop, ...mobile], site: 't' });
+
+  const drift = bothViewports.findings.filter((f) => f.checkId.startsWith('design-drift-'));
+  eq(drift.length, 0, `adding a mobile capture invented ${drift.length} drift finding(s)`);
+  eq(bothViewports.consistency.byAxis.design, oneViewport.consistency.byAxis.design,
+    'the design score must not move just because a second viewport was captured');
+});
+
+t('a two-viewport run does not double-count CTA wording', () => {
+  const base = messySite().slice(0, 3).map((o) => ({
+    ...o, viewport: { width: 1440, height: 800, label: 'desktop' },
+  }));
+  const withMobile = [...base, ...base.map((o) => ({ ...o, viewport: { width: 390, height: 640, label: 'mobile' } }))];
+  const one = analyze({ observations: base, site: 't' });
+  const two = analyze({ observations: withMobile, site: 't' });
+  const pagesOf = (r) => r.consistency.dimensions.find((d) => d.key === 'cta-language')?.detail?.pages;
+  eq(pagesOf(two), pagesOf(one), 'wording is compared once per URL, not once per render');
+});
+
+// --- report ----------------------------------------------------------------
 
 t('a contrast failure in the token seed becomes a Finding', () => {
   const obs = cleanSite();
@@ -411,6 +567,40 @@ t('platform is detected and carried through to the report', () => {
   for (const o of obs) o.engine.platform = 'wordpress-woocommerce';
   const r = analyze({ observations: obs, site: 'm' });
   eq(r.platform, 'wordpress-woocommerce');
+});
+
+t('responsive differences are not reported as drift', () => {
+  // The same three pages captured at two viewports. A button that is 48px on
+  // desktop and 44px on mobile is responsive design; comparing across viewports
+  // would report every such decision as drift, and would fire hardest on sites
+  // that did responsive properly.
+  const desktop = cleanSite().slice(0, 3).map((o) => ({
+    ...o, viewport: { width: 1440, height: 800, label: 'desktop' },
+  }));
+  const mobile = desktop.map((o) => ({
+    ...o,
+    viewport: { width: 390, height: 640, label: 'mobile' },
+    roles: { ...o.roles, primaryButton: { ...o.roles.primaryButton, height: 44, fontSize: 15 } },
+  }));
+
+  const oneViewport = analyze({ observations: desktop, site: 't' });
+  const bothViewports = analyze({ observations: [...desktop, ...mobile], site: 't' });
+
+  const drift = bothViewports.findings.filter((f) => f.checkId.startsWith('design-drift-'));
+  eq(drift.length, 0, `adding a mobile capture invented ${drift.length} drift finding(s)`);
+  eq(bothViewports.consistency.byAxis.design, oneViewport.consistency.byAxis.design,
+    'the design score must not move just because a second viewport was captured');
+});
+
+t('a two-viewport run does not double-count CTA wording', () => {
+  const base = messySite().slice(0, 3).map((o) => ({
+    ...o, viewport: { width: 1440, height: 800, label: 'desktop' },
+  }));
+  const withMobile = [...base, ...base.map((o) => ({ ...o, viewport: { width: 390, height: 640, label: 'mobile' } }))];
+  const one = analyze({ observations: base, site: 't' });
+  const two = analyze({ observations: withMobile, site: 't' });
+  const pagesOf = (r) => r.consistency.dimensions.find((d) => d.key === 'cta-language')?.detail?.pages;
+  eq(pagesOf(two), pagesOf(one), 'wording is compared once per URL, not once per render');
 });
 
 // --- report ----------------------------------------------------------------

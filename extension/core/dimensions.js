@@ -26,6 +26,34 @@ import {
 } from './observation.js';
 
 const pct = (n) => `${Math.round(n * 100)}%`;
+
+/**
+ * Group observations by viewport before comparing them.
+ *
+ * Comparative checks ask "do pages that should agree, agree?" — and a
+ * responsive layout is SUPPOSED to differ between breakpoints. Comparing a
+ * desktop render against a mobile one reports every responsive decision as
+ * drift, which is both wrong and the most annoying possible kind of wrong: it
+ * fires hardest on sites that did responsive properly.
+ *
+ * So agreement is measured WITHIN a viewport and then averaged across them.
+ * @param {any[]} observations
+ */
+function byViewport(observations) {
+  const groups = new Map();
+  for (const o of observations) {
+    const key = o.viewport?.label || 'unknown';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  }
+  return [...groups.entries()];
+}
+
+/** Mean of per-viewport scores, ignoring viewports that could not be measured. */
+function meanScore(scores) {
+  const real = scores.filter((n) => typeof n === 'number');
+  return real.length ? Math.round(real.reduce((a, b) => a + b, 0) / real.length) : null;
+}
 const list = (arr, n = 4) => arr.slice(0, n).join(', ') + (arr.length > n ? ` (+${arr.length - n} more)` : '');
 
 /**
@@ -266,26 +294,36 @@ export const DIMENSIONS = [
       if (!ctx.isSiteWide) return { score: null, reason: 'needs more than one page' };
       const results = {};
       const scores = [];
+
       for (const role of TRACKED_ROLES) {
         const props = ['background', 'color', 'fontSize', 'fontWeight', 'borderRadius', 'height'];
         for (const prop of props) {
-          const observations = ctx.observations
-            .filter((o) => o.roles?.[role]?.[prop] != null)
-            .map((o) => ({ page: o.url, value: o.roles[role][prop] }));
-          if (observations.length < 2) continue;
-          const numeric = typeof observations[0].value === 'number';
-          const agreement = crossPageAgreement({
-            observations,
-            distance: numeric ? numericDistance : undefined,
-            tolerance: numeric ? 1.01 : 0,
-          });
-          if (agreement.score == null) continue;
-          results[`${role}.${prop}`] = agreement;
-          scores.push(agreement.score);
+          // Within each viewport, not across them: a 48px button on desktop and
+          // a 44px one on mobile is responsive design, not drift.
+          const perViewport = [];
+          let worst = null;
+          for (const [, group] of byViewport(ctx.observations)) {
+            const observations = group
+              .filter((o) => o.roles?.[role]?.[prop] != null)
+              .map((o) => ({ page: o.url, value: o.roles[role][prop] }));
+            if (observations.length < 2) continue;
+            const numeric = typeof observations[0].value === 'number';
+            const agreement = crossPageAgreement({
+              observations,
+              distance: numeric ? numericDistance : undefined,
+              tolerance: numeric ? 1.01 : 0,
+            });
+            if (agreement.score == null) continue;
+            perViewport.push(agreement.score);
+            if (!worst || agreement.score < worst.score) worst = agreement;
+          }
+          if (!perViewport.length) continue;
+          results[`${role}.${prop}`] = worst;
+          scores.push(meanScore(perViewport));
         }
       }
-      if (!scores.length) return { score: null, reason: 'no shared roles observed' };
-      return { score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), roles: results };
+      if (!scores.length) return { score: null, reason: 'no shared roles observed at a single viewport' };
+      return { score: meanScore(scores), roles: results };
     },
     findings(r, ctx) {
       if (r.score == null) return [];
@@ -358,21 +396,30 @@ export const DIMENSIONS = [
       const surfaces = [...new Set(ctx.observations.map((o) => o.surface))];
 
       for (const surface of surfaces) {
-        const peers = ctx.observations.filter((o) => o.surface === surface && o.layout);
-        if (peers.length < 2) continue;
+        // Per viewport: a responsive template legitimately collapses two columns
+        // into one, which changes the skeleton without changing the template.
+        const perViewport = [];
+        let worst = null;
+        for (const [, group] of byViewport(ctx.observations)) {
+          const peers = group.filter((o) => o.surface === surface && o.layout);
+          if (peers.length < 2) continue;
 
-        // The signature is the ordered list of section roles. Two PDPs that run
-        // hero/grid/text/grid have the same skeleton even if their content and
-        // exact heights differ — which is the right granularity, because that
-        // is what a Shopify template has to reproduce.
-        const observations = peers.map((o) => ({
-          page: o.url,
-          value: sectionSkeleton(o.layout).map((n) => n.role || n.tag).join(' > ') || '(none)',
-        }));
-        const a = crossPageAgreement({ observations });
-        if (a.score == null) continue;
-        detail[surface] = a;
-        scores.push(a.score);
+          // The signature is the ordered list of section roles. Two PDPs that
+          // run hero/grid/text/grid have the same skeleton even if their
+          // content and exact heights differ — the right granularity, because
+          // that is what a Shopify template has to reproduce.
+          const observations = peers.map((o) => ({
+            page: o.url,
+            value: sectionSkeleton(o.layout).map((n) => n.role || n.tag).join(' > ') || '(none)',
+          }));
+          const a = crossPageAgreement({ observations });
+          if (a.score == null) continue;
+          perViewport.push(a.score);
+          if (!worst || a.score < worst.score) worst = a;
+        }
+        if (!perViewport.length) continue;
+        detail[surface] = worst;
+        scores.push(meanScore(perViewport));
       }
       if (!scores.length) return { score: null, reason: 'needs at least two pages of the same type with layout captured' };
       return { score: Math.round(scores.reduce((x, y) => x + y, 0) / scores.length), detail };
@@ -440,8 +487,12 @@ export const DIMENSIONS = [
     label: 'CTA language',
     question: 'Is the same action called the same thing everywhere?',
     measure(ctx) {
+      // Wording is content: it should be identical at every viewport, so the
+      // same URL twice would just double-count. One observation per URL.
+      const seen = new Set();
       const observations = ctx.observations
         .filter((o) => o.roles?.primaryButton?.label)
+        .filter((o) => !seen.has(o.url) && seen.add(o.url))
         .map((o) => ({ page: o.url, value: normalizeLabel(o.roles.primaryButton.label) }));
       if (observations.length < 2) return { score: null, reason: 'needs more than one page' };
       return crossPageAgreement({ observations });
@@ -463,8 +514,12 @@ export const DIMENSIONS = [
     label: 'Navigation stability',
     question: 'Does the main navigation stay put?',
     measure(ctx) {
+      // Nav contents should match everywhere; one observation per URL so a
+      // two-viewport run does not count each page twice.
+      const seen = new Set();
       const observations = ctx.observations
         .filter((o) => o.roles?.header?.items?.length)
+        .filter((o) => !seen.has(o.url) && seen.add(o.url))
         .map((o) => ({ page: o.url, value: o.roles.header.items.join(' > ') }));
       if (observations.length < 2) return { score: null, reason: 'needs more than one page' };
       return crossPageAgreement({ observations });
@@ -489,7 +544,12 @@ export const DIMENSIONS = [
     measure(ctx) {
       const scores = [], detail = {};
       for (const [surface, keys] of Object.entries(ANATOMY_KEYS)) {
-        const peers = ctx.observations.filter((o) => o.surface === surface);
+        // Anatomy is content, not layout, so it SHOULD match across viewports —
+        // but a peer set that mixes them double-counts every page. Take the
+        // richest single viewport instead.
+        const peers = byViewport(ctx.observations)
+          .map(([, g]) => g.filter((o) => o.surface === surface))
+          .sort((a, b) => b.length - a.length)[0] || [];
         if (peers.length < 2) continue;
         for (const key of keys) {
           const observations = peers.map((o) => ({ page: o.url, value: o.anatomy?.[key] ? 'present' : 'absent' }));

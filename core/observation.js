@@ -161,7 +161,19 @@ export function normalizeObservation(raw) {
     },
     a11y: {
       contrastFailures: [], imagesMissingAlt: 0, imagesTotal: 0, headingJumps: 0,
-      unlabeledControls: 0, smallTapTargets: 0, ...(raw.a11y || {}),
+      unlabeledControls: 0, targetsUnder24: 0, targetsUnder44: 0, controlsTotal: 0,
+      inlineLinksExempt: 0, tinyTargets: [], textUnder12: 0, textUnder14: 0,
+      tinyTextSamples: [], tightLeading: 0, imagesEager: 0, ...(raw.a11y || {}),
+    },
+    typography: { measures: [], ...(raw.typography || {}) },
+    geometry: {
+      pageHeight: 0, viewportHeight: 0, firstPriceY: null, firstActionY: null,
+      firstActionLabel: null, coreContentY: null, stickyControls: [], sections: [],
+      footerHeight: 0, navItemCount: 0, ...(raw.geometry || {}),
+    },
+    darkPatterns: {
+      confirmshaming: [], preCheckedOptIns: [], urgency: [], countdownTimers: 0,
+      hardToLeave: [], lateCosts: [], disguisedAds: 0, ...(raw.darkPatterns || {}),
     },
     layout: raw.layout || null,
     collectedAt: raw.collectedAt || Date.now(),
@@ -253,3 +265,39 @@ export function flattenLayout(root, maxDepth = Infinity) {
 export function sectionSkeleton(root) {
   return flattenLayout(root).filter((n) => n.section);
 }
+
+
+/**
+ * Usable viewport heights, not device heights.
+ *
+ * A 390x844 iPhone does not show 844px of page: the address bar and browser
+ * chrome take roughly 200 of it. Measuring "screens" against the full device
+ * height flatters every design by about a quarter, which is exactly the kind of
+ * quiet inaccuracy that makes a geometry audit worthless.
+ *
+ * The fold line must also be DECLARED in the output — an audit whose fold is
+ * undeclared cannot be checked by the person reading it.
+ */
+export const USABLE_VIEWPORT = {
+  mobile: { width: 390, height: 640, note: 'iPhone-class viewport less browser chrome with the address bar showing' },
+  desktop: { width: 1440, height: 800, note: '1440x900 display less browser chrome' },
+};
+
+/** @param {string} label */
+export const usableHeight = (label) =>
+  (USABLE_VIEWPORT[label] || USABLE_VIEWPORT.desktop).height;
+
+/**
+ * Page depth benchmarks, in screens, by surface.
+ *
+ * DTC convention, NOT a standard — these are the bands a healthy storefront
+ * lands in, and findings built on them must be labelled `practice`, never
+ * presented as pass/fail.
+ */
+export const DEPTH_BENCHMARK = {
+  home: { good: 8, investigate: 12 },
+  pdp: { good: 12, investigate: 16 },
+  plp: { good: 10, investigate: 14 },
+  cart: { good: 4, investigate: 6 },
+  content: { good: 10, investigate: 15 },
+};

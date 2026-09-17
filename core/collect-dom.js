@@ -40,9 +40,37 @@ export function collectFromDocument(options) {
   function px(v) { var n = parseFloat(v); return isFinite(n) ? n : null; }
 
   // --- visibility --------------------------------------------------------
+  // Visibility is INHERITED. A node with its own display:block inside a hidden
+  // section is not on the page, and checking only the node itself is the single
+  // largest source of false positives in a geometry audit — it reports text
+  // sizes and targets for content nobody can see.
+  var visCache = new WeakMap();
+  function hiddenByAncestor(el) {
+    var chain = [];
+    var node = el;
+    while (node && node !== document.body && node.nodeType === 1) {
+      if (visCache.has(node)) {
+        var cached = visCache.get(node);
+        for (var c = 0; c < chain.length; c++) visCache.set(chain[c], cached);
+        return cached;
+      }
+      chain.push(node);
+      var s = window.getComputedStyle(node);
+      if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0'
+          || node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true') {
+        for (var h = 0; h < chain.length; h++) visCache.set(chain[h], true);
+        return true;
+      }
+      node = node.parentElement;
+    }
+    for (var f = 0; f < chain.length; f++) visCache.set(chain[f], false);
+    return false;
+  }
+
   function isVisible(el, cs, rect) {
     if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
-    return rect.width > 0 && rect.height > 0;
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    return !hiddenByAncestor(el.parentElement);
   }
 
   // --- walk --------------------------------------------------------------
@@ -50,7 +78,10 @@ export function collectFromDocument(options) {
   var limit = Math.min(all.length, MAX_NODES);
   var scrollX = window.scrollX || 0, scrollY = window.scrollY || 0;
 
-  var imagesTotal = 0, imagesMissingAlt = 0, unlabeledControls = 0, smallTapTargets = 0;
+  var imagesTotal = 0, imagesMissingAlt = 0, unlabeledControls = 0, imagesEager = 0;
+  var targetsUnder24 = 0, targetsUnder44 = 0, controlsTotal = 0, inlineLinks = 0;
+  var smallText = 0, tightLeading = 0;
+  var tinyText = [], tinyTargets = [], measures = [];
   var headingLevels = [];
 
   for (var i = 0; i < limit; i++) {
@@ -93,10 +124,60 @@ export function collectFromDocument(options) {
     if (tag === 'IMG') {
       imagesTotal++;
       if (!el.getAttribute('alt')) imagesMissingAlt++;
+      if (!el.getAttribute('loading')) imagesEager++;
     }
     if (/^H[1-6]$/.test(tag)) headingLevels.push(+tag[1]);
-    if (tag === 'BUTTON' || tag === 'A' || el.getAttribute('role') === 'button') {
-      if (rect.width < 44 || rect.height < 44) smallTapTargets++;
+
+    // --- text size + measure ---------------------------------------------
+    if (hasText) {
+      var fs = px(cs.fontSize) || 0;
+      var textLen = (el.textContent || '').trim().length;
+      if (fs > 0 && fs < 12) tinyText.push({ px: fs, sample: (el.textContent || '').trim().slice(0, 40) });
+      else if (fs >= 12 && fs < 14) smallText++;
+
+      // Characters per line. Only meaningful for real paragraphs: short labels
+      // and headings legitimately sit outside the 45-75 measure.
+      if (textLen > 80 && rect.width > 60 && fs > 0) {
+        // 0.48 of the font size is the average advance width of a humanist sans
+        // at normal tracking. Verified per typeface would be better; stated as
+        // an approximation so the number is not over-trusted.
+        var cpl = Math.round(rect.width / (fs * 0.48));
+        if (cpl > 10 && cpl < 400) {
+          measures.push({ cpl: cpl, px: Math.round(fs), width: Math.round(rect.width),
+            sample: (el.textContent || '').trim().slice(0, 50) });
+        }
+      }
+      if (px(cs.lineHeight) && fs && px(cs.lineHeight) / fs < 1.4 && textLen > 120) tightLeading++;
+    }
+
+    // --- tap targets ------------------------------------------------------
+    // Classify by ROLE, not by class name: a div called "chip" is not tappable
+    // and flagging it is how an audit turns into damage.
+    var isControl = tag === 'BUTTON' || tag === 'SELECT' || tag === 'TEXTAREA'
+      || (tag === 'INPUT' && el.type !== 'hidden')
+      || el.getAttribute('role') === 'button' || el.getAttribute('role') === 'link'
+      || (tag === 'A' && el.hasAttribute('href'));
+
+    if (isControl) {
+      controlsTotal++;
+      // WCAG 2.2 SC 2.5.8 exempts targets inline within a sentence — flagging
+      // every in-paragraph link produces noise and loses the reader's trust.
+      var parentTag = el.parentElement ? el.parentElement.tagName : '';
+      var inlineInText = tag === 'A'
+        && (parentTag === 'P' || parentTag === 'LI' || parentTag === 'SPAN' || parentTag === 'TD')
+        && cs.display.indexOf('inline') === 0;
+
+      if (!inlineInText) {
+        var minSide = Math.min(rect.width, rect.height);
+        if (minSide < 24) targetsUnder24++;
+        else if (minSide < 44) targetsUnder44++;
+        if (minSide < 24) {
+          tinyTargets.push({ tag: tag.toLowerCase(), w: Math.round(rect.width), h: Math.round(rect.height),
+            label: (el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30) });
+        }
+      } else {
+        inlineLinks++;
+      }
     }
     if ((tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA')
         && !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby')
@@ -396,6 +477,7 @@ export function collectFromDocument(options) {
 
   var mainEl = document.querySelector('main, [role="main"], #MainContent') || document.body;
   var pageWidth = document.documentElement.clientWidth;
+  var docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
 
   function buildNode(el, depth) {
     if (depth > MAX_DEPTH || nodeId > 1200) return null;
@@ -449,15 +531,172 @@ export function collectFromDocument(options) {
     };
   }
 
-  var docH = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
   var layout = {
-    id: 'root', tag: 'body', x: 0, y: 0, w: pageWidth, h: docH, depth: 0,
+    id: 'root', tag: 'body', x: 0, y: 0, w: pageWidth, h: docHeight, depth: 0,
     display: 'block', cols: null, gap: null, label: 'body', children: [],
   };
   for (var bi = 0; bi < document.body.children.length; bi++) {
     var node = buildNode(document.body.children[bi], 1);
     if (node) layout.children.push(node);
   }
+
+  // --- page geometry -----------------------------------------------------
+  // "Measure; do not estimate." The Y of the first price and the first primary
+  // action is the single most predictive pair of numbers on a commerce page, so
+  // it is captured directly rather than inferred from anything else.
+  function absY(el) {
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    if (r.width <= 0 && r.height <= 0) return null;
+    return Math.round(r.top + scrollY);
+  }
+  function firstVisible(selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var nodes = document.querySelectorAll(selectors[i]);
+      for (var n = 0; n < nodes.length; n++) {
+        var r = nodes[n].getBoundingClientRect();
+        var cs2 = window.getComputedStyle(nodes[n]);
+        if (isVisible(nodes[n], cs2, r)) return nodes[n];
+      }
+    }
+    return null;
+  }
+
+  var priceEl = firstVisible(['[class*="price" i]', '.money', '[data-price]']);
+  var ctaEl2 = atcEl || firstVisible([
+    'main a[class*="button" i]', 'main button[class*="primary" i]', '.btn-primary',
+    '[class*="button--primary" i]', 'main button',
+  ]);
+  var coreEl = firstVisible([
+    '[class*="product-card" i]', '[class*="product-grid" i] > *', '[class*="card-wrapper" i]',
+    '[class*="grid__item" i]', 'main table tbody tr',
+  ]);
+
+  // A sticky or fixed control that stays with the reader — the thing that makes
+  // a long page survivable.
+  var stickyControls = [];
+  var candidates = document.querySelectorAll('header, [class*="sticky" i], [class*="fixed" i], [class*="bar" i], form[action*="/cart/add"]');
+  for (var sc2 = 0; sc2 < candidates.length && stickyControls.length < 6; sc2++) {
+    var scs = window.getComputedStyle(candidates[sc2]);
+    if (scs.position !== 'sticky' && scs.position !== 'fixed') continue;
+    var scr = candidates[sc2].getBoundingClientRect();
+    if (scr.height < 20) continue;
+    stickyControls.push({
+      tag: candidates[sc2].tagName.toLowerCase(),
+      position: scs.position,
+      height: Math.round(scr.height),
+      hasAction: !!candidates[sc2].querySelector('button, a[href], [role="button"]'),
+    });
+  }
+
+  // Top-level sections in document order, for proportion analysis.
+  var mainForSections = document.querySelector('main, [role="main"], #MainContent') || document.body;
+  var sectionBlocks = [];
+  for (var sb = 0; sb < mainForSections.children.length; sb++) {
+    var child = mainForSections.children[sb];
+    var cr = child.getBoundingClientRect();
+    var ccs = window.getComputedStyle(child);
+    if (!isVisible(child, ccs, cr) || cr.height < 40) continue;
+    sectionBlocks.push({
+      label: labelOf(child),
+      y: Math.round(cr.top + scrollY),
+      height: Math.round(cr.height),
+    });
+  }
+
+  var footerEl = document.querySelector('footer, [role="contentinfo"], .site-footer');
+  var footerRect = footerEl ? footerEl.getBoundingClientRect() : null;
+
+  var navLinkCount = navItems.length;
+
+  var geometry = {
+    pageHeight: docHeight,
+    viewportHeight: window.innerHeight,
+    firstPriceY: absY(priceEl),
+    firstActionY: absY(ctaEl2),
+    firstActionLabel: text(ctaEl2) || null,
+    coreContentY: absY(coreEl),
+    stickyControls: stickyControls,
+    sections: sectionBlocks,
+    footerHeight: footerRect ? Math.round(footerRect.height) : 0,
+    navItemCount: navLinkCount,
+  };
+
+  // --- dark patterns -----------------------------------------------------
+  // All of these are mechanical: text matching and DOM state, no judgement.
+  // Each records EVIDENCE (the actual string, the actual element) so a human
+  // can overrule it — these are accusations and must be checkable.
+  var bodyText = (document.body.innerText || '').slice(0, 120000);
+
+  function findPhrases(patterns, scopeSelector) {
+    var hits = [];
+    var nodes = document.querySelectorAll(scopeSelector || 'button, a, label, span, p, div');
+    for (var i = 0; i < nodes.length && hits.length < 12; i++) {
+      if (nodes[i].children.length > 2) continue; // leaf-ish nodes only
+      var t = (nodes[i].textContent || '').trim();
+      if (!t || t.length > 140) continue;
+      for (var pi = 0; pi < patterns.length; pi++) {
+        if (patterns[pi].test(t)) { hits.push(t.slice(0, 110)); break; }
+      }
+    }
+    return hits;
+  }
+
+  var darkPatterns = {
+    // Brignull: confirmshaming — the decline option is written to shame.
+    confirmshaming: findPhrases([
+      /\bno,? (?:thanks?|i )?(?:don'?t|do not) want\b/i,
+      /\bi (?:don'?t|do not) (?:want|like) (?:to )?(?:save|discount|deal)/i,
+      /\bi (?:prefer|would rather) to pay full price\b/i,
+      /\bno,? i (?:hate|don'?t like|am not interested)\b/i,
+      /\bmaybe later,? i (?:enjoy|like)\b/i,
+    ], 'button, a, label, [role="button"]'),
+
+    // Pre-ticked opt-ins: consent that was never given.
+    preCheckedOptIns: (function () {
+      var out = [];
+      var boxes = document.querySelectorAll('input[type="checkbox"]');
+      for (var b = 0; b < boxes.length && out.length < 8; b++) {
+        if (!boxes[b].checked) continue;
+        var lbl = '';
+        if (boxes[b].id) {
+          var lab = document.querySelector('label[for="' + CSS.escape(boxes[b].id) + '"]');
+          if (lab) lbl = (lab.textContent || '').trim();
+        }
+        if (!lbl && boxes[b].closest('label')) lbl = (boxes[b].closest('label').textContent || '').trim();
+        // Only marketing/consent boxes matter; a "remember me" is not a dark pattern.
+        if (!/subscrib|newsletter|market|offer|email|sms|partner|consent|share|updates/i.test(lbl)) continue;
+        out.push(lbl.slice(0, 110));
+      }
+      return out;
+    })(),
+
+    // Manufactured urgency: countdowns and scarcity counters.
+    urgency: findPhrases([
+      /\bonly \d{1,2} left\b/i, /\b\d{1,2} (?:items?|units?) (?:left|remaining)\b/i,
+      /\bhurry[,!\s]/i, /\bending soon\b/i, /\bselling fast\b/i,
+      /\b\d+ (?:people|others) (?:are )?(?:viewing|looking)\b/i,
+      /\boffer expires in\b/i, /\blimited time only\b/i,
+    ]),
+    countdownTimers: document.querySelectorAll('[class*="countdown" i], [class*="timer" i], [data-countdown]').length,
+
+    // Roach motel: joining is a click, leaving is a phone call.
+    hardToLeave: findPhrases([
+      /\b(?:call|phone|contact) us to cancel\b/i,
+      /\bcancel(?:lation)? (?:requires|must be requested)\b/i,
+      /\bto cancel,? (?:please )?(?:email|call|contact)\b/i,
+    ]),
+
+    // Hidden costs signalled late.
+    lateCosts: findPhrases([
+      /\b(?:additional|extra) fees? (?:apply|at checkout)\b/i,
+      /\b(?:shipping|taxes?|duties) calculated at checkout\b/i,
+      /\bfinal price at checkout\b/i,
+    ]),
+
+    // Disguised ads inside content.
+    disguisedAds: document.querySelectorAll('[class*="sponsor" i], [class*="promoted" i], [data-ad], ins.adsbygoogle').length,
+  };
 
   // --- assemble ----------------------------------------------------------
   var styles = {};
@@ -496,8 +735,24 @@ export function collectFromDocument(options) {
       contrastFailures: [],
       imagesMissingAlt: imagesMissingAlt, imagesTotal: imagesTotal,
       headingJumps: headingJumps, unlabeledControls: unlabeledControls,
-      smallTapTargets: smallTapTargets,
+      // Split by the criterion each one fails: 2.5.8 AA is 24px, 2.5.5 AAA and
+      // the platform minimums are 44/48. One combined count cannot be cited.
+      targetsUnder24: targetsUnder24,
+      targetsUnder44: targetsUnder44,
+      controlsTotal: controlsTotal,
+      inlineLinksExempt: inlineLinks,
+      tinyTargets: tinyTargets.slice(0, 10),
+      textUnder12: tinyText.length,
+      textUnder14: smallText,
+      tinyTextSamples: tinyText.slice(0, 8),
+      tightLeading: tightLeading,
+      imagesEager: imagesEager,
     },
+    typography: {
+      measures: measures.slice(0, 60),
+    },
+    geometry: geometry,
+    darkPatterns: darkPatterns,
     layout: layout,
     collectedAt: Date.now(),
   };

@@ -12,7 +12,7 @@
 import { aggregate, GRADE_COPY, provisionalNote } from './consistency.js';
 import { DIMENSIONS } from './dimensions.js';
 import { dedupe, rank } from './finding.js';
-import { normalizeObservation } from './observation.js';
+import { normalizeObservation, usableHeight, USABLE_VIEWPORT } from './observation.js';
 import { synthesize } from './synthesis.js';
 import { buildTokenSeed } from './tokens.js';
 import { runQualityChecks } from './checks.js';
@@ -95,9 +95,33 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
         platforms.filter((p) => p === b).length - platforms.filter((p) => p === a).length)[0]
     : 'unknown';
 
+  // An audit whose fold line is undeclared cannot be checked by the person
+  // reading it, so the assumptions travel with the result.
+  const viewportsSeen = [...new Set(observations.map((o) => o.viewport.label))];
+  const method = {
+    foldLines: Object.fromEntries(viewportsSeen.map((v) => [v, usableHeight(v)])),
+    viewportNote: viewportsSeen.map((v) => USABLE_VIEWPORT[v]?.note).filter(Boolean),
+    measureApproximation: 'Characters per line estimated as width / (font-size x 0.48) — a humanist-sans average, not a per-typeface measurement.',
+  };
+
+  // Saying what a score does NOT cover is what stops it implying coverage it
+  // has not got. A usability number that reads as an accessibility clearance is
+  // worse than no number.
+  const notAssessed = [
+    'Keyboard and screen-reader journeys',
+    'Motion, animation and reduced-motion preferences',
+    'Colour contrast of every rendered pair (only token pairs and sampled elements)',
+    'Copy quality, tone and claim accuracy',
+    'Anything behind authentication, including the real checkout',
+    ...(observations.some((o) => o.viewport.label === 'mobile') ? [] : ['Mobile rendering — no mobile viewport was captured in this run']),
+    ...(axes.includes('engine') ? [] : ['Third-party scripts, apps and performance']),
+  ];
+
   return {
     site: site || hostOf(observations[0]?.url),
     platform,
+    method,
+    notAssessed,
     isShopify: observations.some((o) => o.engine?.isShopify),
     generatedAt: new Date().toISOString(),
     scope: isSiteWide ? 'site' : 'page',
