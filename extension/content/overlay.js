@@ -9,7 +9,11 @@
  * nothing.
  */
 
-export function toggleOverlay(mode) {
+/**
+ * @param {string} mode  'sections' | 'all' | 'columns' | 'off'
+ * @param {number} [columnCount]  how many columns the grid draws (default 12)
+ */
+export function toggleOverlay(mode, columnCount) {
   var ID = '__echoflow_overlay__';
   var existing = document.getElementById(ID);
   if (existing) { existing.remove(); if (!mode) return { active: false }; }
@@ -23,6 +27,43 @@ export function toggleOverlay(mode) {
   var pageW = document.documentElement.clientWidth;
   var scrollX = window.scrollX, scrollY = window.scrollY;
   var drawn = 0;
+
+  /**
+   * Where the site's content actually lives.
+   *
+   * The grid used to be twelfths of the VIEWPORT, which aligns with nothing on
+   * any site with a centred `max-width` container — that is to say, nearly all
+   * of them. At 1920 with a 1200px container, four of the eleven lines fell
+   * outside the content area entirely. It only ever looked correct at 1440,
+   * where twelfths of the window coincide with a 1200px container by accident.
+   *
+   * So measure it. The content width is the one that REPEATS: section after
+   * section shares the container's left edge and width, while full-bleed
+   * wrappers match the viewport and are excluded. If nothing repeats, the site
+   * is genuinely full-bleed and the grid says so rather than inventing one.
+   *
+   * Note this lands on the container's CONTENT box, not its border box — on
+   * `main{max-width:1200px;padding:40px}` the repeated width is 1120, because
+   * that is where content actually sits. It is also what a design tool means by
+   * a 12-column grid: columns are drawn inside the margin, not across it.
+   */
+  function detectContainer() {
+    var tally = {};
+    var nodes = document.body.querySelectorAll('main, section, article, header, footer, div');
+    for (var i = 0; i < nodes.length && i < 2000; i++) {
+      var rc = nodes[i].getBoundingClientRect();
+      if (rc.height < 40) continue;
+      // Full-bleed matches the viewport; a sidebar is too narrow to be the grid.
+      if (rc.width > pageW - 2 || rc.width < pageW * 0.4) continue;
+      var key = Math.round(rc.left + scrollX) + '|' + Math.round(rc.width);
+      tally[key] = (tally[key] || 0) + 1;
+    }
+    var bestKey = null, best = 0;
+    for (var k in tally) { if (tally[k] > best) { best = tally[k]; bestKey = k; } }
+    if (!bestKey) return { left: 0, width: pageW, measured: false, hits: 0 };
+    var parts = bestKey.split('|');
+    return { left: +parts[0], width: +parts[1], measured: true, hits: best };
+  }
 
   function roleHue(el, cs) {
     var tag = el.tagName.toLowerCase();
@@ -52,9 +93,12 @@ export function toggleOverlay(mode) {
 
     // In 'sections' mode only the structural blocks are drawn — that is the
     // view you want when estimating a rebuild, without every div shouting.
-    if (mode === 'all' || (mode === 'sections' && isSection)) {
+    // 'columns' draws them too: a grid with nothing under it cannot be checked
+    // for alignment, which is the only thing a grid overlay is for.
+    if (mode === 'all' || ((mode === 'sections' || mode === 'columns') && isSection)) {
       var hue = roleHue(el, cs);
       var box = document.createElement('div');
+      box.setAttribute('data-ef', isSection ? 'section' : 'box');
       box.style.cssText = 'position:absolute;box-sizing:border-box;pointer-events:none;'
         + 'left:' + (r.left + scrollX) + 'px;top:' + (r.top + scrollY) + 'px;'
         + 'width:' + r.width + 'px;height:' + r.height + 'px;'
@@ -79,14 +123,45 @@ export function toggleOverlay(mode) {
 
   for (var i = 0; i < document.body.children.length; i++) walk(document.body.children[i], 1);
 
+  var container = null;
+  var cols = Math.max(2, Math.min(24, columnCount || 12));
+
   if (mode === 'columns') {
-    for (var c = 1; c < 12; c++) {
-      var line = document.createElement('div');
-      line.style.cssText = 'position:absolute;top:0;height:' + document.body.scrollHeight + 'px;'
-        + 'left:' + (pageW / 12) * c + 'px;width:1px;background:rgba(31,79,143,.35)';
-      layer.appendChild(line);
+    container = detectContainer();
+    // body.scrollHeight alone under-measures whenever the document is taller
+    // than the body box, and the grid then stops partway down the page.
+    var pageH = Math.max(
+      document.body.scrollHeight, document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight,
+    );
+    var colW = container.width / cols;
+
+    // Bands, not hairlines. A line marks a boundary; a band shows the column
+    // an element is supposed to sit in, which is what you are checking.
+    for (var c = 0; c < cols; c++) {
+      var band = document.createElement('div');
+      band.setAttribute('data-ef', 'col');
+      band.style.cssText = 'position:absolute;pointer-events:none;box-sizing:border-box;'
+        + 'top:0;height:' + pageH + 'px;'
+        + 'left:' + (container.left + colW * c) + 'px;width:' + colW + 'px;'
+        + 'background:rgba(31,79,143,.07);'
+        + 'border-left:1px solid rgba(31,79,143,.28);'
+        + (c === cols - 1 ? 'border-right:1px solid rgba(31,79,143,.28);' : '');
+      layer.appendChild(band);
     }
+
+    // Say what was measured. A grid that silently falls back to the viewport is
+    // how the old one went wrong unnoticed for so long.
+    var tag = document.createElement('span');
+    tag.setAttribute('data-ef', 'label');
+    tag.textContent = container.measured
+      ? Math.round(container.width) + 'px content · ' + cols + ' col · ' + Math.round(colW) + 'px each'
+      : 'no repeating content container found — grid drawn on the full ' + pageW + 'px viewport';
+    tag.style.cssText = 'position:absolute;top:' + scrollY + 'px;left:' + container.left + 'px;'
+      + 'font:10px ui-monospace,monospace;background:rgba(31,79,143,.92);color:#fff;'
+      + 'padding:2px 6px;white-space:nowrap;pointer-events:none';
+    layer.appendChild(tag);
   }
 
-  return { active: true, boxes: drawn };
+  return { active: true, boxes: drawn, columns: mode === 'columns' ? cols : null, container: container };
 }

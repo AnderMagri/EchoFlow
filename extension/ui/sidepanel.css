@@ -238,6 +238,7 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 .sp.stray .bar { background:repeating-linear-gradient(45deg,var(--high) 0 3px,transparent 3px 6px); outline:1px solid var(--high); outline-offset:-1px; }
 .sp.stray .lbl { color:var(--high); }
 .legend { font-size:10.5px; color:var(--faint); margin-top:7px; line-height:1.5; }
+.legend b { color:var(--muted); font-weight:600; }
 
 /* ---- plain key/value list ---- */
 .kv { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:11.5px; }
@@ -250,4 +251,6 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 /* ---- structure controls ---- */
 .ovbtns { display:flex; gap:5px; margin:14px 0 4px; }
 .ovbtns .btn { flex:1; font-size:11.5px; padding:6px 4px; }
+.ovbtns.cols { margin-top:6px; }
+.ovbtns.cols .btn { font-size:11px; padding:4px 8px; }
 .ovbtns .btn.on { background:var(--ink); color:var(--bg); border-color:var(--ink); }

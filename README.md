@@ -140,7 +140,7 @@ node scripts/sync-core.js     # copy core/ into the extension
 ```
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick `extension/`.
-The card should read **EchoFlow 2.0 · 2.2.1**.
+The card should read **EchoFlow 2.0 · 2.3.0**.
 
 **Updating**
 
@@ -170,7 +170,11 @@ where you are. Three tabs:
   rhythm, contrast warnings) with typefaces rendered in the real face.
 - **Findings** — grouped by who fixes them: design, marketing, engineering.
 - **Structure** — draws the box skeleton **on the live page**. Sections, all
-  boxes, or a 12-column overlay. Scroll the site with it on.
+  boxes, or a column grid. Scroll the site with it on. The grid is measured
+  against the site's **content column**, not the window, and the sections stay
+  drawn underneath it so alignment is actually checkable. Pick 12 columns or
+  any count the page's own layout uses. On a full-bleed page it says there is
+  no container rather than inventing one.
 
 **Picking pages — by hand or automatically.** Both work, and they compose.
 

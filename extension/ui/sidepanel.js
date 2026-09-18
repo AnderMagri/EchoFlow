@@ -38,6 +38,10 @@ let siteSignals = null;
 let current = null;
 let tab = 'review';
 let overlayMode = 'off';
+/** How many columns the grid draws. 12 unless the page's own layout says otherwise. */
+let overlayCols = 12;
+/** What the overlay reported back — the measured content container. */
+let overlayInfo = null;
 /** Pages discovery proposed, awaiting confirmation. @type {{url:string,surface:string,on:boolean}[]} */
 let proposed = [];
 /** True once anything was collected in a background tab — changes what we can claim. */
@@ -718,11 +722,23 @@ function renderStructure() {
   const nodes = last?.layout ? flattenLayout(last.layout) : [];
   const cols = [...new Set(nodes.map((n) => n.cols).filter(Boolean))].sort((a, b) => a - b);
 
+  // 12 is the convention to check against; the counts the page actually uses
+  // are offered beside it, because a 4-up product grid is a different question
+  // from "does this sit on the layout grid".
+  const choices = [...new Set([12, ...cols.filter((c) => c >= 2 && c <= 24)])].sort((a, b) => a - b);
+
   out.innerHTML = `
   <div class="ovbtns">
     ${['sections', 'all', 'columns', 'off'].map((m) => `<button class="btn ${overlayMode === m ? 'on' : ''}" data-ov="${m}">${m === 'all' ? 'All boxes' : m[0].toUpperCase() + m.slice(1)}</button>`).join('')}
   </div>
-  <p class="legend">Draws on the live page — scroll the site with it on.</p>
+  ${overlayMode === 'columns' ? `<div class="ovbtns cols">
+    ${choices.map((c) => `<button class="btn ${overlayCols === c ? 'on' : ''}" data-cols="${c}">${c} col</button>`).join('')}
+  </div>` : ''}
+  <p class="legend">Draws on the live page — scroll the site with it on.${overlayMode === 'columns' && overlayInfo
+    ? overlayInfo.container?.measured
+      ? ` Grid measured on the <b>${Math.round(overlayInfo.container.width)}px</b> content column, not the window.`
+      : ' <b>No repeating content container</b> — this page is full-bleed, so the grid falls back to the viewport.'
+    : ''}</p>
 
   <h3>Section skeleton <span>${sections.length}</span></h3>
   ${sections.length ? sections.map((n, i) => `<div class="step">
@@ -800,13 +816,32 @@ $('#tabs').addEventListener('click', (e) => {
 });
 
 out.addEventListener('click', async (e) => {
-  const b = e.target.closest('button[data-ov]');
+  const b = e.target.closest('button[data-ov], button[data-cols]');
   if (!b) return;
-  overlayMode = b.dataset.ov;
-  const t = await activeTab();
-  await chrome.scripting.executeScript({ target: { tabId: t.id }, func: toggleOverlay, args: [overlayMode], world: 'MAIN' });
+  if (b.dataset.cols) overlayCols = +b.dataset.cols;
+  else overlayMode = b.dataset.ov;
+  await drawOverlay();
   renderStructure();
 });
+
+/**
+ * ISOLATED, not MAIN. The overlay only appends elements and reads computed
+ * styles, so it has no use for page globals — and a MAIN-world injection is
+ * subject to the page's CSP, which on a strict storefront means the buttons
+ * would do nothing at all with no error to explain it.
+ */
+async function drawOverlay() {
+  const t = await activeTab();
+  try {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId: t.id }, func: toggleOverlay,
+      args: [overlayMode, overlayCols], world: 'ISOLATED',
+    });
+    overlayInfo = res?.result ?? null;
+  } catch {
+    overlayInfo = null;
+  }
+}
 
 $('#export').addEventListener('click', exportBundle);
 $('#copyjson').addEventListener('click', async () => {

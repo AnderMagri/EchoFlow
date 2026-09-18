@@ -184,6 +184,25 @@ name is in `<title>` either way.
   which reads the same DOM and computed styles; the only loss is
   `window.Shopify` (theme name and version, and one of three detection signals).
   Never report an injection failure as a cause you have not established.
+- **The column grid is measured against the CONTENT COLUMN, not the viewport.**
+  Twelfths of the window align with nothing on a site with a centred
+  `max-width` container — which is nearly all of them. It looked correct only
+  at 1440, where twelfths of the window land on a 1200px container by
+  coincidence; at 1920 four of eleven lines fell outside the content area.
+  `detectContainer()` takes the most REPEATED (left, width) among block
+  elements, which lands on the container's content box — the right answer,
+  since a design tool draws columns inside the margin, not across it. A
+  full-bleed page reports `measured:false` instead of inventing a grid.
+- **A grid with nothing under it cannot be checked.** `columns` mode draws the
+  section boxes too. It used to draw the grid over an empty layer (`boxes: 0`)
+  while still walking the whole DOM to draw nothing.
+- **The overlay runs in ISOLATED world.** It only appends elements and reads
+  computed styles, so it has no use for page globals, and MAIN would expose it
+  to the page's CSP — the buttons would silently do nothing on a strict
+  storefront. Drawn elements carry `data-ef` (`section` / `box` / `col` /
+  `label`): the `border` shorthand makes a band and a box indistinguishable by
+  style alone, which fooled the first verification pass into counting boxes as
+  columns.
 - **Classify controls by role, not by class name.** A `div.chip` is not
   tappable. Name-based classification is how an audit turns into damage.
 - **Viewports are USABLE heights** (`USABLE_VIEWPORT`): mobile 390×**640**,
@@ -228,7 +247,12 @@ in the scatter the band is derived from position, so hue is redundant.
 node scripts/sync-core.js    # the extension loads its own copy
 node test/run.js
 cd mcp && node test.mjs      # MCP protocol surface
+node test/overlay.mjs        # the live overlay, in a real browser
 ```
+
+`test/overlay.mjs` needs Chromium and skips cleanly without one. It exists
+because the column grid was wrong for its whole life and looked right at the
+one window width anyone checked.
 
 ## Testing against a real page
 

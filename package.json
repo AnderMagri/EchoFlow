@@ -7,6 +7,7 @@
   "scripts": {
     "sync": "node scripts/sync-core.js",
     "test": "node test/run.js",
+    "test:overlay": "node test/overlay.mjs",
     "analyze": "node analyzer/src/cli/index.js",
     "package": "node scripts/package-extension.js"
   },
