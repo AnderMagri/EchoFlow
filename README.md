@@ -33,6 +33,13 @@ and the report never lets one borrow the authority of another. A `prescriptive`
 finding cannot exist without a citation — the schema rejects it. Full provenance
 for every threshold is in [`docs/REFERENCE.md`](docs/REFERENCE.md).
 
+**It reads the site the way a machine does.** Beyond the human view, it fetches
+the raw HTTP response and diffs it against the rendered DOM — because most
+crawlers feeding answer engines never execute JavaScript, and a page can look
+complete to a person while arriving hollow to a machine. Plus structured-data
+coverage, metadata consistency, and which AI crawlers `robots.txt` actually
+allows. Blocking them is treated as a decision to confirm, not a defect.
+
 **It says what it did not measure.** Comparative dimensions are *skipped*, never
 guessed, when there is only one page — and a score built on partial coverage is
 labelled provisional, because the dimensions that go missing are exactly the ones
@@ -100,6 +107,7 @@ of JSON, so every tool summarises by default and offers a narrower query to dril
 | `echoflow_finding` | One finding in full — evidence, recommendation, criterion. |
 | `echoflow_tokens` | The extracted design system as css / dtcg / tailwind / shopify / json. |
 | `echoflow_structure` | Section skeleton for a surface. |
+| `echoflow_retrieval` | The machine-readability picture: crawler access, structured data, no-JS survival. |
 | `echoflow_explain` | What the tool measures and what a score does and does not mean. |
 
 ## Use it — Chrome sidebar
@@ -154,10 +162,11 @@ inverted — 10 is *trivial to fix*), and what **not** to conclude from the scor
 core/          zero-dependency ESM. Runs in Node AND the browser.
   finding.js         the Finding primitive — the only record type
   consistency.js     the three measurement primitives + aggregation
-  dimensions.js      17 consistency dimensions — these move the score
+  dimensions.js      19 consistency dimensions — these move the score
   checks.js          quality defects — findings only, no score effect
   checks-geometry.js fold, depth, targets, measure, choice load, strengths
   checks-patterns.js manipulative patterns, mechanically detected
+  checks-retrieval.js machine readability — structured data, crawlers, no-JS survival
   synthesis.js       cross-axis meta-findings
   tokens.js          the design system seed
   collect-dom.js     the DOM collector (shared by both collectors)
@@ -177,6 +186,6 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js        # 52 tests — core, calibration, checks, bundle
+node test/run.js        # 64 tests — core, calibration, checks, retrieval, bundle
 cd mcp && node test.mjs # MCP protocol surface
 ```

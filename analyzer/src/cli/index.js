@@ -15,6 +15,7 @@ import { analyze } from '../../../core/analyze.js';
 import { buildBundle } from '../../../core/wiki/bundle.js';
 import { collectPages } from '../collect/browser.js';
 import { discoverPages } from '../collect/discover.js';
+import { collectSiteSignals } from '../collect/retrieval.js';
 
 const HELP = `
 EchoFlow 2.0 — Shopify consistency audit
@@ -87,8 +88,11 @@ async function main() {
     process.exit(1);
   }
 
+  log('\nReading site-level signals');
+  const siteSignals = await collectSiteSignals(target.origin, log);
+
   log(`\nAnalysing ${observations.length} observation${observations.length === 1 ? '' : 's'}`);
-  const analysis = analyze({ observations, axes, site: target.hostname });
+  const analysis = analyze({ observations, axes, site: target.hostname, siteSignals });
 
   const files = buildBundle(analysis);
   await clearPreviousBundle(outDir, log);

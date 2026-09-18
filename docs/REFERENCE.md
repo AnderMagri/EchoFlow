@@ -89,6 +89,64 @@ are worth fixing, not as a legal opinion.
 
 ---
 
+## Machine retrieval (GEO)
+
+How findable and parseable the content is to a non-human reader. **Nothing here
+is `prescriptive`** — there is no standards body for answer-engine retrieval,
+and crawler behaviour moves every few months. It is all `practice` or
+`directional`, and the evidence says so.
+
+| Check | What it measures | Basis |
+|---|---|---|
+| `engine-ai-crawlers-blocked` | robots.txt rules for GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, CCBot and others | practice |
+| `engine-no-robots-txt` | Absent robots.txt — crawlers then apply their own defaults | practice |
+| `engine-no-llms-txt` | The llmstxt.org convention | **directional** — genuinely new, low priority, reported as an opportunity |
+| `engine-content-requires-js` | Raw HTML vs rendered DOM: text ratio, H1 presence, JSON-LD only after hydration | practice |
+| `engine-no-structured-data` | No JSON-LD anywhere | practice |
+| `engine-missing-schema-*` | Expected schema.org type absent for the page type | practice |
+| `engine-incomplete-product-schema` | Product without `offers.price` / `offers.availability` | practice |
+| `engine-malformed-jsonld` | JSON-LD that does not parse (discarded whole, not partially read) | practice |
+| `engine-h1-structure` | Zero or multiple visible H1 | practice |
+| `engine-missing-description` | No meta description | practice |
+| `engine-thin-content` | `<main>` text as a share of all page text, below 0.35 | practice |
+| `engine-unmarked-faq` | ≥3 question-shaped headings with no FAQPage markup | practice |
+| `engine-no-lang` | No `lang` on `<html>` | **prescriptive** — WCAG 2.2 SC 3.1.1, Level A |
+
+Two consistency dimensions feed the score, under Engine:
+
+| Dimension | Group | Question |
+|---|---|---|
+| `structured-data-coverage` | Structured data | Do pages of the same type carry the same schema? |
+| `metadata-completeness` | Retrieval | Does every page of a type carry the same metadata fields? |
+
+### Three rules this area needs more than any other
+
+1. **Blocking AI crawlers is a decision, not a defect.** A brand may refuse
+   training crawlers deliberately. The finding reports the state and asks for
+   confirmation. A *wildcard* block scores higher than a *named* one, because a
+   broad `Disallow` written for scrapers catching an answer engine is usually
+   accidental, while a named block reads as intentional.
+2. **No traffic or citation claims.** Being retrievable is not being cited, and
+   nobody has a credible model of the second. Recommendations describe what a
+   machine can and cannot read, and stop there.
+3. **Crawler behaviour is a moving target.** The agent list is a snapshot.
+   Which crawlers run JavaScript changes. Every finding carries that caveat.
+
+### Why the no-JS check matters
+
+Most tools cannot see this, because they only read the rendered DOM. EchoFlow
+fetches the raw HTTP response as well and diffs the two. On the test fixture a
+server-rendered product page scores a text ratio of **0.99** with its `Product`
+schema in the raw HTML; a client-rendered one scores **0.14** with no schema at
+all — identical to a person, hollow to a crawler that does not execute scripts.
+
+The comparison is **body-only**. Including `<head>` made the check lie: a
+product name sits in `<title>` on every page, server-rendered or not, so "is the
+H1 in the static HTML" returned true for a page whose body was entirely
+client-rendered.
+
+---
+
 ## Measurement protocol
 
 **Viewports are usable heights, not device heights.**

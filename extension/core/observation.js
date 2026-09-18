@@ -171,6 +171,16 @@ export function normalizeObservation(raw) {
       firstActionLabel: null, coreContentY: null, stickyControls: [], sections: [],
       footerHeight: 0, navItemCount: 0, ...(raw.geometry || {}),
     },
+    retrieval: {
+      jsonLd: [], jsonLdTypes: [], jsonLdErrors: [], title: '', metaDescription: null,
+      canonical: null, robotsMeta: null, ogTitle: null, ogDescription: null, ogImage: null,
+      lang: null, h1Count: 0, h1Text: [], headingCount: 0, mainTextLength: 0,
+      totalTextLength: 0, contentRatio: 0, questionHeadings: 0, hasFaqSchema: false,
+      hasBreadcrumbSchema: false, tablesForData: 0,
+      // Filled by the analyzer, which can fetch the un-rendered HTML.
+      static: null,
+      ...(raw.retrieval || {}),
+    },
     darkPatterns: {
       confirmshaming: [], preCheckedOptIns: [], urgency: [], countdownTimers: 0,
       hardToLeave: [], lateCosts: [], disguisedAds: 0, ...(raw.darkPatterns || {}),
@@ -300,4 +310,37 @@ export const DEPTH_BENCHMARK = {
   plp: { good: 10, investigate: 14 },
   cart: { good: 4, investigate: 6 },
   content: { good: 10, investigate: 15 },
+};
+
+
+/**
+ * Crawlers that read for answer engines and model training.
+ *
+ * Whether to allow them is a BUSINESS decision, not a defect — a site may block
+ * them deliberately, and a tool that scolds you for a choice you made on
+ * purpose is a tool you stop trusting. Findings here report the state and ask
+ * for confirmation; they never assume blocking is a mistake.
+ *
+ * This list moves. Treat it as a snapshot, not an authority.
+ */
+export const AI_CRAWLERS = [
+  { agent: 'GPTBot', operator: 'OpenAI', purpose: 'training and answers' },
+  { agent: 'OAI-SearchBot', operator: 'OpenAI', purpose: 'search answers' },
+  { agent: 'ChatGPT-User', operator: 'OpenAI', purpose: 'live user fetches' },
+  { agent: 'ClaudeBot', operator: 'Anthropic', purpose: 'training and answers' },
+  { agent: 'Claude-User', operator: 'Anthropic', purpose: 'live user fetches' },
+  { agent: 'PerplexityBot', operator: 'Perplexity', purpose: 'search answers' },
+  { agent: 'Google-Extended', operator: 'Google', purpose: 'Gemini grounding' },
+  { agent: 'Applebot-Extended', operator: 'Apple', purpose: 'Apple Intelligence' },
+  { agent: 'CCBot', operator: 'Common Crawl', purpose: 'open crawl corpus' },
+  { agent: 'Amazonbot', operator: 'Amazon', purpose: 'assistant answers' },
+  { agent: 'meta-externalagent', operator: 'Meta', purpose: 'training' },
+];
+
+/** schema.org types that make a storefront answerable. */
+export const EXPECTED_SCHEMA = {
+  pdp: ['Product'],
+  plp: ['CollectionPage', 'ItemList', 'BreadcrumbList'],
+  home: ['Organization', 'WebSite'],
+  content: ['Article', 'FAQPage', 'WebPage'],
 };

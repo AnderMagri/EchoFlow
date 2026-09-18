@@ -24,6 +24,7 @@ import { createFinding } from './finding.js';
 import { contrastRatio, parseColor } from './color.js';
 import { GEOMETRY_CHECKS } from './checks-geometry.js';
 import { PATTERN_CHECKS } from './checks-patterns.js';
+import { RETRIEVAL_CHECKS } from './checks-retrieval.js';
 
 const sum = (observations, path) =>
   observations.reduce((n, o) => n + (path.split('.').reduce((v, k) => v?.[k], o) || 0), 0);
@@ -238,7 +239,7 @@ export const QUALITY_CHECKS = [
  */
 export function runQualityChecks(ctx, axes) {
   const out = [];
-  for (const check of [...QUALITY_CHECKS, ...GEOMETRY_CHECKS, ...PATTERN_CHECKS]) {
+  for (const check of [...QUALITY_CHECKS, ...GEOMETRY_CHECKS, ...PATTERN_CHECKS, ...RETRIEVAL_CHECKS]) {
     if (!axes.includes(check.axis)) continue;
     try {
       out.push(...check.run(ctx));

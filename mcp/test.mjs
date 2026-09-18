@@ -25,13 +25,13 @@ const client = new Client({ name: 'echoflow-test', version: '2.0.0' });
 await client.connect(transport);
 
 const { tools } = await client.listTools();
-ok(tools.length === 6, `exposes 6 tools (got ${tools.length})`);
+ok(tools.length === 7, `exposes 7 tools (got ${tools.length})`);
 ok(tools.every((t) => t.description && t.description.length > 60), 'every tool has a real description');
 ok(tools.every((t) => t.annotations), 'every tool declares annotations');
-ok(tools.filter((t) => t.annotations?.readOnlyHint).length === 5, 'only echoflow_analyze is non-read-only');
+ok(tools.filter((t) => t.annotations?.readOnlyHint).length === 6, 'only echoflow_analyze is non-read-only');
 
 const ex = await client.callTool({ name: 'echoflow_explain', arguments: {} });
-ok(ex.structuredContent?.dimensions?.length === 17, 'explain returns all 17 dimensions');
+ok(ex.structuredContent?.dimensions?.length === 19, 'explain returns all 19 dimensions');
 ok(/effort is INVERTED/.test(ex.content[0].text), 'explain warns about the inverted effort scale');
 
 const err = await client.callTool({ name: 'echoflow_findings', arguments: { bundle: '/does/not/exist' } });

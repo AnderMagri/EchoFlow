@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /admin
+Disallow: /cart
+
+User-agent: GPTBot
+Disallow: /
+
+Sitemap: http://127.0.0.1:8099/sitemap.xml

@@ -30,6 +30,7 @@ import { DIMENSIONS } from '../core/dimensions.js';
 import { BASIS_LABELS, BASIS_NOTE, priorityBand, effortLabel } from '../core/finding.js';
 import { collectPages } from '../analyzer/src/collect/browser.js';
 import { discoverPages } from '../analyzer/src/collect/discover.js';
+import { collectSiteSignals } from '../analyzer/src/collect/retrieval.js';
 
 const DEFAULT_OUT = process.env.ECHOFLOW_OUT || resolve(homedir(), '.echoflow', 'audits');
 
@@ -137,7 +138,8 @@ server.registerTool('echoflow_analyze', {
     );
   }
 
-  const analysis = analyze({ observations, axes, site: target.hostname });
+  const siteSignals = await collectSiteSignals(target.origin);
+  const analysis = analyze({ observations, axes, site: target.hostname, siteSignals });
   await writeBundle(analysis, dest);
 
   const top = analysis.findings.filter((f) => f.kind !== 'strength').slice(0, 10);
@@ -343,6 +345,59 @@ server.registerTool('echoflow_explain', {
   return reply(text, {
     dimensions: dims.map((d) => ({ key: d.key, axis: d.axis, group: d.group, scope: d.scope, weight: d.weight, question: d.question })),
     bases: BASIS_NOTE,
+  });
+});
+
+server.registerTool('echoflow_retrieval', {
+  title: 'How readable is the site to machines',
+  description:
+    'The machine-retrieval picture: which AI crawlers robots.txt allows, what structured data each page type '
+    + 'carries, and — the one a DOM-only tool cannot see — whether the content survives without JavaScript. '
+    + 'Many crawlers that feed answer engines never execute scripts, so a page can look complete to a person '
+    + 'and arrive hollow to a machine.',
+  inputSchema: {
+    bundle: z.string().describe('Bundle directory or data/analysis.json path.'),
+  },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ bundle }) => {
+  let analysis;
+  try { analysis = await loadBundle(bundle); } catch (e) {
+    return fail(`Could not read a bundle at ${bundle}: ${e.message}`, 'run echoflow_analyze first');
+  }
+
+  const robots = analysis.siteSignals?.robots;
+  const findings = analysis.findings.filter((f) => f.axis === 'engine'
+    && /^(engine-(ai-crawlers|no-robots|no-llms|content-requires-js|no-structured|missing-schema|incomplete-product|malformed|h1-structure|missing-description|thin-content|unmarked-faq|no-lang|schema-drift|metadata-drift))/.test(f.checkId));
+
+  const crawlers = robots?.agents
+    ? Object.entries(robots.agents).map(([agent, v]) => `  ${v.state === 'blocked' ? 'BLOCKED' : v.state === 'partial' ? 'partial' : 'allowed'}  ${agent} (${v.operator})`)
+    : ['  robots.txt not read'];
+
+  const text = [
+    `${analysis.site} — machine retrieval`,
+    '',
+    'AI crawler access:',
+    ...crawlers,
+    '',
+    `llms.txt: ${analysis.siteSignals?.llmsTxt?.present ? 'present' : 'absent (emerging convention — absence is not a defect)'}`,
+    '',
+    `Structured data consistency: ${analysis.consistency.byGroup?.['Structured data']?.score ?? 'not measured'}`,
+    `Metadata consistency: ${analysis.consistency.byGroup?.Retrieval?.score ?? 'not measured'}`,
+    '',
+    findings.length ? `${findings.length} retrieval finding(s):` : 'No retrieval findings.',
+    ...findings.map((f) => `  [${f.priority}] ${f.title}\n        ${f.id}`),
+    '',
+    'Caveat: which crawlers execute JavaScript and honour which directives changes every few months. '
+      + 'Nothing here is a standard — treat it as current practice.',
+  ].join('\n');
+
+  return reply(text, {
+    site: analysis.site,
+    crawlers: robots?.agents || null,
+    llmsTxt: analysis.siteSignals?.llmsTxt || null,
+    structuredDataScore: analysis.consistency.byGroup?.['Structured data']?.score ?? null,
+    metadataScore: analysis.consistency.byGroup?.Retrieval?.score ?? null,
+    findings: findings.map(summariseFinding),
   });
 });
 

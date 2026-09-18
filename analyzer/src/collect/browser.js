@@ -14,6 +14,7 @@
 import { chromium } from 'playwright';
 import { collectFromDocument } from '../../../core/collect-dom.js';
 import { inferSurface } from '../../../core/observation.js';
+import { compareStatic } from './retrieval.js';
 
 export const VIEWPORTS = {
   desktop: { width: 1440, height: 900, label: 'desktop' },
@@ -81,6 +82,12 @@ export async function collectPages({ urls, viewports = ['desktop'], timeout = 30
           raw.engine.vitals.lcp = vitals.lcp || raw.engine.vitals.lcp;
           raw.engine.vitals.cls = vitals.cls;
           raw.surface = surface;
+
+          // What a crawler that does not run JavaScript would have received.
+          // Only worth doing once per URL, not once per viewport.
+          if (vpName === viewports[0]) {
+            raw.retrieval.static = await compareStatic(url, raw.retrieval);
+          }
 
           observations.push(raw);
           await page.close();

@@ -699,6 +699,101 @@ export const DIMENSIONS = [
   },
 
   {
+    key: 'structured-data-coverage', axis: 'engine', weight: 3, group: 'Structured data', scope: 'comparative',
+    label: 'Structured data coverage',
+    question: 'Do pages of the same type carry the same structured data?',
+    measure(ctx) {
+      const scores = [], detail = {};
+      const surfaces = [...new Set(ctx.observations.map((o) => o.surface))];
+
+      for (const surface of surfaces) {
+        // One observation per URL: markup is identical at every viewport, so a
+        // two-viewport run would otherwise count each page twice.
+        const seen = new Set();
+        const peers = ctx.observations
+          .filter((o) => o.surface === surface && o.retrieval)
+          .filter((o) => !seen.has(o.url) && seen.add(o.url));
+        if (peers.length < 2) continue;
+
+        const observations = peers.map((o) => ({
+          page: o.url,
+          value: [...new Set(o.retrieval.jsonLdTypes || [])].sort().join(',') || '(none)',
+        }));
+        const a = crossPageAgreement({ observations });
+        if (a.score == null) continue;
+        detail[surface] = a;
+        scores.push(a.score);
+      }
+      if (!scores.length) return { score: null, reason: 'needs at least two pages of the same type' };
+      return { score: Math.round(scores.reduce((x, y) => x + y, 0) / scores.length), detail };
+    },
+    findings(r) {
+      if (r.score == null) return [];
+      return Object.entries(r.detail || {})
+        .filter(([, a]) => a.score < 100)
+        .map(([surface, a]) => createFinding({
+          checkId: `engine-schema-drift-${surface}`, axis: 'engine', surface,
+          scope: 'comparative', basis: 'practice',
+          title: `${surface.toUpperCase()} pages carry ${a.variants.length} different sets of structured data`,
+          ...weigh(a.score, { spread: 1, systemic: true, impactFloor: a.variants.length > 2 ? 8 : 0 }),
+          evidence: {
+            surface, consensus: a.consensus, variants: a.variants,
+            pagesDiffering: a.outliers.slice(0, 10),
+            why: 'Answer engines match on structured data. A Product schema on three of five product pages means two of them are invisible to that matching while looking identical to a person.',
+          },
+          recommendation: `Emit the same schema from the ${surface.toUpperCase()} template rather than per page. In Shopify this belongs in the template or a shared snippet — divergence here usually means someone pasted JSON-LD into one page by hand.`,
+        }));
+    },
+  },
+
+  {
+    key: 'metadata-completeness', axis: 'engine', weight: 2, group: 'Retrieval', scope: 'comparative',
+    label: 'Metadata completeness',
+    question: 'Does every page of a type carry the same metadata fields?',
+    measure(ctx) {
+      const seen = new Set();
+      const pages = ctx.observations
+        .filter((o) => o.retrieval)
+        .filter((o) => !seen.has(o.url) && seen.add(o.url));
+      if (pages.length < 2) return { score: null, reason: 'needs more than one page' };
+
+      const fields = ['title', 'metaDescription', 'canonical', 'ogTitle', 'ogImage'];
+      const scores = [], detail = {};
+      for (const field of fields) {
+        const observations = pages.map((o) => ({
+          page: o.url,
+          value: o.retrieval[field] ? 'present' : 'absent',
+        }));
+        const a = crossPageAgreement({ observations });
+        if (a.score == null) continue;
+        // Everything present everywhere is the good case and still scores.
+        if (a.score < 100) detail[field] = a;
+        scores.push(a.score);
+      }
+      if (!scores.length) return { score: null, reason: 'no metadata observed' };
+      return { score: Math.round(scores.reduce((x, y) => x + y, 0) / scores.length), detail };
+    },
+    findings(r, ctx) {
+      if (r.score == null || !Object.keys(r.detail || {}).length) return [];
+      const fields = Object.entries(r.detail);
+      const worst = fields.sort((a, b) => a[1].score - b[1].score)[0];
+      return [createFinding({
+        checkId: 'engine-metadata-drift', axis: 'engine', surface: ctx.scopeSurface,
+        scope: 'comparative', basis: 'practice',
+        title: `${fields.length} metadata field${fields.length === 1 ? '' : 's'} present on some pages and missing on others`,
+        ...weigh(worst[1].score, { spread: 1, systemic: fields.length > 2 }),
+        evidence: {
+          fields: fields.map(([name, a]) => ({
+            field: name, majority: a.consensus, agreement: a.agreement,
+            pagesMissing: a.outliers.filter((o) => o.value === 'absent').map((o) => o.page).slice(0, 6),
+          })),
+        },
+        recommendation: 'Metadata should come from the template, never from per-page entry. A field that is present on most pages and absent on a few is the signature of hand-editing, and it is the pages nobody remembered to edit that get skipped by retrieval.',
+      })];
+    },
+  },
+
+  {
     key: 'section-reuse', axis: 'engine', weight: 2, group: 'Theme', scope: 'extractive',
     label: 'Section reuse',
     question: 'Is the same job done by one section type, or several?',

@@ -24,12 +24,13 @@ import { runQualityChecks } from './checks.js';
  * @param {string} [input.site] display name for the report
  * @returns {AnalysisResult}
  */
-export function analyze({ observations: rawObservations, axes = ['design', 'ux', 'engine'], site = '' }) {
+export function analyze({ observations: rawObservations, axes = ['design', 'ux', 'engine'], site = '', siteSignals = null }) {
   const observations = rawObservations.map(normalizeObservation);
   const isSiteWide = observations.length > 1;
 
   const ctx = {
     observations,
+    siteSignals,
     isSiteWide,
     // Where a single-page finding is filed. On a site run, vocabulary findings
     // are about the site as a whole, not about whichever page we happened to
@@ -122,6 +123,7 @@ export function analyze({ observations: rawObservations, axes = ['design', 'ux',
     platform,
     method,
     notAssessed,
+    siteSignals,
     isShopify: observations.some((o) => o.engine?.isShopify),
     generatedAt: new Date().toISOString(),
     scope: isSiteWide ? 'site' : 'page',

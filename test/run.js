@@ -478,6 +478,117 @@ t('a two-viewport run does not double-count CTA wording', () => {
   eq(pagesOf(two), pagesOf(one), 'wording is compared once per URL, not once per render');
 });
 
+// --- machine retrieval (GEO) ------------------------------------------------
+
+const withRetrieval = (obs, retrieval) => obs.map((o) => ({ ...o, retrieval: { ...retrieval } }));
+
+t('blocking AI crawlers is reported as a decision, never as a mistake', () => {
+  const siteSignals = {
+    origin: 'https://s.com',
+    robots: {
+      present: true, sitemaps: [],
+      agents: {
+        GPTBot: { state: 'blocked', by: 'explicit GPTBot block', operator: 'OpenAI', purpose: 'training' },
+        ClaudeBot: { state: 'allowed', by: 'wildcard rule', operator: 'Anthropic', purpose: 'training' },
+      },
+    },
+    llmsTxt: { present: true },
+  };
+  const f = analyze({ observations: messySite(), site: 's', siteSignals })
+    .findings.find((x) => x.checkId === 'engine-ai-crawlers-blocked');
+  ok(f, 'a blocked crawler must be reported');
+  ok(/deliberate|confirm/i.test(f.recommendation), 'and framed as a decision to confirm, not a defect');
+  eq(f.basis, 'practice', 'there is no standard requiring AI crawler access');
+});
+
+t('a wildcard block scores higher than a named one — it is likelier accidental', () => {
+  const mk = (by) => analyze({
+    observations: messySite(), site: 's',
+    siteSignals: { origin: 'https://s.com', llmsTxt: { present: true },
+      robots: { present: true, sitemaps: [], agents: { GPTBot: { state: 'blocked', by, operator: 'OpenAI', purpose: 'x' } } } },
+  }).findings.find((x) => x.checkId === 'engine-ai-crawlers-blocked');
+  ok(mk('wildcard block').impact > mk('explicit GPTBot block').impact,
+    'a catch-all Disallow catching an answer engine is likelier to be unintended');
+});
+
+t('llms.txt absence is directional and low priority — the convention is new', () => {
+  const f = analyze({
+    observations: messySite(), site: 's',
+    siteSignals: { origin: 'https://s.com', robots: { present: true, agents: {}, sitemaps: [] }, llmsTxt: { present: false } },
+  }).findings.find((x) => x.checkId === 'engine-no-llms-txt');
+  ok(f, 'absence is noted');
+  eq(f.basis, 'directional', 'it is not established practice');
+  ok(f.priority < 40, `must not crowd real findings, got ${f.priority}`);
+});
+
+t('content that only exists after JavaScript is found', () => {
+  const obs = withRetrieval(messySite().slice(0, 2), {
+    jsonLd: [], jsonLdTypes: ['Product'], jsonLdErrors: [], title: 'Hiker',
+    metaDescription: null, canonical: null, h1Count: 1, h1Text: ['Hiker'],
+    contentRatio: 0.9, questionHeadings: 0, hasFaqSchema: false, lang: 'en',
+    mainTextLength: 900, totalTextLength: 1000,
+    static: {
+      fetched: true, staticTextLength: 140, renderedTextLength: 1000, textRatio: 0.14,
+      h1InStatic: false, titleInStatic: true, jsonLdTypesInStatic: [], jsonLdOnlyAfterJs: ['Product'],
+    },
+  });
+  const f = analyze({ observations: obs, site: 's' })
+    .findings.find((x) => x.checkId.startsWith('engine-content-requires-js'));
+  ok(f, 'a hydration-dependent page must be flagged');
+  ok(f.impact >= 8, 'missing h1, thin text and JS-only schema together is severe');
+  ok(/varies by operator|changes/i.test(f.evidence.caveat), 'and must not overstate crawler behaviour');
+});
+
+t('a server-rendered page is a strength, not a finding', () => {
+  const obs = withRetrieval(messySite().slice(0, 2), {
+    jsonLd: [{ type: 'Product', offers: { price: true, currency: true, availability: true } }],
+    jsonLdTypes: ['Product'], jsonLdErrors: [], title: 'Runner', metaDescription: 'A shoe',
+    canonical: 'https://s.com/p', h1Count: 1, h1Text: ['Runner'], contentRatio: 0.8,
+    questionHeadings: 0, hasFaqSchema: false, lang: 'en', mainTextLength: 800, totalTextLength: 1000,
+    static: { fetched: true, staticTextLength: 1010, renderedTextLength: 1000, textRatio: 1.01,
+      h1InStatic: true, titleInStatic: true, jsonLdTypesInStatic: ['Product'], jsonLdOnlyAfterJs: [] },
+  });
+  const fs = analyze({ observations: obs, site: 's' }).findings;
+  ok(!fs.some((f) => f.checkId.startsWith('engine-content-requires-js')), 'no false positive');
+  ok(fs.some((f) => f.checkId === 'strength-server-rendered'), 'and it is named as a strength');
+});
+
+t('Product markup without price or availability is incomplete, not absent', () => {
+  const obs = withRetrieval(messySite().slice(0, 2), {
+    jsonLd: [{ type: 'Product', offers: { price: false, currency: true, availability: false } }],
+    jsonLdTypes: ['Product'], jsonLdErrors: [], title: 't', metaDescription: 'd', canonical: 'c',
+    h1Count: 1, h1Text: ['t'], contentRatio: 0.8, questionHeadings: 0, hasFaqSchema: false,
+    lang: 'en', mainTextLength: 800, totalTextLength: 1000, static: null,
+  });
+  const fs = analyze({ observations: obs, site: 's' }).findings;
+  ok(fs.some((f) => f.checkId === 'engine-incomplete-product-schema'), 'incomplete offers must surface');
+  ok(!fs.some((f) => f.checkId === 'engine-missing-schema-pdp'), 'and it must not also report as missing');
+});
+
+t('structured data drift across same-type pages moves the score', () => {
+  const obs = messySite().map((o, i) => ({
+    ...o,
+    surface: 'pdp',
+    url: `https://s.com/products/${i}`,
+    retrieval: {
+      jsonLd: [], jsonLdTypes: i === 0 ? ['Product'] : [], jsonLdErrors: [],
+      title: 't', metaDescription: 'd', canonical: 'c', h1Count: 1, h1Text: ['t'],
+      contentRatio: 0.8, questionHeadings: 0, hasFaqSchema: false, lang: 'en',
+      mainTextLength: 800, totalTextLength: 1000, static: null,
+    },
+  }));
+  const r = analyze({ observations: obs, site: 's' });
+  const dim = r.consistency.dimensions.find((d) => d.key === 'structured-data-coverage');
+  ok(typeof dim.score === 'number' && dim.score < 100, `drift must score below 100, got ${dim.score}`);
+  eq(r.consistency.byGroup['Structured data'].axis, 'engine', 'GEO lives on the Engine axis, not a fourth one');
+});
+
+t('there are still exactly three axes', () => {
+  // The concept forbids adding axes. GEO is groups on Engine, not a new axis.
+  const r = analyze({ observations: messySite(), site: 's' });
+  eq(Object.keys(r.consistency.byAxis).sort().join(','), 'design,engine,ux');
+});
+
 // --- report ----------------------------------------------------------------
 
 t('a contrast failure in the token seed becomes a Finding', () => {

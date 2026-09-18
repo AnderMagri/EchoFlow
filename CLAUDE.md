@@ -57,6 +57,30 @@ Components, Layout, Language, …). `consistency.byGroup` is the same weighted
 mean partitioned by that field, so the score can be *explained* rather than
 asserted. It is a decomposition, not a second score: nothing is ranked by it.
 
+## GEO lives on the Engine axis, not a fourth one
+
+The concept forbids adding axes ("no axes with equal weights comparable by
+accident"). Machine retrieval is therefore two new **groups** on Engine —
+`Structured data` and `Retrieval` — which gives it its own line in the score
+breakdown without changing the three-axis model. `core/checks-retrieval.js`
+holds the defects; `analyzer/src/collect/retrieval.js` does the fetching that
+needs a network rather than a DOM.
+
+Three rules specific to it:
+
+- **Nothing in GEO is `prescriptive`** except `engine-no-lang` (WCAG 3.1.1).
+  There is no standards body for answer-engine retrieval and crawler behaviour
+  moves; every finding carries that caveat.
+- **Blocking AI crawlers is a decision, not a defect.** Report the state and ask
+  for confirmation. A wildcard block outranks a named one because it is likelier
+  to be accidental.
+- **Never claim traffic or citations.** Retrievable is not cited. Say what a
+  machine can and cannot read, and stop.
+
+The static-vs-rendered comparison is **body-only**: including `<head>` made it
+report `h1InStatic: true` for a fully client-rendered page, because the product
+name is in `<title>` either way.
+
 ## Things that will trip you up
 
 - **`effort` is inverted.** 10 means *trivial to fix*, not "lots of work".

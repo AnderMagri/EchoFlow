@@ -698,6 +698,102 @@ export function collectFromDocument(options) {
     disguisedAds: document.querySelectorAll('[class*="sponsor" i], [class*="promoted" i], [data-ad], ins.adsbygoogle').length,
   };
 
+  // --- machine retrieval -------------------------------------------------
+  // What a non-human reader gets. Answer engines and AI crawlers do not see the
+  // rendered page the way a person does: most take the markup, the structured
+  // data and the metadata, and many never run the JavaScript at all.
+  var jsonLd = [];
+  var jsonLdErrors = [];
+  var ldNodes = document.querySelectorAll('script[type="application/ld+json"]');
+  for (var li = 0; li < ldNodes.length && jsonLd.length < 20; li++) {
+    var rawLd = ldNodes[li].textContent || '';
+    try {
+      var parsed = JSON.parse(rawLd);
+      var items = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+      for (var ii = 0; ii < items.length && jsonLd.length < 20; ii++) {
+        var item = items[ii];
+        if (!item || typeof item !== 'object') continue;
+        var type = item['@type'];
+        if (Array.isArray(type)) type = type[0];
+        jsonLd.push({
+          type: type || 'Unknown',
+          keys: Object.keys(item).filter(function (k) { return k.charAt(0) !== '@'; }).slice(0, 30),
+          hasName: !!(item.name || item.headline),
+          hasDescription: !!item.description,
+          hasImage: !!item.image,
+          // Offer detail is what decides whether a product is answerable at all.
+          offers: item.offers
+            ? {
+                price: !!(item.offers.price || (item.offers[0] && item.offers[0].price)),
+                currency: !!(item.offers.priceCurrency || (item.offers[0] && item.offers[0].priceCurrency)),
+                availability: !!(item.offers.availability || (item.offers[0] && item.offers[0].availability)),
+              }
+            : null,
+          hasRating: !!(item.aggregateRating || item.review),
+          hasSameAs: !!item.sameAs,
+        });
+      }
+    } catch (e) {
+      jsonLdErrors.push((e.message || 'parse error').slice(0, 90));
+    }
+  }
+
+  function metaContent(sel) {
+    var n = document.querySelector(sel);
+    return n ? (n.getAttribute('content') || '').trim() : null;
+  }
+
+  var h1Nodes = document.querySelectorAll('h1');
+  var visibleH1 = [];
+  for (var hi = 0; hi < h1Nodes.length; hi++) {
+    var hr = h1Nodes[hi].getBoundingClientRect();
+    var hcs = window.getComputedStyle(h1Nodes[hi]);
+    if (isVisible(h1Nodes[hi], hcs, hr)) visibleH1.push((h1Nodes[hi].textContent || '').trim().slice(0, 90));
+  }
+
+  // How much of the page is content rather than furniture. A page that is
+  // mostly navigation and footer gives a retrieval engine very little to quote.
+  var mainText = mainForSections ? (mainForSections.innerText || '').trim().length : 0;
+  var totalText = (document.body.innerText || '').trim().length;
+
+  // Answerable structure: question-shaped headings are what Q&A retrieval
+  // matches against, and they are worth nothing if they are not marked up.
+  var questionHeadings = 0;
+  var hAll = document.querySelectorAll('h2, h3, h4, summary, [class*="accordion" i] [class*="title" i]');
+  for (var qi = 0; qi < hAll.length; qi++) {
+    var qt = (hAll[qi].textContent || '').trim();
+    if (qt.length > 8 && qt.length < 160 && /\?\s*$|^(how|what|why|when|where|who|can|do(es)?|is|are|will|should)\b/i.test(qt)) {
+      questionHeadings++;
+    }
+  }
+
+  var retrieval = {
+    jsonLd: jsonLd,
+    jsonLdTypes: jsonLd.map(function (j) { return j.type; }),
+    jsonLdErrors: jsonLdErrors,
+    title: (document.title || '').trim(),
+    metaDescription: metaContent('meta[name="description"]'),
+    canonical: (function () {
+      var c = document.querySelector('link[rel="canonical"]');
+      return c ? c.getAttribute('href') : null;
+    })(),
+    robotsMeta: metaContent('meta[name="robots"]'),
+    ogTitle: metaContent('meta[property="og:title"]'),
+    ogDescription: metaContent('meta[property="og:description"]'),
+    ogImage: metaContent('meta[property="og:image"]'),
+    lang: document.documentElement.getAttribute('lang') || null,
+    h1Count: visibleH1.length,
+    h1Text: visibleH1.slice(0, 3),
+    headingCount: document.querySelectorAll('h1,h2,h3,h4,h5,h6').length,
+    mainTextLength: mainText,
+    totalTextLength: totalText,
+    contentRatio: totalText ? +(mainText / totalText).toFixed(3) : 0,
+    questionHeadings: questionHeadings,
+    hasFaqSchema: jsonLd.some(function (j) { return j.type === 'FAQPage' || j.type === 'QAPage'; }),
+    hasBreadcrumbSchema: jsonLd.some(function (j) { return j.type === 'BreadcrumbList'; }),
+    tablesForData: document.querySelectorAll('main table, article table').length,
+  };
+
   // --- assemble ----------------------------------------------------------
   var styles = {};
   for (var key in counters) styles[key] = toTallies(counters[key]);
@@ -752,6 +848,7 @@ export function collectFromDocument(options) {
       measures: measures.slice(0, 60),
     },
     geometry: geometry,
+    retrieval: retrieval,
     darkPatterns: darkPatterns,
     layout: layout,
     collectedAt: Date.now(),
