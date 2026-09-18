@@ -140,7 +140,7 @@ node scripts/sync-core.js     # copy core/ into the extension
 ```
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick `extension/`.
-The card should read **EchoFlow 2.0 · 2.1.0**.
+The card should read **EchoFlow 2.0 · 2.2.0**.
 
 **Updating**
 
@@ -172,8 +172,25 @@ where you are. Three tabs:
 - **Structure** — draws the box skeleton **on the live page**. Sections, all
   boxes, or a 12-column overlay. Scroll the site with it on.
 
-**+ Add page** collects as you browse. Comparative checks need at least two
-pages of the same type, and the hint tells you what is still missing.
+**Picking pages — by hand or automatically.** Both work, and they compose.
+
+- **+ Add page** collects as you browse. Use it when you know the pages you
+  want, or when a page needs a login, a region picker or a click to reach.
+- **Find pages for me** reads the sitemap (falling back to a two-level crawl),
+  samples by template type — four PDPs, three PLPs, home, cart, search — and
+  shows you the list before it touches anything. Untick what you do not want,
+  then **Collect**. Each page opens in one reusable background tab, is measured,
+  and the tab closes; **Stop** ends the run and keeps what it already has.
+
+The same sampling the CLI uses, so `--scope site` and the button choose the
+same pages. Comparative checks need at least two pages of the same type, and
+the hint tells you what is still missing either way.
+
+One honest limit: a background tab is loaded but never painted, so
+script-driven lazy loading (`data-src`, `IntersectionObserver`) does not fire.
+Native `loading="lazy"` images are forced eager before measuring; the rest is
+declared in the review's *What this surface cannot do* note rather than left to
+show up as a finding.
 
 The sidebar fetches the un-rendered HTML and `robots.txt` itself, so parity,
 answerability and the machine-readability checks work here too. It states its

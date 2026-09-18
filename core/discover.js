@@ -1,18 +1,37 @@
 /**
- * Page discovery.
+ * Page discovery — which pages is it worth measuring?
  *
- * A site run needs a representative sample, not every URL. Ten well-chosen
+ * A site run needs a representative SAMPLE, not every URL. Ten well-chosen
  * pages measure consistency better than two hundred, because the question is
  * "do pages of the same type agree" — which needs a FEW of each type, not all
  * of them. Crawling everything costs time and adds nothing.
  *
- * @module analyzer/collect/discover
+ * Lives in core/ because both surfaces need it, same rule as `fetch-signals.js`.
+ * The CLI has always had it; without it the extension could only ever be driven
+ * by hand, and hand-picking is exactly where a run goes wrong — someone adds
+ * three pages, none of them the same type, and every comparative dimension
+ * skips. Discovery is what makes the comparative half of the tool reachable
+ * without the user knowing which pages it needs.
+ *
+ * Nothing here renders a page. It decides on a LIST; the caller does the
+ * expensive part (a browser tab, or Playwright). Keeping those apart is what
+ * lets the extension show the list for confirmation before it opens anything.
+ *
+ * @module core/discover
  */
 
-import { inferSurface } from '../../../core/observation.js';
+import { inferSurface } from './observation.js';
 
-/** How many of each surface is enough to measure agreement. */
-const QUOTA = { home: 1, pdp: 4, plp: 3, cart: 1, search: 1, content: 2, account: 0, checkout: 0 };
+/**
+ * How many of each surface is enough to measure agreement.
+ *
+ * Two of a type is the minimum that proves anything; four PDPs is where the
+ * theme's real variance shows. `account` and `checkout` are zero because they
+ * need a session — a logged-out render measures the login wall, not the store.
+ */
+export const QUOTA = {
+  home: 1, pdp: 4, plp: 3, cart: 1, search: 1, content: 2, account: 0, checkout: 0,
+};
 
 /**
  * Assets are not pages. Rendering a stylesheet produces a plausible-looking
@@ -24,7 +43,17 @@ const ASSET_EXT = /\.(css|js|mjs|json|xml|txt|ico|png|jpe?g|gif|svg|webp|avif|pd
 /** URLs that are never worth measuring even though they are HTML. */
 const SKIP_PATH = /\/(cdn|assets|checkouts?|account|admin|apps|services|\.well-known)\//i;
 
-function isPageUrl(url) {
+const UA = 'EchoFlow/2.0 (+consistency audit)';
+
+/**
+ * A browser refuses to let a page set `user-agent` — it is a forbidden header
+ * name, silently dropped rather than an error. Sending it anyway would be
+ * harmless but dishonest about what the request actually looked like, so it
+ * only goes on where it survives.
+ */
+const headers = () => (typeof window === 'undefined' ? { 'user-agent': UA } : {});
+
+export function isPageUrl(url) {
   if (ASSET_EXT.test(url)) return false;
   if (SKIP_PATH.test(url)) return false;
   return true;
@@ -35,6 +64,7 @@ function isPageUrl(url) {
  * @param {string} opts.origin
  * @param {number} [opts.limit]
  * @param {(m:string)=>void} [opts.log]
+ * @returns {Promise<string[]>} live, deduplicated page URLs, quota-sampled
  */
 export async function discoverPages({ origin, limit = 12, log = () => {} }) {
   const base = new URL(origin);
@@ -70,7 +100,7 @@ export async function discoverPages({ origin, limit = 12, log = () => {} }) {
 
 async function readSitemap(url, log, depth = 0) {
   if (depth > 2) return [];
-  const res = await fetch(url, { headers: { 'user-agent': 'EchoFlow/2.0' } });
+  const res = await fetch(url, { headers: headers() });
   if (!res.ok) return [];
   const xml = await res.text();
 
@@ -103,7 +133,7 @@ async function crawl(origin, log, maxDepth = 2) {
     for (const url of frontier.slice(0, 6)) {
       let html;
       try {
-        const res = await fetch(url, { headers: { 'user-agent': 'EchoFlow/2.0' } });
+        const res = await fetch(url, { headers: headers() });
         if (!res.ok) continue;
         if (!/text\/html/i.test(res.headers.get('content-type') || '')) continue;
         html = await res.text();
@@ -132,26 +162,36 @@ const score = (u) => (/\/collections\//.test(u) ? 2 : /\/products\//.test(u) ? 1
  * Confirm each candidate is a live HTML page before we spend a browser on it.
  * A 404 still renders, and its styles are the theme's error page, not the
  * site's — measuring it would quietly corrupt the vocabulary.
+ *
+ * Capped concurrency because this now runs from a client's browser as well as
+ * from a CLI: two dozen simultaneous requests at someone's storefront is the
+ * kind of thing that gets an audit tool rate-limited and then blamed.
  */
-async function verifyPages(urls, log) {
-  const live = [];
+async function verifyPages(urls, log, concurrency = 6) {
+  const live = new Set();
   const dropped = [];
-  await Promise.all(urls.map(async (url) => {
-    try {
-      let res = await fetch(url, { method: 'HEAD', headers: { 'user-agent': 'EchoFlow/2.0' }, redirect: 'follow' });
-      // Some servers refuse HEAD; fall back rather than dropping a real page.
-      if (res.status === 405 || res.status === 501) {
-        res = await fetch(url, { headers: { 'user-agent': 'EchoFlow/2.0' } });
+  const queue = [...urls];
+
+  const worker = async () => {
+    for (let url = queue.shift(); url; url = queue.shift()) {
+      try {
+        let res = await fetch(url, { method: 'HEAD', headers: headers(), redirect: 'follow' });
+        // Some servers refuse HEAD; fall back rather than dropping a real page.
+        if (res.status === 405 || res.status === 501) {
+          res = await fetch(url, { headers: headers() });
+        }
+        const type = res.headers.get('content-type') || '';
+        if (res.ok && (!type || /text\/html/i.test(type))) live.add(url);
+        else dropped.push(`${url} (${res.status})`);
+      } catch {
+        dropped.push(`${url} (unreachable)`);
       }
-      const type = res.headers.get('content-type') || '';
-      if (res.ok && (!type || /text\/html/i.test(type))) live.push(url);
-      else dropped.push(`${url} (${res.status})`);
-    } catch {
-      dropped.push(`${url} (unreachable)`);
     }
-  }));
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, worker));
+
   if (dropped.length) log(`  dropped ${dropped.length} dead or non-HTML url(s)`);
-  return urls.filter((u) => live.includes(u));
+  return urls.filter((u) => live.has(u));
 }
 
 /** Take up to QUOTA of each surface, so every template type gets peers to compare. */

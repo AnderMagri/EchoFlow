@@ -26,6 +26,7 @@ import { createZip } from '../lib/zip.js';
 import {
   compareStatic, fetchEndpoints, fetchLlmsTxt, fetchRobots,
 } from '../core/fetch-signals.js';
+import { discoverPages } from '../core/discover.js';
 
 const $ = (s) => document.querySelector(s);
 const out = $('#out');
@@ -37,26 +38,33 @@ let siteSignals = null;
 let current = null;
 let tab = 'review';
 let overlayMode = 'off';
+/** Pages discovery proposed, awaiting confirmation. @type {{url:string,surface:string,on:boolean}[]} */
+let proposed = [];
+/** True once anything was collected in a background tab — changes what we can claim. */
+let usedBackgroundTab = false;
+/** Set while an automatic run is in flight, so the button can stop it. */
+let autoRun = null;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const activeTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 
-async function inPage(fn, args = []) {
-  const t = await activeTab();
-  const [res] = await chrome.scripting.executeScript({
-    target: { tabId: t.id }, func: fn, args, world: 'MAIN',
-  });
-  return res?.result;
-}
-
 // --- collect ---------------------------------------------------------------
 
-async function grab() {
-  const t = await activeTab();
-  const surface = inferSurface(t.url);
-  const obs = await inPage(collectFromDocument, [{ surface, viewportLabel: 'desktop' }]);
+/**
+ * Read one already-loaded tab. The manual button and the automatic run both
+ * come through here, so a page collected by hand and the same page collected
+ * automatically produce the identical observation — otherwise the two modes
+ * would quietly measure different things and only one of them would be right.
+ */
+async function grabTab(tabId, url) {
+  const surface = inferSurface(url);
+  const [res] = await chrome.scripting.executeScript({
+    target: { tabId }, func: collectFromDocument,
+    args: [{ surface, viewportLabel: 'desktop' }], world: 'MAIN',
+  });
+  const obs = res?.result;
   if (!obs) throw new Error('Could not read this page. Chrome blocks extensions on chrome:// and Web Store pages.');
 
   // The un-rendered HTML — what a crawler that does not execute JavaScript
@@ -64,11 +72,16 @@ async function grab() {
   // without this, parity and answerability report "not measurable" and the
   // newest checks are silently absent.
   try {
-    obs.retrieval.static = await compareStatic(t.url, obs.retrieval);
+    obs.retrieval.static = await compareStatic(url, obs.retrieval);
   } catch {
     obs.retrieval.static = { fetched: false };
   }
   return obs;
+}
+
+async function grab() {
+  const t = await activeTab();
+  return grabTab(t.id, t.url);
 }
 
 /** robots.txt, llms.txt and the JSON endpoints — once per origin. */
@@ -90,6 +103,23 @@ async function grabSiteSignals(url) {
   return siteSignals;
 }
 
+const chosenAxes = () => [...document.querySelectorAll('#axes input:checked')].map((i) => i.value);
+
+/** Re-run the analysis over whatever is currently collected, and repaint. */
+async function reanalyze() {
+  const axes = chosenAxes();
+  if (!axes.length) throw new Error('Pick at least one axis.');
+  if (axes.includes('engine')) await grabSiteSignals(collected[0].url);
+  current = analyze({
+    observations: collected, axes, siteSignals,
+    site: new URL(collected[0].url).hostname,
+  });
+  $('#tabs').hidden = false;
+  $('#foot').hidden = false;
+  renderPages();
+  render();
+}
+
 async function run({ append }) {
   const btn = append ? $('#add') : $('#scan');
   const label = btn.textContent;
@@ -103,20 +133,9 @@ async function run({ append }) {
       collected = collected.filter((o) => o.url !== obs.url).concat(obs);
     } else {
       collected = [obs];
+      usedBackgroundTab = false;
     }
-
-    const axes = [...document.querySelectorAll('#axes input:checked')].map((i) => i.value);
-    if (!axes.length) throw new Error('Pick at least one axis.');
-
-    if (axes.includes('engine')) await grabSiteSignals(collected[0].url);
-    current = analyze({
-      observations: collected, axes, siteSignals,
-      site: new URL(collected[0].url).hostname,
-    });
-    $('#tabs').hidden = false;
-    $('#foot').hidden = false;
-    renderPages();
-    render();
+    await reanalyze();
   } catch (err) {
     out.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
   } finally {
@@ -125,11 +144,214 @@ async function run({ append }) {
   }
 }
 
+// --- automatic page selection ----------------------------------------------
+//
+// Picking pages by hand is the part of a run most likely to go wrong: someone
+// adds three pages, no two of them the same type, and every comparative
+// dimension skips with "needs more than one page" — the tool looks broken when
+// it was only ever badly fed. Discovery fixes the feeding, not the tool.
+//
+// It stays a THREE-step flow — find, confirm, collect — for one reason: the
+// collection step navigates a real browser tab around a real storefront, with
+// the operator's cookies and session attached. That is not something to start
+// without showing the list first. The proposal is editable, so automatic is a
+// starting point for the manual flow rather than a replacement for it.
+
+/** Read the sitemap (or crawl) and propose a sample, without opening anything. */
+async function findPages() {
+  const btn = $('#auto');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Looking…';
+  const panel = $('#autopanel');
+  panel.hidden = false;
+  panel.innerHTML = '<p class="auto-status">Reading the sitemap…</p>';
+
+  try {
+    const t = await activeTab();
+    const { origin, protocol } = new URL(t.url);
+    if (!/^https?:$/.test(protocol)) throw new Error('Open the storefront first — there is nothing to discover from this page.');
+    const urls = await discoverPages({
+      origin,
+      limit: 12,
+      log: (m) => { panel.innerHTML = `<p class="auto-status">${esc(m.trim())}</p>`; },
+    });
+    if (!urls.length) throw new Error('Nothing found. The sitemap is missing and the homepage links nowhere crawlable — add pages by hand.');
+
+    const already = new Set(collected.map((o) => o.url));
+    proposed = urls.map((url) => ({
+      url, surface: inferSurface(url), on: !already.has(url),
+    }));
+    renderProposal();
+  } catch (err) {
+    panel.innerHTML = `<p class="auto-status warn">${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+function renderProposal() {
+  const panel = $('#autopanel');
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="auto-head">Found ${plural(proposed.length, 'page')} — untick any you do not want</div>
+    <ul class="auto-list">
+      ${proposed.map((p, i) => `<li>
+        <label>
+          <input type="checkbox" data-pick="${i}"${p.on ? ' checked' : ''}>
+          <span class="surf">${esc(p.surface)}</span>
+          <span class="u" title="${esc(p.url)}">${esc(shortUrl(p.url))}</span>
+        </label></li>`).join('')}
+    </ul>
+    <p class="auto-note" id="autosum"></p>
+    <div class="btn-row">
+      <button id="collect" class="btn btn-main">Collect</button>
+      <button id="cancelauto" class="btn">Cancel</button>
+    </div>
+    <p class="auto-note">Each page opens in a background tab, is measured, and the tab closes. Leave the window alone while it runs.</p>`;
+  refreshProposal();
+}
+
+/**
+ * Update only the parts a tick changes. Re-rendering the list instead would
+ * replace the checkbox mid-click and drop focus, which makes ticking several
+ * rows in a row feel broken.
+ */
+function refreshProposal() {
+  const on = proposed.filter((p) => p.on);
+  const counts = {};
+  for (const p of on) counts[p.surface] = (counts[p.surface] || 0) + 1;
+  const pairs = Object.entries(counts).filter(([, n]) => n >= 2);
+
+  $('#autosum').innerHTML = pairs.length
+    ? `${pairs.map(([s, n]) => `<b>${n} ${s.toUpperCase()}</b>`).join(', ')} — enough to compare.`
+    : 'No two pages of the same type selected, so comparative checks will still skip.';
+  const go = $('#collect');
+  go.disabled = !on.length;
+  go.textContent = on.length ? `Collect ${plural(on.length, 'page')}` : 'Nothing selected';
+}
+
+/**
+ * Wait for a tab to finish a navigation we just started.
+ *
+ * The `loading` guard is not optional. `complete` can arrive for the page that
+ * was ALREADY in the tab, before the new navigation has begun — without
+ * requiring a `loading` first, the collector fires against the previous URL and
+ * every page in the run is silently attributed to the wrong address.
+ */
+function waitForLoad(tabId, timeout = 25000) {
+  return new Promise((resolve, reject) => {
+    let started = false;
+    const finish = (err) => {
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+      clearTimeout(timer);
+      err ? reject(err) : resolve();
+    };
+    const onUpdated = (id, info) => {
+      if (id !== tabId) return;
+      if (info.status === 'loading') started = true;
+      else if (info.status === 'complete' && started) finish(null);
+    };
+    const onRemoved = (id) => { if (id === tabId) finish(new Error('the collection tab was closed')); };
+    const timer = setTimeout(() => finish(new Error('timed out loading')), timeout);
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+  });
+}
+
+/**
+ * Chrome does not load `loading="lazy"` images in a tab that is never painted,
+ * so a background collection would report no hero image on pages that plainly
+ * have one. Flipping the attribute starts the fetch without scrolling, which
+ * matters because scrolling would move the fold and the fold is measured.
+ *
+ * JS-driven lazy loaders (data-src, IntersectionObserver) are still out of
+ * reach — `surfaceLimits()` says so rather than letting the gap pass as a
+ * finding.
+ */
+function eagerImages() {
+  for (const img of document.querySelectorAll('img[loading="lazy"]')) img.loading = 'eager';
+  return document.querySelectorAll('img').length;
+}
+
+async function collectProposed() {
+  const targets = proposed.filter((p) => p.on);
+  if (!targets.length) return;
+
+  const panel = $('#autopanel');
+  autoRun = { stop: false };
+  let tabId = null;
+  const failed = [];
+
+  const paint = (i) => {
+    panel.innerHTML = `
+      <div class="auto-head">Collecting ${i + 1} of ${targets.length}</div>
+      <ul class="auto-list">
+        ${targets.map((p, n) => `<li class="prog ${n < i ? 'done' : n === i ? 'now' : ''}">
+          <span class="tick">${n < i ? '✓' : n === i ? '›' : '·'}</span>
+          <span class="surf">${esc(p.surface)}</span>
+          <span class="u">${esc(shortUrl(p.url))}</span></li>`).join('')}
+      </ul>
+      <div class="btn-row"><button id="stopauto" class="btn">Stop</button></div>`;
+  };
+
+  try {
+    // One reusable tab, opened on about:blank so that every page in the run is
+    // reached by the same navigation path — and so only one tab ever appears.
+    tabId = (await chrome.tabs.create({ url: 'about:blank', active: false })).id;
+
+    for (let i = 0; i < targets.length; i++) {
+      if (autoRun.stop) break;
+      paint(i);
+      const { url } = targets[i];
+      try {
+        const loaded = waitForLoad(tabId);
+        await chrome.tabs.update(tabId, { url });
+        await loaded;
+        await chrome.scripting.executeScript({ target: { tabId }, func: eagerImages, world: 'MAIN' });
+        // Themes hydrate after load; measuring the pre-hydration DOM reports
+        // drift that a visitor never sees.
+        await new Promise((r) => setTimeout(r, 900));
+        const obs = await grabTab(tabId, url);
+        collected = collected.filter((o) => o.url !== obs.url).concat(obs);
+        usedBackgroundTab = true;
+      } catch (err) {
+        failed.push(`${shortUrl(url)} — ${err.message}`);
+      }
+    }
+  } catch (err) {
+    failed.push(err.message);
+  } finally {
+    if (tabId != null) { try { await chrome.tabs.remove(tabId); } catch { /* already gone */ } }
+    autoRun = null;
+  }
+
+  panel.hidden = true;
+  proposed = [];
+
+  if (!collected.length) {
+    out.innerHTML = `<div class="empty">Nothing could be collected.${failed.length ? ' ' + esc(failed[0]) : ''}</div>`;
+    return;
+  }
+  try {
+    await reanalyze();
+  } catch (err) {
+    out.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+    return;
+  }
+  if (failed.length) {
+    $('#hint').innerHTML += ` <span class="warn">${plural(failed.length, 'page')} could not be read: ${esc(failed.join('; '))}</span>`;
+  }
+}
+
 /** What the sidebar structurally cannot do, said once rather than implied. */
 function surfaceLimits() {
   const bits = [];
   if (!siteSignals) bits.push('site-level signals (robots.txt, endpoints) were not read');
   bits.push('the crawler probe needs the CLI — a browser cannot set a User-Agent');
+  if (usedBackgroundTab) bits.push('pages found automatically were read in a background tab, where script-driven lazy loading does not run');
   if (collected.length < 2) bits.push('comparative checks need a second page of the same type');
   return bits;
 }
@@ -149,7 +371,7 @@ function renderPages() {
   for (const o of collected) counts[o.surface] = (counts[o.surface] || 0) + 1;
   const pairs = Object.entries(counts).filter(([, n]) => n >= 2);
   $('#hint').innerHTML = collected.length < 2
-    ? 'Comparative checks — the ones that measure consistency <b>across</b> pages — need at least two pages of the same type. Browse to another product and hit <b>+ Add page</b>.'
+    ? 'Comparative checks — the ones that measure consistency <b>across</b> pages — need at least two pages of the same type. Browse to another product and hit <b>+ Add page</b>, or let <b>Find pages for me</b> pick a sample.'
     : pairs.length
       ? `Comparing ${pairs.map(([s, n]) => `<b>${n} ${s.toUpperCase()}</b>`).join(' and ')}. Add more of the same type for a sharper reading.`
       : `${collected.length} pages, but no two of the same type yet — comparative checks need <b>two PDPs</b> (or two PLPs) to compare. Add another of the same kind.`;
@@ -451,6 +673,24 @@ async function exportBundle() {
 
 $('#scan').addEventListener('click', () => run({ append: false }));
 $('#add').addEventListener('click', () => run({ append: true }));
+$('#auto').addEventListener('click', findPages);
+
+$('#autopanel').addEventListener('click', (e) => {
+  if (e.target.id === 'collect') collectProposed();
+  else if (e.target.id === 'cancelauto') { proposed = []; $('#autopanel').hidden = true; }
+  else if (e.target.id === 'stopauto') {
+    if (autoRun) autoRun.stop = true;
+    e.target.disabled = true;
+    e.target.textContent = 'Stopping…';
+  }
+});
+
+$('#autopanel').addEventListener('change', (e) => {
+  const box = e.target.closest('[data-pick]');
+  if (!box) return;
+  proposed[+box.dataset.pick].on = box.checked;
+  refreshProposal();
+});
 
 $('#pagelist').addEventListener('click', (e) => {
   const b = e.target.closest('[data-rm]');
@@ -464,13 +704,7 @@ $('#pagelist').addEventListener('click', (e) => {
     renderPages();
     return;
   }
-  const axes = [...document.querySelectorAll('#axes input:checked')].map((i) => i.value);
-  current = analyze({
-    observations: collected, axes, siteSignals,
-    site: new URL(collected[0].url).hostname,
-  });
-  renderPages();
-  render();
+  reanalyze().catch((err) => { out.innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
 });
 
 $('#tabs').addEventListener('click', (e) => {

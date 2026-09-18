@@ -14,7 +14,7 @@ import { dirname, resolve } from 'node:path';
 import { analyze } from '../../../core/analyze.js';
 import { buildBundle } from '../../../core/wiki/bundle.js';
 import { collectPages } from '../collect/browser.js';
-import { discoverPages } from '../collect/discover.js';
+import { discoverPages } from '../../../core/discover.js';
 import { collectSiteSignals } from '../collect/retrieval.js';
 
 const HELP = `

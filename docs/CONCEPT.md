@@ -147,6 +147,16 @@ client's site and fire the analysis from there, without leaving the page. What
 changes from old EchoFlow is what runs behind the button (structured extraction,
 not a screen-print), not the gesture.
 
+**Page selection — by hand or automatic, and the two compose.** Browsing and
+adding pages is the honest default: it handles pages behind a login, a region
+picker or a click, and it is how you audit the journey you actually care about.
+But it is also where a run goes wrong, because someone adds three pages with no
+two of the same type and every comparative dimension skips. So the same sampler
+the CLI uses — sitemap, then a two-level crawl, then a quota per template type —
+is available from the sidebar, and it PROPOSES rather than proceeds: the list is
+shown and editable before a single tab opens on the client's site. Automatic is
+a better starting point for the manual flow, not a replacement for it.
+
 **Delivery — the wiki is the artefact.** The analysis produces a static,
 self-contained wiki you **download and host wherever you want** to share with the
 client. The sidebar is where you work; the wiki is what goes out the door.

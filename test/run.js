@@ -25,6 +25,7 @@ import { evaluateAnswerability } from '../core/answerability.js';
 import { evaluateParity } from '../core/parity.js';
 import { evaluateOperability } from '../core/operability.js';
 import { buildBundle } from '../core/wiki/bundle.js';
+import { discoverPages, isPageUrl, QUOTA } from '../core/discover.js';
 import { cleanSite, messySite } from './fixtures.js';
 
 let pass = 0, fail = 0;
@@ -38,6 +39,21 @@ function eq(a, b, msg) {
   if (a !== b) throw new Error(`${msg || ''} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
 }
 function ok(v, msg) { if (!v) throw new Error(msg || 'expected truthy'); }
+
+/**
+ * Async variant. Discovery is all network, so it cannot be tested synchronously.
+ * Queued and run in sequence, not in parallel: these tests each install their
+ * own `globalThis.fetch`, and overlapping runs would answer each other's
+ * requests — which fails as a wrong RESULT, not as an obvious collision.
+ */
+const pending = [];
+const ta = (name, fn) => pending.push([name, fn]);
+async function runAsyncTests() {
+  for (const [name, fn] of pending) {
+    try { await fn(); pass++; results.push(['ok  ', name]); }
+    catch (e) { fail++; results.push(['FAIL', `${name}\n        ${e.message}`]); }
+  }
+}
 function near(a, b, tol, msg) {
   if (Math.abs(a - b) > tol) throw new Error(`${msg || ''} ${a} not within ${tol} of ${b}`);
 }
@@ -1281,6 +1297,125 @@ t('START HERE is self-contained and links into report/', () => {
     ok(files[m[1]], `START HERE links to a file that exists: ${m[1]}`);
   }
 });
+
+// --- page discovery ---------------------------------------------------------
+
+t('assets are not pages', () => {
+  // Load-bearing, not tidiness: rendering a stylesheet yields a plausible
+  // observation full of browser defaults, which then pollutes the vocabulary.
+  ok(!isPageUrl('https://s.com/theme.css'), 'stylesheet');
+  ok(!isPageUrl('https://s.com/cdn/shop/files/a.jpg?v=2'), 'image with a query');
+  ok(!isPageUrl('https://s.com/checkouts/abc'), 'checkout needs a session');
+  ok(!isPageUrl('https://s.com/account/login'), 'account needs a session');
+  ok(isPageUrl('https://s.com/products/runner'), 'a product page is a page');
+});
+
+/**
+ * Stand in for the network. Each test declares exactly what the site serves,
+ * keyed by path, so a discovery bug shows up as a wrong LIST rather than as a
+ * flaky fetch. Exact paths rather than substrings, because a prefix match makes
+ * the origin answer for every page under it and the crawl then looks like it
+ * works when nothing was linked.
+ */
+const ORIGIN = 'https://s.com';
+function fakeSite(routes) {
+  const seen = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    const method = opts.method || 'GET';
+    seen.push(`${method} ${url}`);
+    let path = url;
+    try {
+      const u = new URL(url);
+      if (u.origin === ORIGIN) path = (u.pathname + u.search) || '/';
+    } catch { /* keep the raw string */ }
+    const r = routes[path] ?? { status: 404 };
+    // Only HEAD is refused when a route says so — a server that 405s every
+    // method is a different fault, and conflating them would hide the fallback.
+    const status = (method === 'HEAD' && r.headStatus) || r.status || 200;
+    return {
+      ok: status < 400,
+      status,
+      headers: { get: (h) => (h.toLowerCase() === 'content-type' ? (r.type ?? 'text/html') : null) },
+      text: async () => r.body ?? '',
+    };
+  };
+  return seen;
+}
+const XML = { type: 'application/xml' };
+const sitemapOf = (urls) => `<urlset>${urls.map((u) => `<loc>${u}</loc>`).join('')}</urlset>`;
+const realFetch = globalThis.fetch;
+
+ta('discovery samples by surface rather than taking everything', async () => {
+  const many = Array.from({ length: 40 }, (_, i) => `${ORIGIN}/products/p${i}`);
+  const routes = { '/sitemap.xml': { ...XML, body: sitemapOf(many) }, '/': {} };
+  for (let i = 0; i < 40; i++) routes[`/products/p${i}`] = {};
+  fakeSite(routes);
+  const urls = await discoverPages({ origin: 'https://s.com' });
+  const pdps = urls.filter((u) => u.includes('/products/'));
+  eq(pdps.length, QUOTA.pdp, 'forty products must come back as the quota, not forty');
+  ok(urls.length < 10, 'a sample, not a crawl');
+});
+
+ta('a 404 candidate is dropped before a browser is spent on it', async () => {
+  // A 404 still renders, and its styles are the theme's error page, not the
+  // site's — measuring it would quietly corrupt the vocabulary.
+  fakeSite({
+    '/sitemap.xml': { ...XML, body: sitemapOf([`${ORIGIN}/products/live`, `${ORIGIN}/products/gone`]) },
+    '/products/live': {},
+    '/': {},
+  });
+  const urls = await discoverPages({ origin: 'https://s.com' });
+  ok(urls.includes('https://s.com/products/live'), 'the live page survives');
+  ok(!urls.includes('https://s.com/products/gone'), 'the dead one does not');
+});
+
+ta('a server that refuses HEAD does not lose its pages', async () => {
+  const calls = fakeSite({
+    '/sitemap.xml': { ...XML, body: sitemapOf([`${ORIGIN}/products/a`]) },
+    '/products/a': { headStatus: 405 },
+    '/': {},
+  });
+  const urls = await discoverPages({ origin: 'https://s.com' });
+  ok(calls.includes('HEAD https://s.com/products/a'), 'HEAD is tried first');
+  ok(calls.includes('GET https://s.com/products/a'), 'and falls back to GET on 405');
+  ok(urls.includes('https://s.com/products/a'), '405 on HEAD is not a dead page');
+});
+
+ta('a sitemap index is followed to its children', async () => {
+  fakeSite({
+    '/sitemap.xml': { ...XML, body: `<sitemapindex><sitemap><loc>${ORIGIN}/sitemap_products_1.xml</loc></sitemap></sitemapindex>` },
+    '/sitemap_products_1.xml': { ...XML, body: sitemapOf([`${ORIGIN}/products/nested`]) },
+    '/products/nested': {},
+    '/': {},
+  });
+  const urls = await discoverPages({ origin: 'https://s.com' });
+  ok(urls.includes('https://s.com/products/nested'), 'the child sitemap is read');
+});
+
+ta('no sitemap falls through to a two-level crawl', async () => {
+  // Depth 1 finds collections and zero PDPs on most storefronts, which
+  // silently disables every comparative check that matters most.
+  fakeSite({
+    '/collections/all': { body: '<a href="/products/deep">p</a>' },
+    '/products/deep': {},
+    '/': { body: '<a href="/collections/all">shop</a>' },
+  });
+  const urls = await discoverPages({ origin: 'https://s.com' });
+  ok(urls.includes('https://s.com/products/deep'), 'a product two hops in is still found');
+});
+
+ta('discovery never leaves the origin it was given', async () => {
+  fakeSite({
+    '/sitemap.xml': { ...XML, body: sitemapOf([`${ORIGIN}/products/mine`, 'https://other.com/products/theirs']) },
+    '/products/mine': {},
+    '/': {},
+  });
+  const urls = await discoverPages({ origin: 'https://s.com' });
+  ok(!urls.some((u) => u.includes('other.com')), 'a foreign URL in the sitemap is not measured');
+});
+
+await runAsyncTests();
+globalThis.fetch = realFetch;
 
 // --- report ----------------------------------------------------------------
 

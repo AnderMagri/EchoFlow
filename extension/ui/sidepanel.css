@@ -66,6 +66,38 @@ header {
 .btn-row { display:flex; gap:6px; }
 .btn-row .btn { flex:1; font-size:12px; }
 
+.btn-row + .btn-row { margin-top:6px; }
+
+/* ---- automatic page selection ----
+   Deliberately not a bordered card. The panel is a step in a flow, not an
+   object on a page, and a boxed proposal reads as a result. */
+.auto { margin-top:10px; padding-left:9px; border-left:2px solid var(--hair-strong); }
+.auto-head {
+  font-size:10px; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--faint); font-weight:650;
+}
+.auto-status { margin:0; font-size:11.5px; color:var(--muted); font-style:italic; }
+.auto-status.warn { color:var(--high); font-style:normal; }
+.auto-note { margin:7px 0 0; font-size:10.5px; color:var(--faint); line-height:1.5; }
+.auto-note b { color:var(--muted); font-weight:600; }
+.auto-list { list-style:none; margin:6px 0 0; padding:0; }
+.auto-list li { border-top:1px solid var(--hair); font-size:11.5px; }
+.auto-list li:first-child { border-top:0; }
+.auto-list label { display:flex; align-items:center; gap:7px; padding:4px 0; cursor:pointer; }
+.auto-list li.prog { display:flex; align-items:center; gap:7px; padding:4px 0; }
+.auto-list input { accent-color:var(--accent); margin:0; flex:none; }
+.auto-list .surf {
+  font-family:var(--mono); font-size:9.5px; text-transform:uppercase;
+  color:var(--faint); min-width:34px; flex:none;
+}
+.auto-list .u { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); }
+.auto-list .tick { font-family:var(--mono); color:var(--faint); width:10px; flex:none; }
+.auto-list .done { opacity:.55; }
+.auto-list .done .tick { color:var(--medium); }
+.auto-list .now .u, .auto-list .now .surf { color:var(--ink); }
+.auto .btn-row { margin-top:9px; }
+.warn { color:var(--high); }
+
 /* ---- collected pages ---- */
 .pages { margin-top:10px; }
 .pages-head {

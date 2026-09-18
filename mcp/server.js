@@ -31,7 +31,7 @@ import {
   BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS, priorityBand, effortLabel,
 } from '../core/finding.js';
 import { collectPages } from '../analyzer/src/collect/browser.js';
-import { discoverPages } from '../analyzer/src/collect/discover.js';
+import { discoverPages } from '../core/discover.js';
 import { collectSiteSignals } from '../analyzer/src/collect/retrieval.js';
 
 const DEFAULT_OUT = process.env.ECHOFLOW_OUT || resolve(homedir(), '.echoflow', 'audits');

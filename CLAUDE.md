@@ -163,6 +163,20 @@ name is in `<title>` either way.
 - **Visibility is inherited.** `collect-dom.js` walks the ancestor chain. A node
   with its own `display:block` inside a hidden section is not on the page;
   checking only the node was the largest source of false positives.
+- **Page discovery decides on a LIST, it never renders.** `core/discover.js`
+  returns URLs; the caller spends the browser. That split is what lets the
+  extension show the sample for confirmation before it opens a tab on someone's
+  storefront with their session attached. The CLI and the sidebar call the same
+  function, so `--scope site` and **Find pages for me** pick the same pages.
+- **`chrome.tabs.onUpdated` fires `complete` for the page already in the tab.**
+  The automatic run navigates ONE reusable tab, so it must see `loading` before
+  it accepts `complete` — otherwise the collector reads the previous URL and
+  every page in the run is attributed to the wrong address, which looks like
+  drift rather than like a bug.
+- **A background tab is loaded but never painted**, so `loading="lazy"` images
+  never fetch. They are flipped to eager before measuring — not scrolled into
+  view, because scrolling moves the fold and the fold is measured. Script-driven
+  lazy loading is still out of reach and is declared in `surfaceLimits()`.
 - **Classify controls by role, not by class name.** A `div.chip` is not
   tappable. Name-based classification is how an audit turns into damage.
 - **Viewports are USABLE heights** (`USABLE_VIEWPORT`): mobile 390×**640**,
