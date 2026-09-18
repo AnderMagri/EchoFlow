@@ -42,6 +42,8 @@ let overlayMode = 'off';
 let proposed = [];
 /** True once anything was collected in a background tab — changes what we can claim. */
 let usedBackgroundTab = false;
+/** Pages whose CSP forced the isolated world, so the theme name could not be read. */
+const isolatedPages = new Set();
 /** Set while an automatic run is in flight, so the button can stop it. */
 let autoRun = null;
 
@@ -53,24 +55,62 @@ const activeTab = async () => (await chrome.tabs.query({ active: true, currentWi
 // --- collect ---------------------------------------------------------------
 
 /**
+ * Inject the collector and get an observation back.
+ *
+ * MAIN first, ISOLATED as a fallback, and the order matters. A MAIN-world
+ * injection is subject to the PAGE's Content-Security-Policy, so on a real
+ * retailer — anyone with a strict `script-src` — `executeScript` resolves
+ * cleanly with no result at all. It does not throw, so the failure looks like
+ * "the collector returned nothing" and is trivially misread as the page being
+ * unreadable. It is not: ISOLATED world reads the same DOM and the same
+ * computed styles, and gets through.
+ *
+ * What ISOLATED costs is narrow and worth naming: `window.Shopify` is invisible
+ * from it, so the theme name and version are lost, and Shopify detection falls
+ * back to the section markup and script URLs — which is two of its three
+ * signals, not none.
+ */
+async function injectCollector(tabId, args, world) {
+  try {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId }, func: collectFromDocument, args, world,
+    });
+    return res?.result ?? null;
+  } catch (err) {
+    // Distinguish "blocked" from "the collector itself is broken" — the second
+    // must not be retried in another world, and must not be reported as CSP.
+    return { failed: err.message };
+  }
+}
+
+/**
  * Read one already-loaded tab. The manual button and the automatic run both
  * come through here, so a page collected by hand and the same page collected
  * automatically produce the identical observation — otherwise the two modes
  * would quietly measure different things and only one of them would be right.
  */
-async function grabTab(tabId, url) {
+async function grabTab(tabId, url, say = () => {}) {
   const surface = inferSurface(url);
-  const [res] = await chrome.scripting.executeScript({
-    target: { tabId }, func: collectFromDocument,
-    args: [{ surface, viewportLabel: 'desktop' }], world: 'MAIN',
-  });
-  const obs = res?.result;
-  if (!obs) throw new Error('Could not read this page. Chrome blocks extensions on chrome:// and Web Store pages.');
+  const args = [{ surface, viewportLabel: 'desktop' }];
+
+  say('Reading the page…');
+  let obs = await injectCollector(tabId, args, 'MAIN');
+
+  if (!obs || obs.failed) {
+    const firstError = obs?.failed;
+    say('Page blocks injected scripts — retrying in an isolated world…');
+    obs = await injectCollector(tabId, args, 'ISOLATED');
+    if (obs?.failed || !obs) {
+      throw new Error(explainInjectionFailure(url, firstError || obs?.failed));
+    }
+    isolatedPages.add(url);
+  }
 
   // The un-rendered HTML — what a crawler that does not execute JavaScript
   // receives. The extension has host permissions, so it can ask for it directly;
   // without this, parity and answerability report "not measurable" and the
   // newest checks are silently absent.
+  say('Fetching the un-rendered HTML…');
   try {
     obs.retrieval.static = await compareStatic(url, obs.retrieval);
   } catch {
@@ -79,9 +119,28 @@ async function grabTab(tabId, url) {
   return obs;
 }
 
-async function grab() {
+/**
+ * Say what actually happened. The old message asserted chrome:// every time,
+ * which sent people looking at the wrong thing on an ordinary storefront that
+ * simply refused the injection.
+ */
+function explainInjectionFailure(url, detail) {
+  let protocol = '';
+  try { ({ protocol } = new URL(url)); } catch { /* unparseable */ }
+  if (!/^https?:$/.test(protocol)) {
+    return 'Chrome does not let extensions read this kind of page. Open the storefront in a normal tab and try again.';
+  }
+  // With a message from Chrome, pass it through and stop guessing — a
+  // TypeError from the collector and a refused injection are different faults
+  // and the same friendly hint on both sends people to the wrong place.
+  return detail
+    ? `Could not read ${shortUrl(url)} — ${detail}`
+    : `Could not read ${shortUrl(url)}. The page returned nothing in either world, which usually means it had not finished loading. Reload it and try again.`;
+}
+
+async function grab(say) {
   const t = await activeTab();
-  return grabTab(t.id, t.url);
+  return grabTab(t.id, t.url, say);
 }
 
 /** robots.txt, llms.txt and the JSON endpoints — once per origin. */
@@ -106,10 +165,14 @@ async function grabSiteSignals(url) {
 const chosenAxes = () => [...document.querySelectorAll('#axes input:checked')].map((i) => i.value);
 
 /** Re-run the analysis over whatever is currently collected, and repaint. */
-async function reanalyze() {
+async function reanalyze(say = () => {}) {
   const axes = chosenAxes();
   if (!axes.length) throw new Error('Pick at least one axis.');
-  if (axes.includes('engine')) await grabSiteSignals(collected[0].url);
+  if (axes.includes('engine')) {
+    say('Reading robots.txt and the site signals…');
+    await grabSiteSignals(collected[0].url);
+  }
+  say('Measuring…');
   current = analyze({
     observations: collected, axes, siteSignals,
     site: new URL(collected[0].url).hostname,
@@ -127,15 +190,17 @@ async function run({ append }) {
   btn.textContent = append ? 'Adding…' : 'Analysing…';
 
   try {
-    const obs = await grab();
+    busy('Reading the page…');
+    const obs = await grab(busy);
     if (append) {
       // Same URL twice adds nothing — replace rather than double-count it.
       collected = collected.filter((o) => o.url !== obs.url).concat(obs);
     } else {
       collected = [obs];
       usedBackgroundTab = false;
+      isolatedPages.clear();
     }
-    await reanalyze();
+    await reanalyze(busy);
   } catch (err) {
     out.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
   } finally {
@@ -310,7 +375,11 @@ async function collectProposed() {
         const loaded = waitForLoad(tabId);
         await chrome.tabs.update(tabId, { url });
         await loaded;
-        await chrome.scripting.executeScript({ target: { tabId }, func: eagerImages, world: 'MAIN' });
+        // Best effort — a strict CSP refuses this the same way it refuses the
+        // collector, and an un-eager image is a smaller loss than a lost page.
+        try {
+          await chrome.scripting.executeScript({ target: { tabId }, func: eagerImages, world: 'MAIN' });
+        } catch { /* CSP; the isolated-world collector still runs below */ }
         // Themes hydrate after load; measuring the pre-hydration DOM reports
         // drift that a visitor never sees.
         await new Promise((r) => setTimeout(r, 900));
@@ -336,7 +405,7 @@ async function collectProposed() {
     return;
   }
   try {
-    await reanalyze();
+    await reanalyze(busy);
   } catch (err) {
     out.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
     return;
@@ -352,6 +421,7 @@ function surfaceLimits() {
   if (!siteSignals) bits.push('site-level signals (robots.txt, endpoints) were not read');
   bits.push('the crawler probe needs the CLI — a browser cannot set a User-Agent');
   if (usedBackgroundTab) bits.push('pages found automatically were read in a background tab, where script-driven lazy loading does not run');
+  if (isolatedPages.size) bits.push(`${plural(isolatedPages.size, 'page')} blocked injected scripts, so the theme name and version could not be read — the measurements themselves are unaffected`);
   if (collected.length < 2) bits.push('comparative checks need a second page of the same type');
   return bits;
 }
@@ -378,6 +448,20 @@ function renderPages() {
 }
 
 const shortUrl = (u) => { try { const x = new URL(u); return (x.pathname + x.search).slice(0, 44) || '/'; } catch { return u; } };
+
+/**
+ * A run is three or four network round-trips — the raw HTML, robots.txt,
+ * llms.txt, the JSON endpoints — so several seconds of nothing is normal and
+ * looked like the button had not registered. Name the step rather than spin:
+ * a spinner says "wait", a step says "this is what it is waiting for", and on
+ * a slow storefront that is the difference between patience and a second click.
+ */
+function busy(step) {
+  out.innerHTML = `<div class="working">
+    <div class="working-bar"><i></i></div>
+    <p>${esc(step)}</p>
+  </div>`;
+}
 
 // --- render ----------------------------------------------------------------
 

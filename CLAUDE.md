@@ -177,6 +177,13 @@ name is in `<title>` either way.
   never fetch. They are flipped to eager before measuring — not scrolled into
   view, because scrolling moves the fold and the fold is measured. Script-driven
   lazy loading is still out of reach and is declared in `surfaceLimits()`.
+- **A MAIN-world injection is subject to the PAGE's CSP.** On a storefront with
+  a strict `script-src`, `chrome.scripting.executeScript` resolves with no
+  result and does not throw, so it reads as "the collector returned nothing" and
+  was being reported as a `chrome://` page. The sidebar retries in ISOLATED,
+  which reads the same DOM and computed styles; the only loss is
+  `window.Shopify` (theme name and version, and one of three detection signals).
+  Never report an injection failure as a cause you have not established.
 - **Classify controls by role, not by class name.** A `div.chip` is not
   tappable. Name-based classification is how an audit turns into damage.
 - **Viewports are USABLE heights** (`USABLE_VIEWPORT`): mobile 390×**640**,

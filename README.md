@@ -140,7 +140,7 @@ node scripts/sync-core.js     # copy core/ into the extension
 ```
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick `extension/`.
-The card should read **EchoFlow 2.0 · 2.2.0**.
+The card should read **EchoFlow 2.0 · 2.2.1**.
 
 **Updating**
 
@@ -196,6 +196,15 @@ The sidebar fetches the un-rendered HTML and `robots.txt` itself, so parity,
 answerability and the machine-readability checks work here too. It states its
 own limits: the crawler probe needs the CLI, because a browser will not let a
 page set its own User-Agent.
+
+**If a page refuses the collector.** A main-world injection is subject to the
+page's own Content-Security-Policy, so a storefront with a strict `script-src`
+returns nothing without raising an error. The sidebar retries in an isolated
+world, which reads the same DOM and the same computed styles and gets through.
+The only casualty is `window.Shopify` — the theme name and version go
+unread, and Shopify detection falls back to section markup and script URLs.
+The measurements are unaffected, and the review's *What this surface cannot do*
+note says when it happened.
 
 Export writes the same bundle the CLI produces, as a `.zip`.
 
