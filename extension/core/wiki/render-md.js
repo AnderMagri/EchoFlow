@@ -105,7 +105,8 @@ export function renderIndex(model) {
     design_score: c.byAxis.design,
     ux_score: c.byAxis.ux,
     engine_score: c.byAxis.engine,
-    findings_total: model.stats.total,
+    findings_total: model.stats.problems,
+    strengths: model.stats.strengths,
     findings_critical: model.stats.bands.critical,
     findings_high: model.stats.bands.high,
   }) + [
@@ -120,7 +121,7 @@ export function renderIndex(model) {
     '|---|---|---|',
     ...model.axes.map((a) => `| ${AXIS_LABELS[a]} | ${c.byAxis[a] ?? 'not measured'} | ${axisReading(c.byAxis[a])} |`),
     '',
-    `Analysed ${model.scope === 'site' ? `${countPages(model)} pages` : 'one page'} · ${model.stats.total} findings · ${model.stats.bands.critical} critical, ${model.stats.bands.high} high`,
+    `Analysed ${model.scope === 'site' ? `${countPages(model)} pages` : 'one page'} · ${model.stats.problems} findings · ${model.stats.bands.critical} critical, ${model.stats.bands.high} high`,
     '',
     '## What to fix first',
     '',

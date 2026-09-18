@@ -148,18 +148,30 @@ Export writes the same wiki bundle the CLI produces, as a `.zip`.
 
 ## The output bundle
 
-One analysis, one folder, three readers — and no copy of the truth:
+Unzip it and there is exactly one thing to open:
 
 ```
-site/          static HTML. Unzip and open, or host anywhere. The client's copy.
-pages/         markdown with front-matter — verdict, per axis, per owner, per surface.
-findings/      one file per finding, stable filename.
-data/          JSON — the source everything else is rendered from.
-CLAUDE.md      how an AI agent should navigate the folder.
-manifest.json  index of the bundle.
+START HERE.html    the verdict, the charts, and a route to everything else
+report/
+  site/            static HTML. Host it anywhere. The client's copy.
+  pages/           markdown with front-matter — verdict, per axis, per owner, per surface.
+  findings/        one file per finding, stable filename.
+  data/            JSON — the source everything else is rendered from.
+  CLAUDE.md        how an AI agent should navigate the folder.
+  manifest.json    index of the bundle.
 ```
 
-`data/analysis.json` is the single source. Every other file is a projection of it.
+`START HERE.html` is **self-contained** — its own styles, its own charts, no
+external file. Move the folder, re-zip it, copy it half-way, and it still opens
+and still says what the audit found.
+
+`report/data/analysis.json` is the single source. Every other file is a projection of it.
+
+**The report is charted, not just listed.** Score by group as bars, severity as
+a distribution, work split by owner, and an impact-against-ease scatter whose
+dashed contours *are* the band boundaries — since priority is impact × ease,
+the ranking model becomes a position on a plot rather than a number to trust.
+Inline SVG, no library, light and dark.
 
 **Two densities, one document.** The report has a Full/Client toggle in the header
 — a filter, not a second export. Maintaining two designs would double the work
@@ -186,7 +198,7 @@ core/          zero-dependency ESM. Runs in Node AND the browser.
   synthesis.js       cross-axis meta-findings
   tokens.js          the design system seed
   collect-dom.js     the DOM collector (shared by both collectors)
-  wiki/              model + markdown + HTML + structure renderers
+  wiki/              model + markdown + HTML + charts + structure renderers
 analyzer/      Node + Playwright. Renders pages, runs core, writes the bundle.
 extension/     MV3 sidebar. Injects the same collector, runs the same core.
 mcp/           MCP server. Same core, exposed as six tools over stdio.
@@ -202,6 +214,6 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js        # 89 tests — core, calibration, checks, retrieval, answerability
+node test/run.js        # 102 tests — core, calibration, checks, retrieval, parity, bundle
 cd mcp && node test.mjs # MCP protocol surface
 ```

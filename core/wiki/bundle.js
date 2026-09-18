@@ -27,6 +27,7 @@ import {
   renderSurfaceHTML, renderTokensHTML,
 } from './render-html.js';
 import { AXIS_LABELS, OWNER_LABELS } from '../finding.js';
+import { renderStartHere } from './render-start.js';
 import { STRUCTURE_CSS, STRUCTURE_JS, renderStructureHTML } from './render-structure.js';
 import { sectionSkeleton } from '../observation.js';
 
@@ -41,7 +42,11 @@ import { sectionSkeleton } from '../observation.js';
 export function buildBundle(analysis) {
   const model = buildWikiModel(analysis);
   /** @type {Record<string,string>} */
-  const files = {};
+  const raw = {};
+  // Built at the flat paths the renderers already know about, then moved under
+  // report/ in one place at the end. Keeping the move here means no renderer
+  // has to know where the bundle root is.
+  const files = raw;
 
   // --- data/ : the truth ---------------------------------------------------
   // Layout trees are large and structural rather than analytical, so they live
@@ -131,7 +136,14 @@ export function buildBundle(analysis) {
   files['CLAUDE.md'] = renderAgentContract(model);
   files['README.md'] = renderReadme(model);
 
-  return files;
+  // One file at the top of the folder, everything else beneath it. Someone who
+  // unzips this should not have to guess which of site/, pages/, data/ and
+  // findings/ is the one to open.
+  const bundled = { 'START HERE.html': renderStartHere(model) };
+  for (const [path, contents] of Object.entries(files)) {
+    bundled[`report/${path}`] = contents;
+  }
+  return bundled;
 }
 
 const json = (o) => JSON.stringify(o, null, 2) + '\n';
@@ -222,6 +234,7 @@ function buildManifest(model, files) {
     byOwner: Object.fromEntries(['design', 'marketing', 'engineering'].map((o) => [o,
       model.findings.filter((f) => f.owner === o).length])),
     entrypoints: {
+      start: '../START HERE.html',
       humans: 'site/index.html',
       agents: 'pages/index.md',
       data: 'data/analysis.json',

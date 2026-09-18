@@ -295,24 +295,27 @@ t('the token seed produces every export format', () => {
 t('the bundle is complete and self-consistent', () => {
   const r = analyze({ observations: messySite(), site: 'messy' });
   const files = buildBundle(r);
-  ok(files['site/index.html'].includes('<!DOCTYPE html>'));
-  ok(files['CLAUDE.md'].includes('effort'), 'agent contract explains the inverted scale');
-  ok(files['manifest.json'], 'manifest present');
+  ok(files['START HERE.html'].includes('<!DOCTYPE html>'), 'a single obvious entry point at the top');
+  ok(!Object.keys(files).some((f) => f !== 'START HERE.html' && !f.startsWith('report/')),
+    'everything else lives under report/');
+  ok(files['report/site/index.html'].includes('<!DOCTYPE html>'));
+  ok(files['report/CLAUDE.md'].includes('effort'), 'agent contract explains the inverted scale');
+  ok(files['report/manifest.json'], 'manifest present');
 
-  const findingFiles = Object.keys(files).filter((f) => f.startsWith('findings/'));
+  const findingFiles = Object.keys(files).filter((f) => f.startsWith('report/findings/'));
   eq(findingFiles.length, r.findings.length, 'one file per finding, no orphans');
 
-  const manifest = JSON.parse(files['manifest.json']);
+  const manifest = JSON.parse(files['report/manifest.json']);
   eq(manifest.findings.length, r.findings.length, 'manifest lists every finding');
   for (const entry of manifest.findings) {
-    ok(files[entry.file], `manifest references a file that exists: ${entry.file}`);
+    ok(files[`report/${entry.file}`], `manifest references a file that exists: ${entry.file}`);
   }
 });
 
 t('analysis.json excludes the bulky layout trees', () => {
   const r = analyze({ observations: messySite(), site: 'messy' });
   const files = buildBundle(r);
-  ok(!JSON.parse(files['data/analysis.json']).observations, 'observations stripped from analysis.json');
+  ok(!JSON.parse(files['report/data/analysis.json']).observations, 'observations stripped from analysis.json');
 });
 
 // --- quality checks --------------------------------------------------------
@@ -647,14 +650,14 @@ t('owner is a tag, not a hierarchy — no owner is scored', () => {
 t('owner pages are linked views, not copies', () => {
   const r = analyze({ observations: messySite(), site: 'm' });
   const files = buildBundle(r);
-  const ownerPages = Object.keys(files).filter((f) => /^pages\/for-/.test(f));
+  const ownerPages = Object.keys(files).filter((f) => /^report\/pages\/for-/.test(f));
   ok(ownerPages.length >= 2, `expected owner pages, got ${ownerPages.join(',')}`);
 
   // Every finding appears exactly once in findings/, however many views cite it.
-  const findingFiles = Object.keys(files).filter((f) => f.startsWith('findings/'));
+  const findingFiles = Object.keys(files).filter((f) => f.startsWith('report/findings/'));
   eq(findingFiles.length, r.findings.length, 'one file per finding regardless of how many pages link it');
 
-  const manifest = JSON.parse(files['manifest.json']);
+  const manifest = JSON.parse(files['report/manifest.json']);
   const total = Object.values(manifest.byOwner).reduce((a, b) => a + b, 0);
   eq(total, r.findings.length, 'the owner split partitions the pile exactly — no finding in two lists, none missing');
 });
@@ -905,6 +908,27 @@ t('parity moves the score and groups findings by field, not by page', () => {
   ok(priceFindings[0].impact >= 9, 'a wrong quoted price is as severe as it gets');
 });
 
+t('severity bands count problems, not strengths', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(r);
+  const manifest = JSON.parse(files['report/manifest.json']);
+  const bandTotal = Object.values(manifest.counts.bands).reduce((a, b) => a + b, 0);
+  eq(bandTotal, manifest.counts.problems,
+    'the headline count and the severity distribution must agree');
+  eq(manifest.counts.problems + manifest.counts.strengths, manifest.counts.total);
+});
+
+t('START HERE is self-contained and links into report/', () => {
+  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
+  const start = files['START HERE.html'];
+  ok(!/<link[^>]+stylesheet/i.test(start), 'no external stylesheet — it must open from anywhere');
+  ok(!/<script[^>]+src=/i.test(start), 'no external script');
+  ok(start.includes('report/site/index.html'), 'links into the report');
+  for (const m of start.matchAll(/href="(report\/[^"]+)"/g)) {
+    ok(files[m[1]], `START HERE links to a file that exists: ${m[1]}`);
+  }
+});
+
 // --- report ----------------------------------------------------------------
 
 t('a contrast failure in the token seed becomes a Finding', () => {
@@ -1083,14 +1107,14 @@ t('owner is a tag, not a hierarchy — no owner is scored', () => {
 t('owner pages are linked views, not copies', () => {
   const r = analyze({ observations: messySite(), site: 'm' });
   const files = buildBundle(r);
-  const ownerPages = Object.keys(files).filter((f) => /^pages\/for-/.test(f));
+  const ownerPages = Object.keys(files).filter((f) => /^report\/pages\/for-/.test(f));
   ok(ownerPages.length >= 2, `expected owner pages, got ${ownerPages.join(',')}`);
 
   // Every finding appears exactly once in findings/, however many views cite it.
-  const findingFiles = Object.keys(files).filter((f) => f.startsWith('findings/'));
+  const findingFiles = Object.keys(files).filter((f) => f.startsWith('report/findings/'));
   eq(findingFiles.length, r.findings.length, 'one file per finding regardless of how many pages link it');
 
-  const manifest = JSON.parse(files['manifest.json']);
+  const manifest = JSON.parse(files['report/manifest.json']);
   const total = Object.values(manifest.byOwner).reduce((a, b) => a + b, 0);
   eq(total, r.findings.length, 'the owner split partitions the pile exactly — no finding in two lists, none missing');
 });
@@ -1099,6 +1123,27 @@ t('byOwner partitions the findings with no overlap', () => {
   const r = analyze({ observations: messySite(), site: 'm' });
   const counts = OWNERS.map((o) => byOwner(r.findings, o).length);
   eq(counts.reduce((a, b) => a + b, 0), r.findings.length);
+});
+
+t('severity bands count problems, not strengths', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(r);
+  const manifest = JSON.parse(files['report/manifest.json']);
+  const bandTotal = Object.values(manifest.counts.bands).reduce((a, b) => a + b, 0);
+  eq(bandTotal, manifest.counts.problems,
+    'the headline count and the severity distribution must agree');
+  eq(manifest.counts.problems + manifest.counts.strengths, manifest.counts.total);
+});
+
+t('START HERE is self-contained and links into report/', () => {
+  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
+  const start = files['START HERE.html'];
+  ok(!/<link[^>]+stylesheet/i.test(start), 'no external stylesheet — it must open from anywhere');
+  ok(!/<script[^>]+src=/i.test(start), 'no external script');
+  ok(start.includes('report/site/index.html'), 'links into the report');
+  for (const m of start.matchAll(/href="(report\/[^"]+)"/g)) {
+    ok(files[m[1]], `START HERE links to a file that exists: ${m[1]}`);
+  }
 });
 
 // --- report ----------------------------------------------------------------

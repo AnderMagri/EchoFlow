@@ -170,6 +170,28 @@ name is in `<title>` either way.
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
   blockers before claiming the remainder is polish.
 
+## The bundle has one entry point
+
+`START HERE.html` sits alone at the top; everything else is under `report/`.
+Someone unzipping a folder should not have to guess which of `site/`, `pages/`,
+`data/` and `findings/` to open.
+
+It is **self-contained** — inline styles, inline charts, no external reference —
+so a moved, re-zipped or partially copied folder still opens. Renderers build at
+flat paths and `buildBundle` moves everything under `report/` in one place, so no
+renderer knows where the bundle root is.
+
+**Severity bands count problems, not strengths.** A strength carries a priority
+because every Finding does, but counting it as "critical" makes the headline
+count and the band total disagree — and the larger number is the wrong one.
+`model.stats` exposes `problems`, `strengths` and `total` separately.
+
+Charts are inline SVG in `core/wiki/charts.js` — no library, because the bundle
+must open from disk forever and a CDN tag breaks the day the CDN moves. Colour
+follows the job: **ink for magnitude** (scores, counts), the **reserved status
+palette for state** (severity). Never colour alone — every band is labelled, and
+in the scatter the band is derived from position, so hue is redundant.
+
 ## After changing core/
 
 ```bash

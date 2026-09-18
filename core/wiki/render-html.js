@@ -12,9 +12,12 @@
  */
 
 import {
-  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS,
+  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS, OWNERS,
   SURFACE_LABELS, effortLabel, priorityBand,
 } from '../finding.js';
+import {
+  CHART_CSS, CHART_JS, impactEffortScatter, ownerBars, scoreBars, severityBar,
+} from './charts.js';
 import { GRADE_COPY } from '../consistency.js';
 
 const esc = (s) => String(s ?? '')
@@ -232,9 +235,9 @@ footer.site {
   header.site .inner { gap: 10px; }
   nav.tabs { width: 100%; margin-left: 0; order: 3; }
 }
-`;
+` + CHART_CSS;
 
-export const WIKI_JS = `
+export const WIKI_JS = CHART_JS + `
 (function () {
   var KEY = 'echoflow-density';
   function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
@@ -364,16 +367,6 @@ ${model.isShopify ? '' : '<div class="note">This is <strong>not a Shopify store<
   <div class="meter"><i style="width:${c.overall ?? 0}%"></i></div>
   <blockquote>${esc(GRADE_COPY[c.grade])}</blockquote>
   ${c.caveat ? `<div class="note" style="margin-top:16px"><strong>Provisional — confidence ${esc(c.confidence)}.</strong> ${esc(c.caveat)}</div>` : ''}
-  <div class="bd">
-    ${Object.entries(model.consistency.byGroup || {})
-      .filter(([, g]) => model.axes.includes(g.axis))
-      .sort((a, b) => (a[1].score ?? 999) - (b[1].score ?? 999))
-      .map(([name, g]) => `<div class="bd-row ${g.score == null ? 'dim' : ''}">
-        <span class="k">${esc(name)}</span>
-        <span class="track"><i style="width:${g.score ?? 0}%"></i></span>
-        <span class="v">${g.score ?? '—'}</span>
-      </div>`).join('')}
-  </div>
   <div class="axes">
     ${model.axes.map((a) => `<div class="axis-card">
       <div class="label">${esc(AXIS_LABELS[a])}</div>
@@ -382,6 +375,25 @@ ${model.isShopify ? '' : '<div class="note">This is <strong>not a Shopify store<
     </div>`).join('')}
   </div>
 </div>
+
+${scoreBars(Object.entries(model.consistency.byGroup || {})
+  .filter(([, g]) => model.axes.includes(g.axis))
+  .sort((a, b) => (a[1].score ?? 999) - (b[1].score ?? 999))
+  .map(([name, g]) => ({ name, score: g.score, measured: g.measured, declared: g.declared })))}
+
+${severityBar(model.stats.bands)}
+
+${ownerBars(OWNERS.map((o) => {
+  const mine = model.findings.filter((f) => f.owner === o && f.kind !== 'strength');
+  const bands = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of mine) bands[priorityBand(f.priority)]++;
+  return { owner: o, label: OWNER_LABELS[o], bands, total: mine.length };
+}))}
+
+${impactEffortScatter(model.findings.filter((f) => f.kind !== 'strength').map((f) => ({
+  title: f.title, impact: f.impact, effort: f.effort, priority: f.priority,
+  band: priorityBand(f.priority), owner: OWNER_LABELS[f.owner] || f.owner,
+})))}
 
 <h2>What to fix first</h2>
 <div data-section>

@@ -114,11 +114,18 @@ export function buildWikiModel(analysis) {
 }
 
 function stats(findings) {
+  // Severity bands describe PROBLEMS. A strength has a priority because every
+  // Finding does, but counting it as "critical" makes the distribution lie —
+  // the headline count and the band total stop agreeing, and the larger number
+  // is the wrong one.
+  const problems = findings.filter((f) => f.kind !== 'strength');
   const bands = Object.fromEntries(BAND_ORDER.map((b) => [b, 0]));
-  for (const f of findings) bands[priorityBand(f.priority)]++;
+  for (const f of problems) bands[priorityBand(f.priority)]++;
   return {
     total: findings.length,
-    clientVisible: findings.filter((f) => f.priority >= CLIENT_THRESHOLD).length,
+    problems: problems.length,
+    strengths: findings.length - problems.length,
+    clientVisible: problems.filter((f) => f.priority >= CLIENT_THRESHOLD).length,
     meta: findings.filter((f) => f.kind === 'meta').length,
     bands,
   };
