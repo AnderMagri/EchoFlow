@@ -57,6 +57,33 @@ Components, Layout, Language, …). `consistency.byGroup` is the same weighted
 mean partitioned by that field, so the score can be *explained* rather than
 asserted. It is a decomposition, not a second score: nothing is ranked by it.
 
+## Two tags, two questions
+
+`axis` answers *what kind of problem is this*. `owner` answers *is this mine*.
+Both are TAGS over one pile — never hierarchies, never scored. Owner pages are
+filtered views reached by link, exactly like surface pages already are.
+
+| Owner | Who | Examples |
+|---|---|---|
+| `design` | design team | tokens, type, colour, layout, components, targets, fold geometry |
+| `marketing` | content / SEO / brand | copy, CTA wording, structured data, metadata, crawler access, dark patterns, alt text |
+| `engineering` | developers | rendering, apps, scripts, performance, malformed markup, `lang` |
+
+This exists because the **Engine axis mixed two audiences badly**: "third-party
+script set differs across pages" and "no meta description" were adjacent, and
+different people fix them.
+
+The test is **who DECIDES, not who types**. Structured data is implemented in
+Liquid but decided by whoever owns the catalogue copy → marketing. A JSON-LD
+block that will not parse is an escaping bug → engineering.
+
+`ownerFor()` in `finding.js` maps check ids, so nothing is unowned and a new
+check cannot silently land in the wrong team's list. **Meta-findings need an
+explicit entry** — they take their axis from whichever axis scored worst, which
+says nothing about ownership.
+
+**Never add a per-owner score.** The one ranking model stands.
+
 ## GEO lives on the Engine axis, not a fourth one
 
 The concept forbids adding axes ("no axes with equal weights comparable by

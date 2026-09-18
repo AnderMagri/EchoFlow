@@ -70,6 +70,37 @@ export const KINDS = /** @type {const} */ (['finding', 'meta', 'strength']);
  */
 export const BASES = /** @type {const} */ (['prescriptive', 'practice', 'directional']);
 
+/**
+ * Who owns the fix.
+ *
+ * A SECOND TAG, exactly like `surface` — not a hierarchy, not a score, not a
+ * new record. It exists because the axes answer "what kind of problem is this"
+ * and a reader also needs "is this mine". The Engine axis in particular mixes
+ * two audiences badly: "third-party script set differs across pages" and "no
+ * meta description" are both Engine, and a developer fixes one while a
+ * marketer fixes the other.
+ *
+ * The question is who DECIDES, not who types. Structured data is implemented
+ * in Liquid but decided by whoever owns the catalogue copy, so it is marketing.
+ * A malformed JSON-LD block is a Liquid escaping bug, so it is engineering.
+ *
+ * There is deliberately no per-owner score. Owner pages are filtered views of
+ * the one pile, reached by link — the same thing surface pages already are.
+ */
+export const OWNERS = /** @type {const} */ (['design', 'marketing', 'engineering']);
+
+export const OWNER_LABELS = {
+  design: 'Design',
+  marketing: 'Marketing & content',
+  engineering: 'Engineering',
+};
+
+export const OWNER_BRIEF = {
+  design: 'Layout, type, colour and component decisions. Fixed in the design system and the theme\u2019s settings.',
+  marketing: 'What the store says and how machines read it \u2014 copy, structured data, metadata, crawler access, and the persuasion patterns in use. Mostly content and settings work, not code.',
+  engineering: 'How the site is built and served \u2014 rendering, apps, scripts, performance, and markup correctness. Needs a developer.',
+};
+
 export const BASIS_LABELS = {
   prescriptive: 'Standard',
   practice: 'Established practice',
@@ -118,13 +149,14 @@ function fingerprint(parts) {
  * @param {string[]} [input.derivedFrom] ids of findings a meta-finding synthesises
  * @param {string} [input.basis]       'prescriptive' | 'practice' | 'directional'
  * @param {string} [input.citation]    the specific criterion, e.g. "WCAG 2.2 SC 2.5.8"
+ * @param {string} [input.owner]       'design' | 'marketing' | 'engineering'
  * @returns {Finding}
  */
 export function createFinding(input) {
   const {
     checkId, title, surface, axis, impact, effort, evidence, recommendation,
     scope = 'extractive', kind = 'finding', url = null, selector = null,
-    refs = [], derivedFrom = [], basis = 'practice', citation = null,
+    refs = [], derivedFrom = [], basis = 'practice', citation = null, owner = null,
   } = input;
 
   if (!checkId) throw new Error('Finding requires checkId');
@@ -134,6 +166,8 @@ export function createFinding(input) {
   if (!SCOPES.includes(scope)) throw new Error(`Finding ${checkId}: bad scope "${scope}"`);
   if (!KINDS.includes(kind)) throw new Error(`Finding ${checkId}: bad kind "${kind}"`);
   if (!BASES.includes(basis)) throw new Error(`Finding ${checkId}: bad basis "${basis}"`);
+  const resolvedOwner = owner || ownerFor(checkId, axis);
+  if (!OWNERS.includes(resolvedOwner)) throw new Error(`Finding ${checkId}: bad owner "${resolvedOwner}"`);
   // A prescriptive claim without a criterion to point at is an opinion wearing
   // a lab coat, and vague appeals to "accessibility guidelines" are exactly what
   // make a client suspect the whole report.
@@ -156,10 +190,60 @@ export function createFinding(input) {
     priority: i * e,
     evidence, recommendation, scope, url, selector,
     basis, citation,
+    owner: resolvedOwner,
     refs: Object.freeze([...refs]),
     derivedFrom: Object.freeze([...derivedFrom]),
   });
 }
+
+/**
+ * Default owner from the check id, so nothing is ever unowned and a new check
+ * does not silently land in the wrong team's list.
+ *
+ * Explicit prefixes first; then the axis as a fallback, which is right often
+ * enough (design checks are design work) and wrong exactly where the Engine
+ * axis is ambiguous — which is what the explicit list is for.
+ *
+ * @param {string} checkId
+ * @param {string} axis
+ */
+function ownerFor(checkId, axis) {
+  // Marketing decides these, whoever implements them.
+  const MARKETING = [
+    'engine-ai-crawlers-blocked', 'engine-no-robots-txt', 'engine-no-llms-txt',
+    'engine-no-structured-data', 'engine-missing-schema', 'engine-incomplete-product-schema',
+    'engine-schema-drift', 'engine-metadata-drift', 'engine-missing-description',
+    'engine-thin-content', 'engine-unmarked-faq', 'engine-h1-structure',
+    'strength-product-schema',
+    'ux-missing-alt', 'ux-cta-drift', 'ux-price-format-drift',
+    'ux-confirmshaming', 'ux-pre-checked-optin', 'ux-urgency-pressure',
+    'ux-hard-to-cancel', 'ux-late-costs', 'ux-disguised-promos',
+  ];
+  // A developer has to touch these, whoever asked for them.
+  const ENGINEERING = [
+    // Meta-findings take their AXIS from whichever axis scored worst, which is
+    // meaningless for ownership — a synthesis about app weight is engineering
+    // work whether or not design happened to score lower that run.
+    'meta-weight-is-apps',
+    'engine-lcp', 'engine-cls', 'engine-page-weight', 'engine-eager-images',
+    'engine-app-drift', 'engine-perf-variance', 'engine-section-sprawl',
+    'engine-malformed-jsonld', 'engine-content-requires-js', 'engine-no-lang',
+    'strength-server-rendered',
+  ];
+
+  // Cross-axis syntheses are about the system as a whole; design leads the
+  // response to all of them except the app-weight one above.
+  if (ENGINEERING.some((p) => checkId.startsWith(p))) return 'engineering';
+  if (MARKETING.some((p) => checkId.startsWith(p))) return 'marketing';
+  if (checkId.startsWith('meta-')) return 'design';
+  if (axis === 'engine') return 'engineering';
+  return 'design';
+}
+
+export { ownerFor };
+
+/** @param {Finding[]} findings */
+export const byOwner = (findings, owner) => findings.filter((f) => f.owner === owner);
 
 /** @typedef {ReturnType<typeof createFinding>} Finding */
 

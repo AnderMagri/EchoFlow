@@ -89,6 +89,23 @@ are worth fixing, not as a legal opinion.
 
 ---
 
+## Who owns each finding
+
+`owner` routes findings to the team that fixes them. It is a tag, like `axis` —
+nothing is scored per owner.
+
+| Owner | Covers |
+|---|---|
+| **Design** | Colour, typography, spacing, shape, components, layout, targets, measure, fold geometry, page depth, thumb reach, form labels |
+| **Marketing & content** | Structured data, metadata, crawler access, `llms.txt`, H1 and description copy, thin content, unmarked FAQ, alt text, CTA wording, price format, and every manipulative pattern |
+| **Engineering** | Rendering (content-requires-JS), apps and scripts, Core Web Vitals, page weight, malformed JSON-LD, `lang`, section sprawl |
+
+The test is **who decides, not who types**. Structured data is written in Liquid
+but decided by whoever owns the catalogue copy, so it is marketing. A JSON-LD
+block that fails to parse is an escaping bug, so it is engineering.
+
+---
+
 ## Machine retrieval (GEO)
 
 How findable and parseable the content is to a non-human reader. **Nothing here

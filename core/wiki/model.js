@@ -12,8 +12,8 @@
  */
 
 import {
-  AXES, AXIS_LABELS, BAND_ORDER, CLIENT_THRESHOLD, SURFACE_LABELS,
-  effortLabel, priorityBand,
+  AXES, AXIS_LABELS, BAND_ORDER, CLIENT_THRESHOLD, OWNERS, OWNER_BRIEF,
+  OWNER_LABELS, SURFACE_LABELS, effortLabel, priorityBand,
 } from '../finding.js';
 
 /**
@@ -49,6 +49,23 @@ export function buildWikiModel(analysis) {
       summary: axisSummary(axis, consistency, axisFindings),
       dimensions: consistency.dimensions.filter((d) => d.axis === axis),
       findingIds: axisFindings.map((f) => f.id),
+    });
+  }
+
+  // Owner pages. The Engine axis in particular mixes audiences — "third-party
+  // script set differs" and "no meta description" are both Engine, and
+  // different people fix them. Same findings, reached by a different question:
+  // not "what kind of problem" but "is this mine".
+  for (const owner of OWNERS) {
+    const ownerFindings = findings.filter((f) => f.owner === owner);
+    if (!ownerFindings.length) continue;
+    pages.push({
+      slug: `for-${owner}`,
+      kind: 'owner',
+      owner,
+      title: OWNER_LABELS[owner],
+      summary: OWNER_BRIEF[owner],
+      findingIds: ownerFindings.map((f) => f.id),
     });
   }
 

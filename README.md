@@ -24,6 +24,14 @@ evidence, which is what lets one number legitimately span all three.
 | Cross-page agreement | For a role that should be invariant, what share of pages agree | Comparative |
 | Rhythm adherence | What share of numeric values sit on the *detected* base unit | Extractive |
 
+**Findings are routed to whoever fixes them.** Every finding carries an `owner`
+— design, marketing, or engineering — because the Engine axis mixed two
+audiences badly: "third-party script set differs across pages" and "no meta
+description" are both Engine and different people fix them. The report gets a
+page per owner, so the marketing lead reads structured data, copy and crawler
+access without wading through script budgets. It is a second tag over one pile,
+not a second report: no owner is scored separately.
+
 **One primitive, one ranking.** Everything is a Finding. `priority = impact × effort`.
 No second score, no per-axis weights that are comparable by accident.
 
@@ -137,7 +145,7 @@ One analysis, one folder, three readers — and no copy of the truth:
 
 ```
 site/          static HTML. Unzip and open, or host anywhere. The client's copy.
-pages/         markdown with YAML front-matter.
+pages/         markdown with front-matter — verdict, per axis, per owner, per surface.
 findings/      one file per finding, stable filename.
 data/          JSON — the source everything else is rendered from.
 CLAUDE.md      how an AI agent should navigate the folder.
@@ -186,6 +194,6 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js        # 64 tests — core, calibration, checks, retrieval, bundle
+node test/run.js        # 80 tests — core, calibration, checks, retrieval, ownership
 cd mcp && node test.mjs # MCP protocol surface
 ```

@@ -153,6 +153,7 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 .f.high     .p { color:var(--high); }
 .f.medium   .p { color:var(--medium); }
 .f.low      .p { color:var(--low); }
+.f.strength .p { color:var(--medium); }
 .f .t { font-weight:600; font-size:12.5px; line-height:1.4; }
 .f .r { color:var(--muted); font-size:11.5px; margin-top:3px; }
 .f .m { color:var(--faint); font-size:10.5px; margin-top:5px; font-family:var(--mono); }

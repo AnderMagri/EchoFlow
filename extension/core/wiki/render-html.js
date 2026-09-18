@@ -11,7 +11,10 @@
  * @module core/wiki/render-html
  */
 
-import { AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, SURFACE_LABELS, effortLabel, priorityBand } from '../finding.js';
+import {
+  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS,
+  SURFACE_LABELS, effortLabel, priorityBand,
+} from '../finding.js';
 import { GRADE_COPY } from '../consistency.js';
 
 const esc = (s) => String(s ?? '')
@@ -170,6 +173,16 @@ p.lede { color: var(--muted); margin: 0 0 24px; font-size: 16px; }
 .finding.strength .pri { color: var(--medium); }
 .finding.strength .pri small { color: var(--medium); }
 .cite { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 4px; }
+.tag.owner-design { background: var(--raised); color: var(--muted); }
+.tag.owner-marketing { background: color-mix(in srgb, var(--high) 16%, transparent); color: var(--high); }
+.tag.owner-engineering { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.owner-lede {
+  border-left: 2px solid var(--border-strong); padding: 2px 0 2px 14px;
+  color: var(--muted); font-size: 15px; margin: 0 0 26px;
+}
+.owner-counts { display: flex; gap: 26px; margin: 0 0 8px; }
+.owner-counts div .n { font-size: 26px; font-weight: 350; letter-spacing: -.02em; }
+.owner-counts div .l { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 650; }
 .limits { margin-top: 12px; }
 .limits li { color: var(--muted); font-size: 13.5px; margin-bottom: 3px; }
 
@@ -300,7 +313,11 @@ ${body}
 function navFor(model, current) {
   const items = [['index', 'Verdict'], ...model.pages
     .filter((p) => p.slug !== 'index')
-    .map((p) => [p.slug, p.kind === 'axis' ? AXIS_LABELS[p.axis] : p.title])];
+    // Owner tabs get a "For " prefix. Without it the nav reads "Design ...
+    // Design", because Design is both an axis (what kind of problem) and an
+    // owner (whose problem) — which is the distinction, not a collision.
+    .map((p) => [p.slug, p.kind === 'axis' ? AXIS_LABELS[p.axis]
+      : p.kind === 'owner' ? `For ${OWNER_LABELS[p.owner].toLowerCase()}` : p.title])];
   return items.map(([slug, label]) =>
     `<a href="${slug}.html"${slug === current ? ' aria-current="page"' : ''}>${esc(label)}</a>`).join('');
 }
@@ -314,6 +331,7 @@ function findingCard(f) {
       <span class="title">${esc(f.title)}</span>
       ${f.kind === 'meta' ? '<span class="tag meta">cross-axis</span>' : ''}
       <span class="tag axis">${esc(AXIS_LABELS[f.axis])}</span>
+      <span class="tag owner-${esc(f.owner)}" title="${esc(OWNER_BRIEF[f.owner] || '')}">${esc(OWNER_LABELS[f.owner] || f.owner)}</span>
       <span class="tag ${esc(f.basis)}" title="${esc(BASIS_NOTE[f.basis] || '')}">${esc(BASIS_LABELS[f.basis] || f.basis)}</span>
     </div>
     <p class="rec">${esc(f.recommendation)}</p>
@@ -486,4 +504,34 @@ base ${t.typography.bodyPx}px · detected ratio ${t.typography.ratio ?? 'none co
 <h3>Shopify theme settings</h3>
 <pre class="code">${esc(JSON.stringify(t.formats.shopify, null, 2))}</pre>`;
   return layout({ title: 'Design system seed', site: model.site, nav: navFor(model, 'tokens'), body, generatedAt: model.generatedAt });
+}
+
+
+/** An owner page: the same findings, filtered to one team's work. */
+export function renderOwnerHTML(page, model) {
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const problems = findings.filter((f) => f.kind !== 'strength');
+  const strengths = findings.filter((f) => f.kind === 'strength');
+  const bands = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of problems) bands[priorityBand(f.priority)]++;
+
+  const body = `
+<h1>${esc(OWNER_LABELS[page.owner])}</h1>
+<p class="owner-lede">${esc(OWNER_BRIEF[page.owner])}</p>
+
+<div class="owner-counts">
+  <div><div class="n">${problems.length}</div><div class="l">findings</div></div>
+  <div><div class="n">${bands.critical}</div><div class="l">critical</div></div>
+  <div><div class="n">${bands.high}</div><div class="l">high</div></div>
+  ${strengths.length ? `<div><div class="n">${strengths.length}</div><div class="l">strengths</div></div>` : ''}
+</div>
+<div class="note">The same findings appear on their axis and surface pages. This is one record reached by a different question &mdash; not a second copy, and nothing here is scored separately.</div>
+
+<h2>Findings</h2>
+<div data-section>
+${problems.length ? problems.map(findingCard).join('\n') : '<p class="empty">Nothing in this area.</p>'}
+</div>
+${strengths.length ? `<h2>Working well</h2><div data-section>${strengths.map(findingCard).join('\n')}</div>` : ''}`;
+
+  return layout({ title: OWNER_LABELS[page.owner], site: model.site, nav: navFor(model, page.slug), body, generatedAt: model.generatedAt });
 }

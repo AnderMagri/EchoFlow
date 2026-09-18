@@ -27,7 +27,9 @@ import { homedir, tmpdir } from 'node:os';
 import { analyze } from '../core/analyze.js';
 import { buildBundle } from '../core/wiki/bundle.js';
 import { DIMENSIONS } from '../core/dimensions.js';
-import { BASIS_LABELS, BASIS_NOTE, priorityBand, effortLabel } from '../core/finding.js';
+import {
+  BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS, priorityBand, effortLabel,
+} from '../core/finding.js';
 import { collectPages } from '../analyzer/src/collect/browser.js';
 import { discoverPages } from '../analyzer/src/collect/discover.js';
 import { collectSiteSignals } from '../analyzer/src/collect/retrieval.js';
@@ -54,6 +56,7 @@ const summariseFinding = (f) => ({
   id: f.id,
   title: f.title,
   axis: f.axis,
+  owner: f.owner,
   surface: f.surface,
   priority: f.priority,
   band: priorityBand(f.priority),
@@ -146,8 +149,11 @@ server.registerTool('echoflow_analyze', {
   const text = [
     verdictText(analysis),
     '',
+    'By owner: ' + ['design', 'marketing', 'engineering']
+      .map((o) => `${OWNER_LABELS[o]} ${analysis.findings.filter((f) => f.owner === o).length}`).join(' · '),
+    '',
     'Top findings:',
-    ...top.map((f, i) => `${i + 1}. [${f.priority}] ${f.title} (${f.axis}, ${f.basis})`),
+    ...top.map((f, i) => `${i + 1}. [${f.priority}] ${f.title} (${OWNER_LABELS[f.owner]}, ${f.basis})`),
     '',
     `Bundle: ${dest}`,
     `  report  ${dest}/site/index.html`,
@@ -166,6 +172,8 @@ server.registerTool('echoflow_analyze', {
     byAxis: analysis.consistency.byAxis,
     byGroup: Object.fromEntries(Object.entries(analysis.consistency.byGroup).map(([k, v]) => [k, v.score])),
     findingCount: analysis.findings.length,
+    byOwner: Object.fromEntries(['design', 'marketing', 'engineering']
+      .map((o) => [o, analysis.findings.filter((f) => f.owner === o).length])),
     topFindings: top.map(summariseFinding),
     notAssessed: analysis.notAssessed,
     bundlePath: dest,
@@ -177,19 +185,22 @@ server.registerTool('echoflow_findings', {
   description:
     'Filter the findings of a completed audit. Returns one line per finding, not full records — '
     + 'use echoflow_finding with an id for the evidence and recommendation. '
-    + 'Filter by axis, surface, severity band, or basis (prescriptive = a cited standard, '
-    + 'practice = convention, directional = an effect seen elsewhere).',
+    + 'Filter by axis, surface, severity band, owner, or basis (prescriptive = a cited standard, '
+    + 'practice = convention, directional = an effect seen elsewhere). '
+    + 'Filter by owner to get one team\u2019s work: the axes say what kind of problem it is, owner says whose it is.',
   inputSchema: {
     bundle: z.string().describe('Bundle directory or path to data/analysis.json, as returned by echoflow_analyze.'),
     axis: z.enum(['design', 'ux', 'engine']).optional(),
     surface: z.string().optional().describe('site, home, plp, pdp, cart, checkout, search, account, content'),
     band: z.enum(['critical', 'high', 'medium', 'low']).optional(),
     basis: z.enum(['prescriptive', 'practice', 'directional']).optional(),
+    owner: z.enum(['design', 'marketing', 'engineering']).optional()
+      .describe('Who owns the fix. marketing = copy, structured data, metadata, crawler access, persuasion patterns. engineering = rendering, apps, performance, markup correctness. design = layout, type, colour, components.'),
     kind: z.enum(['finding', 'meta', 'strength']).optional(),
     limit: z.number().int().min(1).max(100).default(25),
   },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-}, async ({ bundle, axis, surface, band, basis, kind, limit }) => {
+}, async ({ bundle, axis, surface, band, basis, owner, kind, limit }) => {
   let analysis;
   try { analysis = await loadBundle(bundle); } catch (e) {
     return fail(`Could not read a bundle at ${bundle}: ${e.message}`,
@@ -201,12 +212,13 @@ server.registerTool('echoflow_findings', {
   if (surface) fs = fs.filter((f) => f.surface === surface);
   if (band) fs = fs.filter((f) => priorityBand(f.priority) === band);
   if (basis) fs = fs.filter((f) => f.basis === basis);
+  if (owner) fs = fs.filter((f) => f.owner === owner);
   if (kind) fs = fs.filter((f) => f.kind === kind);
 
   const shown = fs.slice(0, limit);
   const text = shown.length
     ? [`${fs.length} matching finding${fs.length === 1 ? '' : 's'}${fs.length > limit ? `, showing ${limit}` : ''}:`, '',
-      ...shown.map((f) => `[${String(f.priority).padStart(3)}] ${f.id}\n      ${f.title}\n      ${f.axis} · ${f.surface} · ${BASIS_LABELS[f.basis]}`)].join('\n')
+      ...shown.map((f) => `[${String(f.priority).padStart(3)}] ${f.id}\n      ${f.title}\n      ${OWNER_LABELS[f.owner]} · ${f.axis} · ${f.surface} · ${BASIS_LABELS[f.basis]}`)].join('\n')
     : 'No findings match that filter.';
 
   return reply(text, { total: fs.length, shown: shown.length, findings: shown.map(summariseFinding) });
@@ -337,6 +349,9 @@ server.registerTool('echoflow_explain', {
     '',
     'Claims carry a basis:',
     ...Object.entries(BASIS_NOTE).map(([k, v]) => `  ${BASIS_LABELS[k]} — ${v}`),
+    '',
+    'Findings also carry an owner — who decides the fix, not who types it:',
+    ...Object.entries(OWNER_BRIEF).map(([k, v]) => `  ${OWNER_LABELS[k]} — ${v}`),
     '',
     `Dimensions (${dims.length}):`,
     ...dims.map((d) => `  ${d.axis.padEnd(7)} ${d.group.padEnd(12)} ${d.key.padEnd(18)} ${d.scope.padEnd(12)} ${d.question}`),

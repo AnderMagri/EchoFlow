@@ -15,7 +15,10 @@ import {
   aggregate, colorCoherence, crossPageAgreement, rhythmAdherence,
   splitColorEntries, TOLERANCES, vocabularyCoherence, exactDistance,
 } from '../core/consistency.js';
-import { createFinding, effortLabel, priorityBand, rank, dedupe, forClient } from '../core/finding.js';
+import {
+  createFinding, effortLabel, priorityBand, rank, dedupe, forClient,
+  byOwner, ownerFor, OWNERS,
+} from '../core/finding.js';
 import { inferSurface, normalizeObservation, flattenLayout, sectionSkeleton } from '../core/observation.js';
 import { analyze } from '../core/analyze.js';
 import { buildBundle } from '../core/wiki/bundle.js';
@@ -589,6 +592,77 @@ t('there are still exactly three axes', () => {
   eq(Object.keys(r.consistency.byAxis).sort().join(','), 'design,engine,ux');
 });
 
+// --- ownership --------------------------------------------------------------
+
+t('every finding has a valid owner', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  for (const f of r.findings) {
+    ok(OWNERS.includes(f.owner), `${f.checkId} has owner "${f.owner}"`);
+  }
+});
+
+t('the Engine axis splits across two owners — that is the whole point', () => {
+  // "third-party script set differs" and "no meta description" are both Engine
+  // and are fixed by different people. If they land with the same owner, the
+  // split has stopped doing its job.
+  eq(ownerFor('engine-app-drift', 'engine'), 'engineering');
+  eq(ownerFor('engine-perf-variance', 'engine'), 'engineering');
+  eq(ownerFor('engine-missing-description', 'engine'), 'marketing');
+  eq(ownerFor('engine-no-structured-data', 'engine'), 'marketing');
+  eq(ownerFor('engine-ai-crawlers-blocked', 'engine'), 'marketing');
+});
+
+t('implementation bugs go to engineering even when the topic is marketing', () => {
+  // Structured data is decided by marketing; a JSON-LD block that will not
+  // parse is a Liquid escaping bug and nobody in marketing can fix it.
+  eq(ownerFor('engine-malformed-jsonld', 'engine'), 'engineering');
+  eq(ownerFor('engine-content-requires-js-pdp', 'engine'), 'engineering');
+  eq(ownerFor('engine-schema-drift-pdp', 'engine'), 'marketing');
+});
+
+t('dark patterns and copy belong to marketing, not design', () => {
+  for (const id of ['ux-confirmshaming', 'ux-pre-checked-optin', 'ux-urgency-pressure',
+    'ux-cta-drift', 'ux-price-format-drift', 'ux-missing-alt']) {
+    eq(ownerFor(id, 'ux'), 'marketing', id);
+  }
+});
+
+t('meta-findings are owned by topic, not by whichever axis scored worst', () => {
+  // A meta-finding takes its axis from the lowest-scoring axis, which says
+  // nothing about who fixes it.
+  eq(ownerFor('meta-weight-is-apps', 'design'), 'engineering');
+  eq(ownerFor('meta-weight-is-apps', 'ux'), 'engineering');
+  eq(ownerFor('meta-promise-gap', 'engine'), 'design');
+});
+
+t('owner is a tag, not a hierarchy — no owner is scored', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  ok(!r.consistency.byOwner, 'there must be no per-owner score');
+  const keys = Object.keys(r.consistency);
+  ok(!keys.some((k) => /owner/i.test(k)), `consistency must not mention owners, has: ${keys.join(',')}`);
+});
+
+t('owner pages are linked views, not copies', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(r);
+  const ownerPages = Object.keys(files).filter((f) => /^pages\/for-/.test(f));
+  ok(ownerPages.length >= 2, `expected owner pages, got ${ownerPages.join(',')}`);
+
+  // Every finding appears exactly once in findings/, however many views cite it.
+  const findingFiles = Object.keys(files).filter((f) => f.startsWith('findings/'));
+  eq(findingFiles.length, r.findings.length, 'one file per finding regardless of how many pages link it');
+
+  const manifest = JSON.parse(files['manifest.json']);
+  const total = Object.values(manifest.byOwner).reduce((a, b) => a + b, 0);
+  eq(total, r.findings.length, 'the owner split partitions the pile exactly — no finding in two lists, none missing');
+});
+
+t('byOwner partitions the findings with no overlap', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const counts = OWNERS.map((o) => byOwner(r.findings, o).length);
+  eq(counts.reduce((a, b) => a + b, 0), r.findings.length);
+});
+
 // --- report ----------------------------------------------------------------
 
 t('a contrast failure in the token seed becomes a Finding', () => {
@@ -712,6 +786,77 @@ t('a two-viewport run does not double-count CTA wording', () => {
   const two = analyze({ observations: withMobile, site: 't' });
   const pagesOf = (r) => r.consistency.dimensions.find((d) => d.key === 'cta-language')?.detail?.pages;
   eq(pagesOf(two), pagesOf(one), 'wording is compared once per URL, not once per render');
+});
+
+// --- ownership --------------------------------------------------------------
+
+t('every finding has a valid owner', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  for (const f of r.findings) {
+    ok(OWNERS.includes(f.owner), `${f.checkId} has owner "${f.owner}"`);
+  }
+});
+
+t('the Engine axis splits across two owners — that is the whole point', () => {
+  // "third-party script set differs" and "no meta description" are both Engine
+  // and are fixed by different people. If they land with the same owner, the
+  // split has stopped doing its job.
+  eq(ownerFor('engine-app-drift', 'engine'), 'engineering');
+  eq(ownerFor('engine-perf-variance', 'engine'), 'engineering');
+  eq(ownerFor('engine-missing-description', 'engine'), 'marketing');
+  eq(ownerFor('engine-no-structured-data', 'engine'), 'marketing');
+  eq(ownerFor('engine-ai-crawlers-blocked', 'engine'), 'marketing');
+});
+
+t('implementation bugs go to engineering even when the topic is marketing', () => {
+  // Structured data is decided by marketing; a JSON-LD block that will not
+  // parse is a Liquid escaping bug and nobody in marketing can fix it.
+  eq(ownerFor('engine-malformed-jsonld', 'engine'), 'engineering');
+  eq(ownerFor('engine-content-requires-js-pdp', 'engine'), 'engineering');
+  eq(ownerFor('engine-schema-drift-pdp', 'engine'), 'marketing');
+});
+
+t('dark patterns and copy belong to marketing, not design', () => {
+  for (const id of ['ux-confirmshaming', 'ux-pre-checked-optin', 'ux-urgency-pressure',
+    'ux-cta-drift', 'ux-price-format-drift', 'ux-missing-alt']) {
+    eq(ownerFor(id, 'ux'), 'marketing', id);
+  }
+});
+
+t('meta-findings are owned by topic, not by whichever axis scored worst', () => {
+  // A meta-finding takes its axis from the lowest-scoring axis, which says
+  // nothing about who fixes it.
+  eq(ownerFor('meta-weight-is-apps', 'design'), 'engineering');
+  eq(ownerFor('meta-weight-is-apps', 'ux'), 'engineering');
+  eq(ownerFor('meta-promise-gap', 'engine'), 'design');
+});
+
+t('owner is a tag, not a hierarchy — no owner is scored', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  ok(!r.consistency.byOwner, 'there must be no per-owner score');
+  const keys = Object.keys(r.consistency);
+  ok(!keys.some((k) => /owner/i.test(k)), `consistency must not mention owners, has: ${keys.join(',')}`);
+});
+
+t('owner pages are linked views, not copies', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(r);
+  const ownerPages = Object.keys(files).filter((f) => /^pages\/for-/.test(f));
+  ok(ownerPages.length >= 2, `expected owner pages, got ${ownerPages.join(',')}`);
+
+  // Every finding appears exactly once in findings/, however many views cite it.
+  const findingFiles = Object.keys(files).filter((f) => f.startsWith('findings/'));
+  eq(findingFiles.length, r.findings.length, 'one file per finding regardless of how many pages link it');
+
+  const manifest = JSON.parse(files['manifest.json']);
+  const total = Object.values(manifest.byOwner).reduce((a, b) => a + b, 0);
+  eq(total, r.findings.length, 'the owner split partitions the pile exactly — no finding in two lists, none missing');
+});
+
+t('byOwner partitions the findings with no overlap', () => {
+  const r = analyze({ observations: messySite(), site: 'm' });
+  const counts = OWNERS.map((o) => byOwner(r.findings, o).length);
+  eq(counts.reduce((a, b) => a + b, 0), r.findings.length);
 });
 
 // --- report ----------------------------------------------------------------

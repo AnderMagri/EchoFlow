@@ -19,12 +19,14 @@
 
 import { atDensity, buildWikiModel } from './model.js';
 import {
-  renderAxisPage, renderFinding, renderIndex, renderSurfacePage, renderTokensPage,
+  renderAxisPage, renderFinding, renderIndex, renderOwnerPage, renderSurfacePage,
+  renderTokensPage,
 } from './render-md.js';
 import {
-  WIKI_CSS, WIKI_JS, renderAxisHTML, renderIndexHTML, renderSurfaceHTML, renderTokensHTML,
+  WIKI_CSS, WIKI_JS, renderAxisHTML, renderIndexHTML, renderOwnerHTML,
+  renderSurfaceHTML, renderTokensHTML,
 } from './render-html.js';
-import { AXIS_LABELS } from '../finding.js';
+import { AXIS_LABELS, OWNER_LABELS } from '../finding.js';
 import { STRUCTURE_CSS, STRUCTURE_JS, renderStructureHTML } from './render-structure.js';
 import { sectionSkeleton } from '../observation.js';
 
@@ -67,6 +69,7 @@ export function buildBundle(analysis) {
   files['pages/index.md'] = renderIndex(model);
   for (const page of model.pages) {
     if (page.kind === 'axis') files[`pages/${page.slug}.md`] = renderAxisPage(page, model);
+    else if (page.kind === 'owner') files[`pages/${page.slug}.md`] = renderOwnerPage(page, model);
     else if (page.kind === 'surface') files[`pages/${page.slug}.md`] = renderSurfacePage(page, model);
     else if (page.kind === 'tokens') files['pages/tokens.md'] = renderTokensPage(model);
   }
@@ -77,6 +80,7 @@ export function buildBundle(analysis) {
   files['site/index.html'] = renderIndexHTML(model);
   for (const page of model.pages) {
     if (page.kind === 'axis') files[`site/${page.slug}.html`] = renderAxisHTML(page, model);
+    else if (page.kind === 'owner') files[`site/${page.slug}.html`] = renderOwnerHTML(page, model);
     else if (page.kind === 'surface') files[`site/${page.slug}.html`] = renderSurfaceHTML(page, model);
     else if (page.kind === 'tokens') files['site/tokens.html'] = renderTokensHTML(model);
   }
@@ -114,6 +118,7 @@ export function buildBundle(analysis) {
     for (const page of model.pages) {
       const nav = navWithStructure(model, structurePages, page.slug);
       if (page.kind === 'axis') files[`site/${page.slug}.html`] = withNav(renderAxisHTML(page, model), nav);
+      else if (page.kind === 'owner') files[`site/${page.slug}.html`] = withNav(renderOwnerHTML(page, model), nav);
       else if (page.kind === 'surface') files[`site/${page.slug}.html`] = withNav(renderSurfaceHTML(page, model), nav);
       else if (page.kind === 'tokens') files['site/tokens.html'] = withNav(renderTokensHTML(model), nav);
     }
@@ -135,7 +140,8 @@ const json = (o) => JSON.stringify(o, null, 2) + '\n';
 function navWithStructure(model, structurePages, current) {
   const items = [['index', 'Verdict'],
     ...model.pages.filter((p) => p.slug !== 'index')
-      .map((p) => [p.slug, p.kind === 'axis' ? AXIS_LABELS[p.axis] : p.title]),
+      .map((p) => [p.slug, p.kind === 'axis' ? AXIS_LABELS[p.axis]
+        : p.kind === 'owner' ? `For ${OWNER_LABELS[p.owner].toLowerCase()}` : p.title]),
     ...structurePages.map((p) => [p.slug, `Structure: ${p.surface.toUpperCase()}`])];
   return items.map(([slug, label]) =>
     `<a href="${slug}.html"${slug === current ? ' aria-current="page"' : ''}>${escapeHtml(label)}</a>`).join('');
@@ -213,6 +219,8 @@ function buildManifest(model, files) {
       skipped: model.consistency.skipped,
     },
     counts: model.stats,
+    byOwner: Object.fromEntries(['design', 'marketing', 'engineering'].map((o) => [o,
+      model.findings.filter((f) => f.owner === o).length])),
     entrypoints: {
       humans: 'site/index.html',
       agents: 'pages/index.md',
@@ -221,7 +229,7 @@ function buildManifest(model, files) {
     },
     findings: model.findings.map((f) => ({
       id: f.id, file: `findings/${f.id}.md`, title: f.title,
-      axis: f.axis, surface: f.surface, kind: f.kind,
+      axis: f.axis, owner: f.owner, surface: f.surface, kind: f.kind,
       impact: f.impact, effort: f.effort, priority: f.priority,
     })),
     files: Object.keys(files).sort(),

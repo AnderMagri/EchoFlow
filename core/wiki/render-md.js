@@ -15,7 +15,10 @@
  * @module core/wiki/render-md
  */
 
-import { AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, SURFACE_LABELS, effortLabel, priorityBand } from '../finding.js';
+import {
+  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS,
+  SURFACE_LABELS, effortLabel, priorityBand,
+} from '../finding.js';
 import { GRADE_COPY } from '../consistency.js';
 
 const yamlValue = (v) => {
@@ -52,6 +55,7 @@ export function renderFinding(f) {
     surface: f.surface,
     scope: f.scope,
     basis: f.basis,
+    owner: f.owner,
     citation: f.citation || undefined,
     impact: f.impact,
     effort: f.effort,
@@ -146,7 +150,8 @@ export function renderIndex(model) {
     '',
     '## Pages',
     '',
-    ...model.pages.filter((p) => p.slug !== 'index').map((p) => `- [${p.title}](./${p.slug}.md)`),
+    ...model.pages.filter((p) => p.slug !== 'index')
+      .map((p) => `- [${p.kind === 'owner' ? `For ${p.title.toLowerCase()}` : p.title}](./${p.slug}.md)`),
     '',
   ].join('\n');
 }
@@ -292,4 +297,37 @@ export function renderTokensPage(model) {
     '```',
     '',
   ].filter(Boolean).join('\n');
+}
+
+
+/**
+ * An owner page — "is this mine", answered over the same pile of findings.
+ */
+export function renderOwnerPage(page, model) {
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const bands = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of findings) if (f.kind !== 'strength') bands[priorityBand(f.priority)]++;
+
+  return frontMatter({
+    type: 'owner',
+    owner: page.owner,
+    site: model.site,
+    findings_count: findings.length,
+    critical: bands.critical,
+    high: bands.high,
+  }) + [
+    `# ${OWNER_LABELS[page.owner]}`,
+    '',
+    OWNER_BRIEF[page.owner],
+    '',
+    `${findings.length} finding${findings.length === 1 ? '' : 's'} \u2014 ${bands.critical} critical, ${bands.high} high.`,
+    '',
+    '_The same findings appear on their axis and surface pages. This is the same record reached by a different question, not a second copy._',
+    '',
+    '| Priority | Finding | Basis | Where |',
+    '|---|---|---|---|',
+    ...findings.map((f) =>
+      `| ${f.kind === 'strength' ? 'strength' : f.priority} | [${f.title}](../findings/${f.id}.md) | ${BASIS_LABELS[f.basis]} | ${SURFACE_LABELS[f.surface] || f.surface} |`),
+    '',
+  ].join('\n');
 }

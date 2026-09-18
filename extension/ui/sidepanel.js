@@ -17,7 +17,9 @@
 import { analyze } from '../core/analyze.js';
 import { collectFromDocument } from '../core/collect-dom.js';
 import { inferSurface, sectionSkeleton, flattenLayout } from '../core/observation.js';
-import { effortLabel, priorityBand, SURFACE_LABELS } from '../core/finding.js';
+import {
+  OWNERS, OWNER_BRIEF, OWNER_LABELS, effortLabel, priorityBand, SURFACE_LABELS,
+} from '../core/finding.js';
 import { buildBundle } from '../core/wiki/bundle.js';
 import { toggleOverlay } from '../content/overlay.js';
 import { createZip } from '../lib/zip.js';
@@ -322,20 +324,38 @@ async function verifySpecimens() {
   }
 }
 
+const findingRow = (f) => {
+  const band = f.kind === 'strength' ? 'strength' : priorityBand(f.priority);
+  return `<div class="f ${band}">
+    <div class="p">${f.kind === 'strength' ? '&#10003;' : f.priority}</div>
+    <div>
+      <div class="t">${esc(f.title)}</div>
+      <div class="r">${esc(f.recommendation)}</div>
+      <div class="m"><span class="band">${esc(band)}</span> · ${esc(f.axis)} · impact ${f.impact} · ${esc(effortLabel(f.effort))} fix · ${esc(SURFACE_LABELS[f.surface] || f.surface)}</div>
+    </div></div>`;
+};
+
+/**
+ * Findings grouped by who owns the fix.
+ *
+ * The axes answer "what kind of problem is this"; a reader also needs "is this
+ * mine". Engine mixed both badly — "third-party script set differs" and "no
+ * meta description" sat next to each other, and different people fix them.
+ */
 function renderFindings() {
   const fs = current.findings;
-  out.innerHTML = scoreBlock() + `<h3>Findings <span>${fs.length}</span></h3>` + (fs.length
-    ? fs.map((f) => {
-      const band = priorityBand(f.priority);
-      return `<div class="f ${band}">
-        <div class="p">${f.priority}</div>
-        <div>
-          <div class="t">${esc(f.title)}</div>
-          <div class="r">${esc(f.recommendation)}</div>
-          <div class="m"><span class="band">${band}</span> · ${esc(f.axis)} · impact ${f.impact} · ${esc(effortLabel(f.effort))} fix · ${esc(SURFACE_LABELS[f.surface] || f.surface)}</div>
-        </div></div>`;
-    }).join('')
-    : '<div class="empty">Nothing found at this scope.</div>');
+  if (!fs.length) { out.innerHTML = scoreBlock() + '<div class="empty">Nothing found at this scope.</div>'; return; }
+
+  const sections = OWNERS.map((owner) => {
+    const mine = fs.filter((f) => f.owner === owner);
+    if (!mine.length) return '';
+    const critical = mine.filter((f) => f.kind !== 'strength' && priorityBand(f.priority) === 'critical').length;
+    return `<h3>${esc(OWNER_LABELS[owner])} <span>${mine.length}${critical ? ` · ${critical} critical` : ''}</span></h3>
+      <p class="legend">${esc(OWNER_BRIEF[owner])}</p>
+      ${mine.map(findingRow).join('')}`;
+  }).join('');
+
+  out.innerHTML = scoreBlock() + sections;
 }
 
 function renderStructure() {
