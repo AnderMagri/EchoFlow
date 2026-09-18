@@ -182,6 +182,13 @@ export function normalizeObservation(raw) {
       static: null,
       ...(raw.retrieval || {}),
     },
+    operability: {
+      addToCart: null, variant: null, quantity: null,
+      forms: { total: 0, withAutocomplete: 0, withName: 0 },
+      controls: { real: 0, opaque: 0 },
+      cartLink: false, canvasInMain: 0, draggable: 0,
+      ...(raw.operability || {}),
+    },
     darkPatterns: {
       confirmshaming: [], preCheckedOptIns: [], urgency: [], countdownTimers: 0,
       hardToLeave: [], lateCosts: [], disguisedAds: 0, ...(raw.darkPatterns || {}),

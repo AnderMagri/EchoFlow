@@ -41,6 +41,12 @@ and the report never lets one borrow the authority of another. A `prescriptive`
 finding cannot exist without a citation — the schema rejects it. Full provenance
 for every threshold is in [`docs/REFERENCE.md`](docs/REFERENCE.md).
 
+**It checks whether an agent could actually buy.** Not just whether a model can
+read the page — whether the buy path is completable without executing it: a real
+`POST` form to `/cart/add`, a variant id in a submittable field, `autocomplete`
+tokens on checkout fields. Reported as the step where an agent stops, because
+that is how it fails.
+
 **It checks whether a machine can actually answer.** Beyond "is the schema
 there", it resolves the questions a buyer asks — name, price, currency,
 availability — from the payload a non-JS crawler receives, and counts a
@@ -195,6 +201,8 @@ core/          zero-dependency ESM. Runs in Node AND the browser.
   checks-patterns.js manipulative patterns, mechanically detected
   checks-retrieval.js machine readability — structured data, crawlers, no-JS survival
   answerability.js   can a machine recover the facts a buyer asks about?
+  operability.js     can an agent complete the buy path without executing the page?
+  parity.js          does the page tell a machine what it tells a person?
   synthesis.js       cross-axis meta-findings
   tokens.js          the design system seed
   collect-dom.js     the DOM collector (shared by both collectors)
@@ -214,6 +222,6 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js        # 102 tests — core, calibration, checks, retrieval, parity, bundle
+node test/run.js        # 113 tests — core, calibration, retrieval, parity, operability, bundle
 cd mcp && node test.mjs # MCP protocol surface
 ```

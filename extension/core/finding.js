@@ -230,6 +230,8 @@ function ownerFor(checkId, axis) {
     'engine-lcp', 'engine-cls', 'engine-page-weight', 'engine-eager-images',
     'engine-app-drift', 'engine-perf-variance', 'engine-section-sprawl',
     'engine-malformed-jsonld', 'engine-content-requires-js', 'engine-no-lang',
+    'engine-agent-blocked-', 'engine-agent-degraded', 'engine-opaque-controls',
+    'engine-json-endpoints-closed', 'strength-agent-operable',
     'strength-server-rendered',
   ];
 

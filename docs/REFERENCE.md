@@ -184,6 +184,43 @@ Three distinctions the check preserves:
 A question only counts against a template when it fails on **every** page of
 that type. One odd product is not a template fault.
 
+### Operability — can an agent act, or only look?
+
+Reading is where every audit tool is competing. **Acting** is what almost none
+measure, and for a storefront it is decided entirely by markup a machine can see
+without executing the page.
+
+The buy path is evaluated as **steps**, because that is how it fails. An agent
+does not get 70% of the way into a cart — it reaches the first step with no
+machine-visible affordance and stops. So the reported number is *where* it
+stops, not a percentage.
+
+| Step | `ok` | `degraded` | `blocked` |
+|---|---|---|---|
+| Identify the product | `Product` markup in the raw HTML | only an H1 | neither survives without JS |
+| Choose a variant | variant id in a submittable field, inside the form | field sits outside the form | swatches hold the selection in JS state, or options carry no value |
+| Add to cart | real `POST` form to `/cart/add` | `method="get"`, or a non-submit trigger | no form at all — a click handler with no fallback |
+| Read the cart back | `/cart.js` returns JSON | a cart page is linked but must be scraped | neither |
+| Reach checkout | ≥60% of fields declare `autocomplete` | fields have names but no tokens | neither names nor tokens |
+
+Two subtleties worth stating:
+
+- **`<option>Medium</option>` is not a selectable variant.** An option with no
+  `value` submits its own text, so the control looks selectable and still cannot
+  identify which variant to add. Counted separately from the raw option count so
+  the finding can say which of the two problems it is.
+- **A `GET` add-to-cart form is degraded, not blocked.** The form is
+  machine-visible; only the method is wrong.
+
+Also reported: the share of interactive elements that are neither `<button>` nor
+`<a>` (the same markup change closes the accessibility problem), and whether
+`/cart.js` and `/products.json` are open.
+
+**Nothing here says a storefront should be agent-operable.** That is a
+commercial decision, and closed JSON endpoints are frequently deliberate — the
+endpoint finding is priority-capped below 40 for exactly that reason. The tool
+reports where the path stops and leaves the decision alone.
+
 ### Crawler probe — stated policy vs actual behaviour
 
 `robots.txt` is a statement of intent. It is not behaviour. Storefronts behind

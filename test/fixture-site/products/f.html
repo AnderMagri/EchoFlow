@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Boot</title>
+<link rel="stylesheet" href="/_shared.css">
+<style>.sw{display:inline-block;width:44px;height:44px;border:1px solid #ccc;margin:4px;cursor:pointer}</style></head><body>
+<header><strong>FIXTURE</strong><nav><a href="/">Shop</a><a href="/pages/about.html">About</a><a href="/blogs/news.html">Blog</a><a href="/pages/contact.html">Contact</a></nav></header>
+<main>
+<section class="pdp product-main">
+<div class="gallery product__media"></div>
+<div><h1>Boot</h1><div class="price">$150.00</div>
+<!-- agent-hostile on purpose: swatches hold selection in JS, add-to-cart is a div -->
+<div class="variant-swatches">
+  <div class="sw swatch" data-variant="1">8</div>
+  <div class="sw swatch" data-variant="2">9</div>
+  <div class="sw swatch" data-variant="3">10</div>
+</div>
+<div class="btn add-to-cart" onclick="addToCart()">Add to cart</div>
+<div class="rte product__description"><p>A leather boot built for winter, waterproof and warm through the worst of it.</p></div>
+</div></section>
+</main><footer>© Fixture</footer>
+<script>let sel=null;document.querySelectorAll('.swatch').forEach(s=>s.onclick=()=>{sel=s.dataset.variant});function addToCart(){fetch('/cart/add.js',{method:'POST',body:JSON.stringify({id:sel})})}</script>
+</body></html>

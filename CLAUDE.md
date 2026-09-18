@@ -110,6 +110,15 @@ the fact, not whether a machine received it. With no static payload it returns
 `measurable: false` rather than scoring. Unresolved placeholders (`{{ price }}`)
 are NOT answers, which is the one case every field-presence check gets wrong.
 
+**Operability is measured as STEPS, not a percentage.** An agent does not get
+part-way into a cart — it stops at the first step with no machine-visible
+affordance. `core/operability.js` reports where; findings group by that step,
+because "every PDP stops at variant selection" is one template fault.
+
+**Never assert a site should be agent-operable.** That is a commercial decision.
+Report where the path stops. Closed `/cart.js` and `/products.json` are often
+deliberate, so that finding is capped below priority 40.
+
 **The probe reports disagreement, not refusal.** robots.txt permitting a crawler
 the server turns away is the finding; policy and behaviour agreeing is recorded
 at low priority. A challenge page is a refusal even with a 200 status.

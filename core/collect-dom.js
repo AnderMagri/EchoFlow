@@ -622,6 +622,101 @@ export function collectFromDocument(options) {
     navItemCount: navLinkCount,
   };
 
+  // --- operability -------------------------------------------------------
+  // Whether an AGENT could act here, not merely read. Reading is where every
+  // tool is competing; acting is the thing almost nobody measures, and it is
+  // decided entirely by markup an agent can see without running the page.
+  function controlKind(el) {
+    if (!el) return null;
+    var tag = el.tagName;
+    if (tag === 'BUTTON' || (tag === 'INPUT' && /^(submit|button)$/i.test(el.type))) return 'button';
+    if (tag === 'A' && el.hasAttribute('href')) return 'link';
+    if (el.getAttribute('role') === 'button') return 'aria-button';
+    return 'opaque';
+  }
+
+  var addForm = document.querySelector('form[action*="/cart/add"], form[action*="cart/add"]');
+  var addButton = addForm ? addForm.querySelector('button[type="submit"], input[type="submit"], [name="add"]') : null;
+
+  // Variant selection: a real control carries the variant id as a form value.
+  // A grid of divs holding the selection in JS state is invisible to anything
+  // that does not execute the page.
+  var variantControl = null;
+  var idField = document.querySelector('select[name="id"], input[name="id"]');
+  if (idField) {
+    var allOpts = idField.tagName === 'SELECT' ? idField.querySelectorAll('option') : null;
+    // An <option> with no value attribute submits its own TEXT. "Medium" is
+    // not a variant id, so the control looks selectable and still cannot
+    // identify which variant to add. Counted separately from the raw option
+    // count so the finding can say which of the two problems it is.
+    var withValue = 0;
+    if (allOpts) {
+      for (var oi = 0; oi < allOpts.length; oi++) {
+        var ov = allOpts[oi].getAttribute('value');
+        if (ov && ov.trim() && /^[0-9a-z_:-]{4,}$/i.test(ov.trim())) withValue++;
+      }
+    }
+    variantControl = {
+      kind: idField.tagName.toLowerCase(),
+      options: allOpts ? allOpts.length : 1,
+      optionsWithValue: allOpts ? withValue : (idField.getAttribute('value') ? 1 : 0),
+      inForm: !!(addForm && addForm.contains(idField)),
+      disabled: !!idField.disabled,
+    };
+  } else if (document.querySelector('[class*="swatch" i], [class*="variant" i]')) {
+    variantControl = { kind: 'opaque', options: 0, optionsWithValue: 0, inForm: false, disabled: false };
+  }
+
+  var qtyField = document.querySelector('input[name="quantity"], input[name*="quantity" i]');
+
+  // Form fields and how many declare an autocomplete token — the mechanism an
+  // agent uses to fill a checkout without guessing what each box wants.
+  var fields = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea');
+  var fieldsTotal = 0, fieldsWithAutocomplete = 0, fieldsWithName = 0;
+  for (var fi = 0; fi < fields.length; fi++) {
+    var fr = fields[fi].getBoundingClientRect();
+    var fcs = window.getComputedStyle(fields[fi]);
+    if (!isVisible(fields[fi], fcs, fr)) continue;
+    if (fields[fi].type === 'search') continue;
+    fieldsTotal++;
+    var ac = (fields[fi].getAttribute('autocomplete') || '').trim().toLowerCase();
+    if (ac && ac !== 'off' && ac !== 'on') fieldsWithAutocomplete++;
+    if (fields[fi].getAttribute('name')) fieldsWithName++;
+  }
+
+  // Things that look clickable and are not reachable without a real pointer.
+  var opaqueControls = 0, realControls = 0;
+  var clickish = document.querySelectorAll('main [class*="btn" i], main [class*="button" i], main [onclick], main [class*="swatch" i], main [class*="option" i]');
+  for (var ci = 0; ci < clickish.length && ci < 400; ci++) {
+    var ccs2 = window.getComputedStyle(clickish[ci]);
+    var cr2 = clickish[ci].getBoundingClientRect();
+    if (!isVisible(clickish[ci], ccs2, cr2)) continue;
+    if (controlKind(clickish[ci]) === 'opaque') opaqueControls++; else realControls++;
+  }
+
+  var operability = {
+    addToCart: addForm ? {
+      present: true,
+      method: (addForm.getAttribute('method') || 'get').toLowerCase(),
+      action: addForm.getAttribute('action'),
+      submitKind: controlKind(addButton),
+      submitDisabled: !!(addButton && (addButton.disabled || addButton.getAttribute('aria-disabled') === 'true')),
+    } : {
+      present: false,
+      // No form at all, but something calls itself an add-to-cart — a click
+      // handler with no submittable fallback.
+      jsOnlyCandidate: !!document.querySelector('[class*="add-to-cart" i], [class*="addtocart" i], [name="add"]'),
+    },
+    variant: variantControl,
+    quantity: qtyField ? { kind: qtyField.tagName.toLowerCase(), name: qtyField.getAttribute('name') } : null,
+    forms: { total: fieldsTotal, withAutocomplete: fieldsWithAutocomplete, withName: fieldsWithName },
+    controls: { real: realControls, opaque: opaqueControls },
+    cartLink: !!document.querySelector('a[href="/cart"], a[href$="/cart"], a[href*="/cart?"]'),
+    // Interactions an agent cannot perform.
+    canvasInMain: document.querySelectorAll('main canvas').length,
+    draggable: document.querySelectorAll('[draggable="true"]').length,
+  };
+
   // --- dark patterns -----------------------------------------------------
   // All of these are mechanical: text matching and DOM state, no judgement.
   // Each records EVIDENCE (the actual string, the actual element) so a human
@@ -920,6 +1015,7 @@ export function collectFromDocument(options) {
     },
     geometry: geometry,
     retrieval: retrieval,
+    operability: operability,
     darkPatterns: darkPatterns,
     layout: layout,
     collectedAt: Date.now(),

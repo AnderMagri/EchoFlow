@@ -204,6 +204,44 @@ export async function compareStatic(url, rendered) {
 }
 
 /**
+ * The JSON surface a storefront exposes.
+ *
+ * Agents reach for these before they scrape HTML: /cart.js to read cart state,
+ * /products.json to enumerate the catalogue. Whether they are open is partly a
+ * commercial decision and partly an accident of theme configuration, so this
+ * reports what is there rather than what ought to be.
+ *
+ * @param {string} origin
+ */
+export async function fetchEndpoints(origin) {
+  const probe = async (path) => {
+    try {
+      const res = await fetch(new URL(path, origin).href, { headers: { 'user-agent': UA } });
+      const type = (res.headers.get('content-type') || '').split(';')[0];
+      if (!res.ok) return { ok: false, status: res.status, path };
+      const body = await res.text();
+      let parsed = null;
+      try { parsed = JSON.parse(body); } catch { /* served HTML, or an app shell */ }
+      return {
+        ok: !!parsed && /json/i.test(type),
+        status: res.status,
+        contentType: type,
+        path,
+        // A soft-404 returning the storefront HTML with a 200 is common, and
+        // must not read as "the endpoint works".
+        servedHtml: !parsed,
+        items: Array.isArray(parsed?.products) ? parsed.products.length : undefined,
+      };
+    } catch (e) {
+      return { ok: false, status: null, path, error: (e.message || 'failed').slice(0, 60) };
+    }
+  };
+
+  const [cartJson, productsJson] = await Promise.all([probe('/cart.js'), probe('/products.json')]);
+  return { cartJson, productsJson };
+}
+
+/**
  * Everything that is true of the site rather than of one page.
  *
  * @param {string} origin
@@ -218,11 +256,14 @@ export async function collectSiteSignals(origin, log = () => {}, opts = {}) {
   if (robots.present) log(`  robots.txt: ${blocked.length} AI crawler(s) blocked of ${Object.keys(robots.agents).length}`);
   else log('  robots.txt: not found');
 
+  const endpoints = await fetchEndpoints(origin);
+  log(`  endpoints: /cart.js ${endpoints.cartJson.ok ? 'open' : 'not available'} · /products.json ${endpoints.productsJson.ok ? 'open' : 'not available'}`);
+
   let probe = null;
   if (opts.probeUrls?.length) {
     const { probeCrawlers } = await import('./probe.js');
     probe = await probeCrawlers({ urls: opts.probeUrls, log });
   }
 
-  return { robots, llmsTxt, probe, origin };
+  return { robots, llmsTxt, probe, endpoints, origin };
 }

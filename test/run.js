@@ -23,6 +23,7 @@ import { inferSurface, normalizeObservation, flattenLayout, sectionSkeleton } fr
 import { analyze } from '../core/analyze.js';
 import { evaluateAnswerability } from '../core/answerability.js';
 import { evaluateParity } from '../core/parity.js';
+import { evaluateOperability } from '../core/operability.js';
 import { buildBundle } from '../core/wiki/bundle.js';
 import { cleanSite, messySite } from './fixtures.js';
 
@@ -927,6 +928,141 @@ t('START HERE is self-contained and links into report/', () => {
   for (const m of start.matchAll(/href="(report\/[^"]+)"/g)) {
     ok(files[m[1]], `START HERE links to a file that exists: ${m[1]}`);
   }
+});
+
+// --- operability ------------------------------------------------------------
+
+const opObs = (operability, staticJsonLd = [{ '@type': 'Product', name: 'Runner' }]) => ({
+  ...messySite()[0], surface: 'pdp', url: 'https://s.com/products/x',
+  operability: {
+    addToCart: null, variant: null, quantity: null,
+    forms: { total: 0, withAutocomplete: 0, withName: 0 },
+    controls: { real: 4, opaque: 0 }, cartLink: false, canvasInMain: 0, draggable: 0,
+    ...operability,
+  },
+  retrieval: {
+    jsonLd: [], jsonLdTypes: [], jsonLdErrors: [], title: 'R', metaDescription: null,
+    canonical: null, h1Count: 1, h1Text: ['Runner'], contentRatio: 0.8, questionHeadings: 0,
+    hasFaqSchema: false, lang: 'en', mainTextLength: 800, totalTextLength: 1000, rendered: null,
+    static: { fetched: true, textRatio: 1, h1InStatic: true, jsonLdTypesInStatic: ['Product'],
+      jsonLdOnlyAfterJs: [], payload: { jsonLd: staticJsonLd, text: '', title: 'R', metaDescription: null } },
+  },
+});
+
+const OPEN_CART = { endpoints: { cartJson: { ok: true }, productsJson: { ok: true } } };
+
+t('a real POST form with submittable variant ids is operable', () => {
+  const r = evaluateOperability(opObs({
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button', submitDisabled: false },
+    variant: { kind: 'select', options: 3, optionsWithValue: 3, inForm: true, disabled: false },
+    forms: { total: 2, withAutocomplete: 2, withName: 2 },
+  }), OPEN_CART);
+  eq(r.operable, true, `blocked at: ${r.stopsAt?.label}`);
+  eq(r.blocked, 0);
+  eq(r.degraded, 0);
+});
+
+t('swatches holding the variant in JS state block the path', () => {
+  const r = evaluateOperability(opObs({
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' },
+    variant: { kind: 'opaque', options: 0, optionsWithValue: 0, inForm: false, disabled: false },
+  }), OPEN_CART);
+  eq(r.stopsAt.id, 'select-variant');
+  ok(/JavaScript state/i.test(r.stopsAt.detail));
+});
+
+t('options with no value attribute do not count as selectable variants', () => {
+  // <option>Medium</option> submits "Medium", which identifies no variant.
+  const r = evaluateOperability(opObs({
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' },
+    variant: { kind: 'select', options: 3, optionsWithValue: 0, inForm: true, disabled: false },
+  }), OPEN_CART);
+  eq(r.stopsAt.id, 'select-variant');
+  ok(/submits its own label/i.test(r.stopsAt.detail), 'and must explain why');
+});
+
+t('an add-to-cart with no form at all is blocked, not degraded', () => {
+  const r = evaluateOperability(opObs({
+    addToCart: { present: false, jsOnlyCandidate: true },
+    variant: null,
+  }), OPEN_CART);
+  const step = r.steps.find((s) => s.id === 'add-to-cart');
+  eq(step.state, 'blocked');
+  ok(/no submittable fallback/i.test(step.detail));
+});
+
+t('a GET add-to-cart form is degraded, not blocked', () => {
+  // The form exists and is machine-visible; the method is simply wrong.
+  const r = evaluateOperability(opObs({
+    addToCart: { present: true, method: 'get', action: '/cart/add', submitKind: 'button' },
+    variant: null,
+  }), OPEN_CART);
+  eq(r.steps.find((s) => s.id === 'add-to-cart').state, 'degraded');
+});
+
+t('a variant field outside the form is degraded — it is not submitted with it', () => {
+  const r = evaluateOperability(opObs({
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' },
+    variant: { kind: 'select', options: 2, optionsWithValue: 2, inForm: false, disabled: false },
+  }), OPEN_CART);
+  eq(r.steps.find((s) => s.id === 'select-variant').state, 'degraded');
+});
+
+t('a product with no variants does not fail variant selection', () => {
+  const r = evaluateOperability(opObs({
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' },
+    variant: null,
+  }), OPEN_CART);
+  eq(r.steps.find((s) => s.id === 'select-variant').state, 'ok');
+});
+
+t('operability findings group by WHERE the path stops', () => {
+  const blocked = {
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' },
+    variant: { kind: 'opaque', options: 0, optionsWithValue: 0, inForm: false, disabled: false },
+  };
+  const obs = [opObs(blocked), { ...opObs(blocked), url: 'https://s.com/products/y' }];
+  const fs = analyze({ observations: obs, site: 's', siteSignals: OPEN_CART }).findings;
+  const f = fs.find((x) => x.checkId === 'engine-agent-blocked-select-variant');
+  ok(f, 'one finding for the step, not one per page');
+  eq(f.evidence.pagesAffected, 2);
+  eq(f.owner, 'engineering', 'markup architecture is a developer call');
+  ok(/commercial decision/i.test(f.evidence.framing), 'must not assert the site SHOULD be agent-operable');
+});
+
+t('a fully operable buy path is reported as a strength', () => {
+  const good = {
+    addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' },
+    variant: { kind: 'select', options: 2, optionsWithValue: 2, inForm: true, disabled: false },
+    forms: { total: 2, withAutocomplete: 2, withName: 2 },
+  };
+  const fs = analyze({
+    observations: [opObs(good), { ...opObs(good), url: 'https://s.com/products/y' }],
+    site: 's', siteSignals: OPEN_CART,
+  }).findings;
+  const s = fs.find((x) => x.checkId === 'strength-agent-operable');
+  ok(s, 'an operable path must be named');
+  eq(s.kind, 'strength');
+});
+
+t('closed JSON endpoints are reported low — often deliberate', () => {
+  const f = analyze({
+    observations: [opObs({})], site: 's',
+    siteSignals: { endpoints: { cartJson: { ok: false, status: 404 }, productsJson: { ok: false, status: 404 } } },
+  }).findings.find((x) => x.checkId === 'engine-json-endpoints-closed');
+  ok(f, 'reported');
+  ok(f.priority < 40, `must not crowd real findings, got ${f.priority}`);
+  ok(/on purpose|deliberately/i.test(JSON.stringify(f.evidence) + f.recommendation));
+});
+
+t('operability does not move the consistency score', () => {
+  const good = { addToCart: { present: true, method: 'post', action: '/cart/add', submitKind: 'button' }, variant: null };
+  const bad = { addToCart: { present: false, jsOnlyCandidate: true }, variant: { kind: 'opaque', options: 0, optionsWithValue: 0 } };
+  const score = (op) => analyze({
+    observations: [opObs(op), { ...opObs(op), url: 'https://s.com/products/y' }],
+    site: 's', siteSignals: OPEN_CART,
+  }).consistency.overall;
+  eq(score(bad), score(good), 'it is a defect, not drift — the score measures consistency only');
 });
 
 // --- report ----------------------------------------------------------------

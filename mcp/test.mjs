@@ -31,7 +31,7 @@ ok(tools.every((t) => t.annotations), 'every tool declares annotations');
 ok(tools.filter((t) => t.annotations?.readOnlyHint).length === 6, 'only echoflow_analyze is non-read-only');
 
 const ex = await client.callTool({ name: 'echoflow_explain', arguments: {} });
-ok(ex.structuredContent?.dimensions?.length === 19, 'explain returns all 19 dimensions');
+ok(ex.structuredContent?.dimensions?.length === 20, 'explain returns all 20 dimensions');
 ok(/effort is INVERTED/.test(ex.content[0].text), 'explain warns about the inverted effort scale');
 
 const err = await client.callTool({ name: 'echoflow_findings', arguments: { bundle: '/does/not/exist' } });
