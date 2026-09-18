@@ -3,11 +3,14 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Shopify consistency audit — how far is this site from a clean system?",
+  "description": "Shopify consistency audit \u2014 how far is this site from a clean system?",
   "scripts": {
     "sync": "node scripts/sync-core.js",
     "test": "node test/run.js",
-    "analyze": "node analyzer/src/cli/index.js"
+    "analyze": "node analyzer/src/cli/index.js",
+    "package": "node scripts/package-extension.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

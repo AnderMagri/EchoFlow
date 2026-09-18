@@ -133,24 +133,54 @@ of JSON, so every tool summarises by default and offers a narrower query to dril
 
 ## Use it — Chrome sidebar
 
+**First install**
+
 ```bash
 node scripts/sync-core.js     # copy core/ into the extension
 ```
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick `extension/`.
+The card should read **EchoFlow 2.0 · 2.1.0**.
 
-The sidebar is the working surface: browse the client's site and analyse from
-where you are. Three tabs —
+**Updating**
+
+```bash
+git pull
+node scripts/sync-core.js
+```
+
+Then hit the **↻ reload** icon on the EchoFlow card in `chrome://extensions`.
+No reinstall — Chrome re-reads the folder.
+
+**Handing it to someone else**
+
+```bash
+npm run package        # → dist/echoflow-extension-<version>.zip
+```
+
+Syncs core first, so a stale copy cannot ship. The zip is not committed: a
+binary in the repo goes stale the moment anyone pushes.
+
+**Using it**
+
+The sidebar is the working surface — browse the client's site and analyse from
+where you are. Three tabs:
 
 - **Design review** — the extracted system (palette, ramp, type scale, spacing
-  rhythm, radii) right in the tab, no report needed.
-- **Findings** — ranked, with recommendations.
+  rhythm, contrast warnings) with typefaces rendered in the real face.
+- **Findings** — grouped by who fixes them: design, marketing, engineering.
 - **Structure** — draws the box skeleton **on the live page**. Sections, all
   boxes, or a 12-column overlay. Scroll the site with it on.
 
-Export writes the same wiki bundle the CLI produces, as a `.zip`.
+**+ Add page** collects as you browse. Comparative checks need at least two
+pages of the same type, and the hint tells you what is still missing.
 
----
+The sidebar fetches the un-rendered HTML and `robots.txt` itself, so parity,
+answerability and the machine-readability checks work here too. It states its
+own limits: the crawler probe needs the CLI, because a browser will not let a
+page set its own User-Agent.
+
+Export writes the same bundle the CLI produces, as a `.zip`.
 
 ## The output bundle
 

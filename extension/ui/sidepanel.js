@@ -23,12 +23,17 @@ import {
 import { buildBundle } from '../core/wiki/bundle.js';
 import { toggleOverlay } from '../content/overlay.js';
 import { createZip } from '../lib/zip.js';
+import {
+  compareStatic, fetchEndpoints, fetchLlmsTxt, fetchRobots,
+} from '../core/fetch-signals.js';
 
 const $ = (s) => document.querySelector(s);
 const out = $('#out');
 
 /** @type {object[]} every page collected this session */
 let collected = [];
+/** Site-level signals — fetched once per origin, not once per page. */
+let siteSignals = null;
 let current = null;
 let tab = 'review';
 let overlayMode = 'off';
@@ -53,7 +58,36 @@ async function grab() {
   const surface = inferSurface(t.url);
   const obs = await inPage(collectFromDocument, [{ surface, viewportLabel: 'desktop' }]);
   if (!obs) throw new Error('Could not read this page. Chrome blocks extensions on chrome:// and Web Store pages.');
+
+  // The un-rendered HTML — what a crawler that does not execute JavaScript
+  // receives. The extension has host permissions, so it can ask for it directly;
+  // without this, parity and answerability report "not measurable" and the
+  // newest checks are silently absent.
+  try {
+    obs.retrieval.static = await compareStatic(t.url, obs.retrieval);
+  } catch {
+    obs.retrieval.static = { fetched: false };
+  }
   return obs;
+}
+
+/** robots.txt, llms.txt and the JSON endpoints — once per origin. */
+async function grabSiteSignals(url) {
+  let origin;
+  try { origin = new URL(url).origin; } catch { return null; }
+  if (siteSignals?.origin === origin) return siteSignals;
+  try {
+    const [robots, llmsTxt, endpoints] = await Promise.all([
+      fetchRobots(origin), fetchLlmsTxt(origin), fetchEndpoints(origin),
+    ]);
+    // No `probe` key: a browser will not let a page set its own User-Agent, so
+    // the crawler probe is analyzer-only. Its absence means those checks skip
+    // rather than report a false all-clear.
+    siteSignals = { robots, llmsTxt, endpoints, origin };
+  } catch {
+    siteSignals = null;
+  }
+  return siteSignals;
 }
 
 async function run({ append }) {
@@ -74,7 +108,11 @@ async function run({ append }) {
     const axes = [...document.querySelectorAll('#axes input:checked')].map((i) => i.value);
     if (!axes.length) throw new Error('Pick at least one axis.');
 
-    current = analyze({ observations: collected, axes, site: new URL(collected[0].url).hostname });
+    if (axes.includes('engine')) await grabSiteSignals(collected[0].url);
+    current = analyze({
+      observations: collected, axes, siteSignals,
+      site: new URL(collected[0].url).hostname,
+    });
     $('#tabs').hidden = false;
     $('#foot').hidden = false;
     renderPages();
@@ -85,6 +123,15 @@ async function run({ append }) {
     btn.disabled = false;
     btn.textContent = label;
   }
+}
+
+/** What the sidebar structurally cannot do, said once rather than implied. */
+function surfaceLimits() {
+  const bits = [];
+  if (!siteSignals) bits.push('site-level signals (robots.txt, endpoints) were not read');
+  bits.push('the crawler probe needs the CLI — a browser cannot set a User-Agent');
+  if (collected.length < 2) bits.push('comparative checks need a second page of the same type');
+  return bits;
 }
 
 function renderPages() {
@@ -261,7 +308,8 @@ function renderReview() {
     <dt>Shadows</dt><dd>${t.shadow.steps.length}</dd>
   </dl>
 
-  ${current.skipped.length ? `<div class="note"><strong>${current.skipped.length} dimension${current.skipped.length === 1 ? '' : 's'} not measured</strong> — excluded from the score, not counted as passing: ${esc(current.skipped.map((s) => s.key).join(', '))}.</div>` : ''}`;
+  ${current.skipped.length ? `<div class="note"><strong>${current.skipped.length} dimension${current.skipped.length === 1 ? '' : 's'} not measured</strong> — excluded from the score, not counted as passing: ${esc(current.skipped.map((s) => s.key).join(', '))}.</div>` : ''}
+  <div class="note"><strong>What this surface cannot do.</strong> ${esc(surfaceLimits().join('; '))}.</div>`;
 
   verifySpecimens();
 }
@@ -417,7 +465,10 @@ $('#pagelist').addEventListener('click', (e) => {
     return;
   }
   const axes = [...document.querySelectorAll('#axes input:checked')].map((i) => i.value);
-  current = analyze({ observations: collected, axes, site: new URL(collected[0].url).hostname });
+  current = analyze({
+    observations: collected, axes, siteSignals,
+    site: new URL(collected[0].url).hostname,
+  });
   renderPages();
   render();
 });

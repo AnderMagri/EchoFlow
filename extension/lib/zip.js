@@ -25,7 +25,10 @@ function crc32(bytes) {
 }
 
 /**
- * @param {Record<string,string>} files path -> text contents
+ * @param {Record<string, string|Uint8Array>} files path -> contents. Text is
+ *   encoded as UTF-8; a Uint8Array is stored verbatim, so icons and fonts
+ *   survive. Encoding bytes as text silently corrupts them, and a packaged
+ *   extension that lost its icon still loads — which is how it goes unnoticed.
  * @returns {Blob}
  */
 export function createZip(files) {
@@ -37,7 +40,7 @@ export function createZip(files) {
 
   for (const [path, text] of entries) {
     const nameBytes = encoder.encode(path);
-    const data = encoder.encode(text);
+    const data = text instanceof Uint8Array ? text : encoder.encode(text);
     const crc = crc32(data);
 
     const local = new DataView(new ArrayBuffer(30));
