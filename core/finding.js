@@ -211,7 +211,7 @@ function ownerFor(checkId, axis) {
   // Marketing decides these, whoever implements them.
   const MARKETING = [
     'engine-ai-crawlers-blocked', 'engine-no-robots-txt', 'engine-no-llms-txt',
-    'engine-crawler-blocked-at-edge', 'engine-crawler-block-confirmed',
+    'engine-crawler-blocked-at-edge', 'engine-crawler-block-confirmed', 'engine-parity-',
     'engine-no-structured-data', 'engine-missing-schema', 'engine-incomplete-product-schema',
     'engine-schema-drift', 'engine-metadata-drift', 'engine-missing-description',
     'engine-thin-content', 'engine-unmarked-faq', 'engine-h1-structure',

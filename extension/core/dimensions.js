@@ -20,6 +20,7 @@ import {
   TOKEN_BUDGETS, TOLERANCES,
 } from './consistency.js';
 import { createFinding } from './finding.js';
+import { evaluateParity, MISMATCH_CONSEQUENCE } from './parity.js';
 import {
   mergeTallies, numericTallies, TRACKED_ROLES, ANATOMY_KEYS,
   flattenLayout, sectionSkeleton,
@@ -695,6 +696,71 @@ export const DIMENSIONS = [
         evidence: { meanLcp: r.mean, stdDev: r.sd, coefficientOfVariation: r.cv, slowest: r.slowest },
         recommendation: 'Wide variance means some templates carry weight others do not. Find what the slow pages load that the fast ones skip — usually an app block or an unoptimised hero image.',
       })];
+    },
+  },
+
+  {
+    key: 'machine-parity', axis: 'engine', weight: 3, group: 'Machine parity', scope: 'extractive',
+    label: 'Machine/human parity',
+    question: 'Does the page tell a machine the same thing it tells a person?',
+    measure(ctx) {
+      // One observation per URL — both views live on the same page, and a
+      // second viewport would only weight that page twice.
+      const seen = new Set();
+      const results = ctx.observations
+        .filter((o) => !seen.has(o.url) && seen.add(o.url))
+        .map(evaluateParity)
+        .filter((r) => r.measurable);
+
+      if (!results.length) {
+        return { score: null, reason: 'needs the un-rendered HTML alongside the rendered page' };
+      }
+      const compared = results.reduce((n, r) => n + r.compared, 0);
+      const agreed = results.reduce((n, r) => n + r.agreed, 0);
+      return {
+        score: Math.round((agreed / compared) * 100),
+        compared, agreed, results,
+      };
+    },
+    findings(r) {
+      if (r.score == null) return [];
+
+      // Group by WHICH FIELD disagrees, not by page. "Price disagrees on every
+      // PDP" is one template fault; listing it per product buries it.
+      const byField = new Map();
+      for (const page of r.results) {
+        for (const m of page.mismatches) {
+          if (!byField.has(m.id)) byField.set(m.id, { field: m, pages: [] });
+          byField.get(m.id).pages.push({ url: page.url, machine: m.machine, human: m.human });
+        }
+      }
+      if (!byField.size) return [];
+
+      const SEVERITY = { price: 9, availability: 9, name: 6, currency: 6, canonical: 5, title: 4 };
+
+      return [...byField.entries()]
+        .sort((a, b) => (SEVERITY[b[0]] || 3) - (SEVERITY[a[0]] || 3))
+        .map(([id, { field, pages }]) => createFinding({
+          checkId: `engine-parity-${id}`, axis: 'engine', surface: 'site',
+          scope: 'extractive', basis: 'practice', url: pages[0].url,
+          title: `${field.label} disagrees between the structured data and the rendered page on ${pages.length} page${pages.length === 1 ? '' : 's'}`,
+          impact: SEVERITY[id] || 4,
+          // Almost always one template emitting one value while another part
+          // renders a different one — a single place to fix.
+          effort: 7,
+          evidence: {
+            field: id,
+            consequence: MISMATCH_CONSEQUENCE[id],
+            examples: pages.slice(0, 6).map((p) => ({
+              url: p.url, machineSees: p.machine, personSees: p.human,
+            })),
+            pagesAffected: pages.length,
+            method: 'The structured payload a crawler receives, compared field for field against the rendered page. Both sides are individually valid — the defect only exists in the relationship, which is why no structured-data validator reports it.',
+          },
+          recommendation: id === 'price' || id === 'availability'
+            ? `Emit ${id} from the same source the template renders from. Two sources drift the moment one changes, and this is the pair where drift is quoted back to a customer as fact.`
+            : `Bind ${field.label.toLowerCase()} in the markup to the same value the page renders, rather than maintaining it separately.`,
+        }));
     },
   },
 

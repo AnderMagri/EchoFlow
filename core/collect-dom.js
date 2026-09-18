@@ -767,7 +767,78 @@ export function collectFromDocument(options) {
     }
   }
 
+  // What the HUMAN is shown, in the same shape the machine payload carries, so
+  // the two can be compared field for field. Capturing this asymmetrically —
+  // structured on one side, prose on the other — is what stops most tools from
+  // ever noticing that the two disagree.
+  function renderedPrice() {
+    var nodes = document.querySelectorAll('[class*="price" i], .money, [data-price], [itemprop="price"]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var cs2 = window.getComputedStyle(el);
+      var r2 = el.getBoundingClientRect();
+      if (!isVisible(el, cs2, r2)) continue;
+      // Skip the struck-through compare-at price. Taking it would report a
+      // mismatch against JSON-LD on every discounted product, which is both
+      // wrong and the most common state on a storefront.
+      if (cs2.textDecorationLine.indexOf('line-through') !== -1) continue;
+      var cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+      if (/compare|was-|--was|old-price|regular-price|strike|rrp/.test(cls)) continue;
+      if (el.closest('s, del')) continue;
+
+      var raw = (el.textContent || '').trim();
+      // First price-shaped run in the text.
+      var m = raw.match(/([^\d\s]{0,3})\s*(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?)\s*([^\d\s]{0,4})/);
+      if (!m) continue;
+      var digits = m[2];
+      // Normalise "1.299,00" and "1,299.00" to a plain number.
+      var normalised;
+      if (/[.,]\d{1,2}$/.test(digits)) {
+        var sep = digits.slice(-3, -2);
+        normalised = digits.replace(/[.,\s]/g, function (c, idx) { return idx === digits.length - 3 && c === sep ? '.' : ''; });
+      } else {
+        normalised = digits.replace(/[.,\s]/g, '');
+      }
+      var value = parseFloat(normalised);
+      if (!isFinite(value) || value <= 0) continue;
+      return { value: value, text: raw.slice(0, 40), symbol: (m[1] || m[3] || '').trim() || null };
+    }
+    return null;
+  }
+
+  function renderedAvailability() {
+    var atc = atcEl;
+    if (atc && (atc.disabled || atc.getAttribute('aria-disabled') === 'true')) return 'unavailable';
+    var atcText = atc ? (atc.textContent || '').trim().toLowerCase() : '';
+    if (/sold out|out of stock|unavailable|notify me|back in stock/.test(atcText)) return 'unavailable';
+    var body = (document.body.innerText || '').slice(0, 60000);
+    if (/\b(sold out|out of stock|currently unavailable)\b/i.test(body)) return 'unavailable';
+    if (/\b(in stock|available now|ships? (?:today|within|in))\b/i.test(body)) return 'available';
+    return atc ? 'available' : null;
+  }
+
+  function heroImage() {
+    var candidates = document.querySelectorAll('[class*="product__media" i] img, [class*="gallery" i] img, [class*="hero" i] img, main img');
+    for (var i = 0; i < candidates.length; i++) {
+      var r3 = candidates[i].getBoundingClientRect();
+      if (r3.width < 150 || r3.height < 150) continue;
+      var src = candidates[i].currentSrc || candidates[i].src;
+      if (src) return src;
+    }
+    return null;
+  }
+
+  var renderedView = {
+    h1: visibleH1[0] || null,
+    title: (document.title || '').trim() || null,
+    price: renderedPrice(),
+    availability: renderedAvailability(),
+    heroImage: heroImage(),
+    url: location.href,
+  };
+
   var retrieval = {
+    rendered: renderedView,
     jsonLd: jsonLd,
     jsonLdTypes: jsonLd.map(function (j) { return j.type; }),
     jsonLdErrors: jsonLdErrors,

@@ -172,6 +172,7 @@ export function normalizeObservation(raw) {
       footerHeight: 0, navItemCount: 0, ...(raw.geometry || {}),
     },
     retrieval: {
+      rendered: null,
       jsonLd: [], jsonLdTypes: [], jsonLdErrors: [], title: '', metaDescription: null,
       canonical: null, robotsMeta: null, ogTitle: null, ogDescription: null, ogImage: null,
       lang: null, h1Count: 0, h1Text: [], headingCount: 0, mainTextLength: 0,

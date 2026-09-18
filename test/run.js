@@ -22,6 +22,7 @@ import {
 import { inferSurface, normalizeObservation, flattenLayout, sectionSkeleton } from '../core/observation.js';
 import { analyze } from '../core/analyze.js';
 import { evaluateAnswerability } from '../core/answerability.js';
+import { evaluateParity } from '../core/parity.js';
 import { buildBundle } from '../core/wiki/bundle.js';
 import { cleanSite, messySite } from './fixtures.js';
 
@@ -792,6 +793,116 @@ t('probe findings and answerability belong to marketing', () => {
   for (const id of ['engine-crawler-blocked-at-edge', 'engine-unanswerable-pdp', 'engine-answers-prose-only']) {
     eq(ownerFor(id, 'engine'), 'marketing', id);
   }
+});
+
+// --- machine parity ---------------------------------------------------------
+
+const parityObs = (jsonLd, rendered, extra = {}) => ({
+  ...messySite()[0], surface: 'pdp', url: 'https://s.com/products/x',
+  retrieval: {
+    jsonLd: [], jsonLdTypes: [], jsonLdErrors: [], title: 'T', metaDescription: null,
+    canonical: extra.canonical ?? null, h1Count: 1, h1Text: [rendered.h1], contentRatio: 0.8,
+    questionHeadings: 0, hasFaqSchema: false, lang: 'en', mainTextLength: 800, totalTextLength: 1000,
+    rendered,
+    static: { fetched: true, textRatio: 1, h1InStatic: true, jsonLdTypesInStatic: ['Product'],
+      jsonLdOnlyAfterJs: [], payload: { jsonLd, text: '', title: extra.staticTitle ?? rendered.title, metaDescription: null } },
+  },
+});
+
+const PRODUCT = (price, availability) => [{
+  '@type': 'Product', name: 'Runner',
+  offers: { '@type': 'Offer', price, priceCurrency: 'USD', availability },
+}];
+
+t('a price the markup and the page disagree on is found', () => {
+  const r = evaluateParity(parityObs(
+    PRODUCT('49.00', 'https://schema.org/InStock'),
+    { h1: 'Runner', title: 'T', price: { value: 79, symbol: '$' }, availability: 'available', url: 'https://s.com/products/x' },
+  ));
+  const price = r.checks.find((c) => c.id === 'price');
+  eq(price.state, 'disagree');
+  eq(price.machine, '49');
+  eq(price.human, '79');
+});
+
+t('float noise is not a disagreement', () => {
+  const r = evaluateParity(parityObs(
+    PRODUCT('98.00', 'https://schema.org/InStock'),
+    { h1: 'Runner', title: 'T', price: { value: 98.001, symbol: '$' }, availability: 'available', url: 'https://s.com/products/x' },
+  ));
+  eq(r.checks.find((c) => c.id === 'price').state, 'agree');
+});
+
+t('a variant price range agrees when the shown price is inside it', () => {
+  const agg = [{ '@type': 'Product', name: 'Runner',
+    offers: { '@type': 'AggregateOffer', lowPrice: '80.00', highPrice: '120.00', priceCurrency: 'USD' } }];
+  const inside = evaluateParity(parityObs(agg,
+    { h1: 'Runner', title: 'T', price: { value: 98, symbol: '$' }, availability: 'available', url: 'https://s.com/p' }));
+  const outside = evaluateParity(parityObs(agg,
+    { h1: 'Runner', title: 'T', price: { value: 140, symbol: '$' }, availability: 'available', url: 'https://s.com/p' }));
+  eq(inside.checks.find((c) => c.id === 'price').state, 'agree', 'inside the range is fine');
+  eq(outside.checks.find((c) => c.id === 'price').state, 'disagree', 'outside it is not');
+});
+
+t('InStock markup over a sold-out page is caught', () => {
+  const r = evaluateParity(parityObs(
+    PRODUCT('98.00', 'https://schema.org/InStock'),
+    { h1: 'Runner', title: 'T', price: { value: 98, symbol: '$' }, availability: 'unavailable', url: 'https://s.com/p' },
+  ));
+  eq(r.checks.find((c) => c.id === 'availability').state, 'disagree');
+});
+
+t('a dollar symbol is not treated as one currency', () => {
+  // "$" is USD, CAD, AUD and others. Calling it a mismatch invents a defect
+  // the page could not have resolved either.
+  const r = evaluateParity(parityObs(
+    [{ '@type': 'Product', name: 'R', offers: { price: '98', priceCurrency: 'CAD' } }],
+    { h1: 'R', title: 'T', price: { value: 98, symbol: '$' }, availability: 'available', url: 'https://s.com/p' },
+  ));
+  eq(r.checks.find((c) => c.id === 'currency').state, 'agree');
+});
+
+t('a placeholder price is unmeasurable, not a mismatch', () => {
+  const r = evaluateParity(parityObs(
+    PRODUCT('{{ product.price }}', 'https://schema.org/InStock'),
+    { h1: 'Runner', title: 'T', price: { value: 98, symbol: '$' }, availability: 'available', url: 'https://s.com/p' },
+  ));
+  eq(r.checks.find((c) => c.id === 'price').state, 'unmeasurable',
+    'silence is not agreement, and an unfilled template is not a contradiction');
+});
+
+t('parity refuses to score without both views', () => {
+  const o = parityObs(PRODUCT('98', 'InStock'),
+    { h1: 'R', title: 'T', price: { value: 98, symbol: '$' }, availability: 'available', url: 'https://s.com/p' });
+  o.retrieval.static = null;
+  const r = evaluateParity(o);
+  eq(r.measurable, false);
+  eq(r.score, null);
+});
+
+t('a name that extends the h1 is not a mismatch', () => {
+  const r = evaluateParity(parityObs(
+    [{ '@type': 'Product', name: 'Runner — Trail Shoe', offers: { price: '98', priceCurrency: 'USD' } }],
+    { h1: 'Runner', title: 'T', price: { value: 98, symbol: '$' }, availability: 'available', url: 'https://s.com/p' },
+  ));
+  eq(r.checks.find((c) => c.id === 'name').state, 'agree');
+});
+
+t('parity moves the score and groups findings by field, not by page', () => {
+  const bad = { h1: 'Runner', title: 'T', price: { value: 79, symbol: '$' }, availability: 'available', url: 'https://s.com/p1' };
+  const obs = [
+    parityObs(PRODUCT('49.00', 'https://schema.org/InStock'), bad),
+    { ...parityObs(PRODUCT('49.00', 'https://schema.org/InStock'), { ...bad, url: 'https://s.com/p2' }), url: 'https://s.com/products/y' },
+  ];
+  const r = analyze({ observations: obs, site: 's' });
+  const dim = r.consistency.dimensions.find((d) => d.key === 'machine-parity');
+  ok(typeof dim.score === 'number' && dim.score < 100, `parity must move the score, got ${dim.score}`);
+  eq(r.consistency.byGroup['Machine parity'].axis, 'engine');
+
+  const priceFindings = r.findings.filter((f) => f.checkId === 'engine-parity-price');
+  eq(priceFindings.length, 1, 'one finding for the field, not one per page');
+  eq(priceFindings[0].evidence.pagesAffected, 2);
+  ok(priceFindings[0].impact >= 9, 'a wrong quoted price is as severe as it gets');
 });
 
 // --- report ----------------------------------------------------------------
