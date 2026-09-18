@@ -149,6 +149,68 @@ Two consistency dimensions feed the score, under Engine:
 3. **Crawler behaviour is a moving target.** The agent list is a snapshot.
    Which crawlers run JavaScript changes. Every finding carries that caveat.
 
+### Answerability — the question underneath the others
+
+Every other retrieval check measures **availability**: is the crawler allowed
+in, does the content exist without JavaScript, is the schema present and valid.
+Answerability asks the question beneath all of them — *so can it answer
+anything?*
+
+A page can pass every structured-data check and still be unanswerable. The
+common case: `Product` is present and `offers.price` is present, and the value
+is `{{ product.price }}` because the price is filled in client-side. A
+presence check sees a field and calls it a pass.
+
+For each surface, only what a **non-JS reader receives** is consulted, and each
+buyer question must resolve to a concrete value:
+
+| Surface | Questions |
+|---|---|
+| PDP | name · price · currency · availability · what it is · reviews · returns · seller |
+| PLP | what the collection is · which products · what they cost |
+| Home | what the store sells · who runs it · how to reach them |
+
+Three distinctions the check preserves:
+
+- **Unresolved placeholders are not answers.** `{{ }}`, `${ }`, `{% %}`, `[[ ]]`
+  and `__PLACEHOLDER__` all count as unfilled.
+- **Structured beats prose.** A price from `offers.price` and a price matched by
+  regex in body text are both answers, but the second is tracked as `proseOnly`
+  — recoverable only by parsing sentences.
+- **Unmeasured is not zero.** With no static payload it returns
+  `measurable: false` rather than scoring the rendered DOM, which would answer
+  a different question.
+
+A question only counts against a template when it fails on **every** page of
+that type. One odd product is not a template fault.
+
+### Crawler probe — stated policy vs actual behaviour
+
+`robots.txt` is a statement of intent. It is not behaviour. Storefronts behind
+bot protection routinely challenge or refuse `GPTBot` at the edge while
+robots.txt welcomes it, and nothing in the file reveals that.
+
+The probe requests a couple of representative pages with each crawler's real
+declared user-agent and compares against the same request from a browser
+user-agent:
+
+| State | Meaning |
+|---|---|
+| `served` | Full response, comparable in size to the browser's |
+| `partial` | Under half the bytes a browser received — a stub |
+| `challenged` | 200, but the body is an interstitial ("Just a moment…", "Checking your browser") |
+| `refused` | 401 or 403 |
+| `rate-limited` | 429 |
+
+The **finding is the disagreement**: robots.txt permits and the server refuses.
+That gap is invisible to any tool that only reads robots.txt. When policy and
+behaviour agree, it is recorded at low priority — the decision is visible, and
+nothing is wrong.
+
+Caveats carried in the evidence: a single probe from one address, so rate
+limiting and geography can produce a refusal that is not a standing policy.
+Run with `--no-probe` to skip it.
+
 ### Why the no-JS check matters
 
 Most tools cannot see this, because they only read the rendered DOM. EchoFlow

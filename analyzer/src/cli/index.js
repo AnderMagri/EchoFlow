@@ -28,6 +28,7 @@ Options
   --viewports <list>     desktop,mobile    (default: desktop)
   --limit <n>            max pages in a site run (default: 12)
   --out <dir>            output directory (default: ./echoflow-<host>)
+  --no-probe             skip the crawler probe (a handful of extra requests)
   --quiet                only print the verdict
 
 Scope rule
@@ -89,7 +90,8 @@ async function main() {
   }
 
   log('\nReading site-level signals');
-  const siteSignals = await collectSiteSignals(target.origin, log);
+  const siteSignals = await collectSiteSignals(target.origin, log,
+    argv.includes('--no-probe') ? {} : { probeUrls: urls });
 
   log(`\nAnalysing ${observations.length} observation${observations.length === 1 ? '' : 's'}`);
   const analysis = analyze({ observations, axes, site: target.hostname, siteSignals });

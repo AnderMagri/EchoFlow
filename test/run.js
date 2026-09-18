@@ -21,6 +21,7 @@ import {
 } from '../core/finding.js';
 import { inferSurface, normalizeObservation, flattenLayout, sectionSkeleton } from '../core/observation.js';
 import { analyze } from '../core/analyze.js';
+import { evaluateAnswerability } from '../core/answerability.js';
 import { buildBundle } from '../core/wiki/bundle.js';
 import { cleanSite, messySite } from './fixtures.js';
 
@@ -661,6 +662,136 @@ t('byOwner partitions the findings with no overlap', () => {
   const r = analyze({ observations: messySite(), site: 'm' });
   const counts = OWNERS.map((o) => byOwner(r.findings, o).length);
   eq(counts.reduce((a, b) => a + b, 0), r.findings.length);
+});
+
+// --- answerability ----------------------------------------------------------
+
+const pdpWith = (payload) => ({
+  ...messySite()[0], surface: 'pdp', url: 'https://s.com/products/x',
+  retrieval: {
+    jsonLd: [], jsonLdTypes: [], jsonLdErrors: [], title: 'Runner', metaDescription: null,
+    canonical: null, h1Count: 1, h1Text: ['Runner'], contentRatio: 0.8, questionHeadings: 0,
+    hasFaqSchema: false, lang: 'en', mainTextLength: 800, totalTextLength: 1000,
+    static: { fetched: true, textRatio: 1, h1InStatic: true, jsonLdTypesInStatic: [],
+      jsonLdOnlyAfterJs: [], payload },
+  },
+});
+
+t('an unresolved template placeholder is NOT an answer', () => {
+  // The case every field-presence check gets wrong: Product exists, offers
+  // exists, price exists — and holds "{{ product.price }}".
+  const r = evaluateAnswerability(pdpWith({
+    jsonLd: [{ '@type': 'Product', name: 'Runner',
+      offers: { price: '{{ product.price }}', priceCurrency: 'USD', availability: 'https://schema.org/InStock' } }],
+    text: 'Runner. A shoe.', title: 'Runner', metaDescription: null,
+  }));
+  ok(r.unanswered.some((q) => q.id === 'price'), 'a placeholder price must not count as answered');
+  ok(r.answered.some((q) => q.id === 'currency'), 'but a real sibling field still does');
+});
+
+t('a resolved price from markup beats one scraped from prose', () => {
+  const structured = evaluateAnswerability(pdpWith({
+    jsonLd: [{ '@type': 'Product', name: 'Runner', offers: { price: '98.00', priceCurrency: 'USD' } }],
+    text: 'Runner', title: 'Runner', metaDescription: null,
+  }));
+  const prose = evaluateAnswerability(pdpWith({
+    jsonLd: [], text: 'Runner costs $98.00 today', title: 'Runner', metaDescription: null,
+  }));
+  ok(structured.answered.find((a) => a.id === 'price').from.includes('offers.price'));
+  ok(prose.answered.find((a) => a.id === 'price').from.includes('page text'));
+  ok(prose.proseOnly.length > 0, 'prose answers are tracked separately — they are weaker');
+  ok(structured.proseOnly.every((a) => a.id !== 'price'), 'a structured answer is not prose-only');
+});
+
+t('answerability reads the machine payload, never the rendered DOM', () => {
+  const obs = pdpWith(null);
+  obs.retrieval.static = null;
+  // The rendered page is complete; the machine payload is absent.
+  obs.retrieval.jsonLd = [{ type: 'Product', offers: { price: true } }];
+  const r = evaluateAnswerability(obs);
+  eq(r.measurable, false, 'with no static payload it must refuse to answer');
+  eq(r.score, null, 'and must not invent a score from the rendered DOM');
+});
+
+t('a fully answerable product page reports every critical question resolved', () => {
+  const r = evaluateAnswerability(pdpWith({
+    jsonLd: [
+      { '@type': 'Product', name: 'Runner', description: 'A lightweight running shoe for daily mileage and long runs.',
+        offers: { price: '98.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock' } },
+      { '@type': 'Organization', name: 'Fixture' },
+    ],
+    text: 'Runner. Free returns within 30 days.', title: 'Runner', metaDescription: null,
+  }));
+  eq(r.criticalMissing.length, 0, `critical questions unresolved: ${r.criticalMissing.join(',')}`);
+  ok(r.score >= 75, `score was ${r.score}`);
+});
+
+t('a critical unanswerable question outranks an optional one', () => {
+  const mk = (payload) => analyze({
+    observations: [pdpWith(payload), { ...pdpWith(payload), url: 'https://s.com/products/y' }],
+    site: 's',
+  }).findings.find((f) => f.checkId === 'engine-unanswerable-pdp');
+
+  const noPrice = mk({ jsonLd: [{ '@type': 'Product', name: 'R' }], text: 'R', title: 'R', metaDescription: null });
+  const noReviews = mk({
+    jsonLd: [{ '@type': 'Product', name: 'R', description: 'A shoe that is good for running long distances.',
+      offers: { price: '98', priceCurrency: 'USD', availability: 'InStock' } }],
+    text: 'R. Returns within 30 days. Sold by Fixture.', title: 'R', metaDescription: null,
+  });
+  ok(noPrice.impact > (noReviews?.impact ?? 0), 'an unrecoverable price must outrank a missing review count');
+});
+
+// --- crawler probe -----------------------------------------------------------
+
+const withProbe = (probeAgents, robotsAgents) => ({
+  origin: 'https://s.com',
+  robots: { present: true, sitemaps: [], agents: robotsAgents },
+  llmsTxt: { present: true },
+  probe: { ran: true, pagesProbed: ['https://s.com/'], agents: probeAgents },
+});
+
+t('robots.txt permitting a crawler the server refuses is the finding', () => {
+  const f = analyze({
+    observations: messySite(), site: 's',
+    siteSignals: withProbe(
+      { GPTBot: { state: 'refused', status: 403, operator: 'OpenAI', detail: { bytes: 39, baselineBytes: 1900 } } },
+      { GPTBot: { state: 'allowed', by: 'wildcard rule', operator: 'OpenAI', purpose: 'x' } },
+    ),
+  }).findings.find((x) => x.checkId === 'engine-crawler-blocked-at-edge');
+  ok(f, 'the disagreement must surface');
+  eq(f.evidence.agents[0].statedPolicy, 'allowed');
+  eq(f.evidence.agents[0].observed, 'refused');
+  ok(/re-run|caveat/i.test(JSON.stringify(f.evidence)), 'and must caveat a single probe');
+});
+
+t('a block that robots.txt and the server agree on is only recorded', () => {
+  const fs = analyze({
+    observations: messySite(), site: 's',
+    siteSignals: withProbe(
+      { GPTBot: { state: 'refused', status: 403, operator: 'OpenAI', detail: {} } },
+      { GPTBot: { state: 'blocked', by: 'explicit GPTBot block', operator: 'OpenAI', purpose: 'x' } },
+    ),
+  }).findings;
+  ok(!fs.some((f) => f.checkId === 'engine-crawler-blocked-at-edge'), 'no contradiction, so no alarm');
+  const confirmed = fs.find((f) => f.checkId === 'engine-crawler-block-confirmed');
+  ok(confirmed && confirmed.priority < 40, 'recorded, but it must not crowd real findings');
+});
+
+t('a challenge page counts as turned away even with a 200 status', () => {
+  const f = analyze({
+    observations: messySite(), site: 's',
+    siteSignals: withProbe(
+      { PerplexityBot: { state: 'challenged', status: 200, operator: 'Perplexity', detail: { bytes: 152, baselineBytes: 1900 } } },
+      { PerplexityBot: { state: 'allowed', by: 'wildcard rule', operator: 'Perplexity', purpose: 'x' } },
+    ),
+  }).findings.find((x) => x.checkId === 'engine-crawler-blocked-at-edge');
+  ok(f, 'a 200 that serves an interstitial is still a refusal');
+});
+
+t('probe findings and answerability belong to marketing', () => {
+  for (const id of ['engine-crawler-blocked-at-edge', 'engine-unanswerable-pdp', 'engine-answers-prose-only']) {
+    eq(ownerFor(id, 'engine'), 'marketing', id);
+  }
 });
 
 // --- report ----------------------------------------------------------------

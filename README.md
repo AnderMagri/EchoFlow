@@ -41,6 +41,13 @@ and the report never lets one borrow the authority of another. A `prescriptive`
 finding cannot exist without a citation — the schema rejects it. Full provenance
 for every threshold is in [`docs/REFERENCE.md`](docs/REFERENCE.md).
 
+**It checks whether a machine can actually answer.** Beyond "is the schema
+there", it resolves the questions a buyer asks — name, price, currency,
+availability — from the payload a non-JS crawler receives, and counts a
+`{{ product.price }}` placeholder as unanswered. It also probes with each
+crawler's real user-agent, because `robots.txt` is a stated policy and bot
+protection at the edge is the actual behaviour.
+
 **It reads the site the way a machine does.** Beyond the human view, it fetches
 the raw HTTP response and diffs it against the rendered DOM — because most
 crawlers feeding answer engines never execute JavaScript, and a page can look
@@ -175,6 +182,7 @@ core/          zero-dependency ESM. Runs in Node AND the browser.
   checks-geometry.js fold, depth, targets, measure, choice load, strengths
   checks-patterns.js manipulative patterns, mechanically detected
   checks-retrieval.js machine readability — structured data, crawlers, no-JS survival
+  answerability.js   can a machine recover the facts a buyer asks about?
   synthesis.js       cross-axis meta-findings
   tokens.js          the design system seed
   collect-dom.js     the DOM collector (shared by both collectors)
@@ -194,6 +202,6 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js        # 80 tests — core, calibration, checks, retrieval, ownership
+node test/run.js        # 89 tests — core, calibration, checks, retrieval, answerability
 cd mcp && node test.mjs # MCP protocol surface
 ```

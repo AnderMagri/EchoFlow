@@ -104,6 +104,16 @@ Three rules specific to it:
 - **Never claim traffic or citations.** Retrievable is not cited. Say what a
   machine can and cannot read, and stop.
 
+**Answerability reads `retrieval.static.payload` and nothing else.** Consulting
+the rendered DOM would answer a different question — whether a person can see
+the fact, not whether a machine received it. With no static payload it returns
+`measurable: false` rather than scoring. Unresolved placeholders (`{{ price }}`)
+are NOT answers, which is the one case every field-presence check gets wrong.
+
+**The probe reports disagreement, not refusal.** robots.txt permitting a crawler
+the server turns away is the finding; policy and behaviour agreeing is recorded
+at low priority. A challenge page is a refusal even with a 200 status.
+
 The static-vs-rendered comparison is **body-only**: including `<head>` made it
 report `h1InStatic: true` for a fully client-rendered page, because the product
 name is in `<title>` either way.

@@ -24,8 +24,15 @@
 
 import { createFinding } from './finding.js';
 import { EXPECTED_SCHEMA } from './observation.js';
+import { BUYER_QUESTIONS, evaluateAnswerability } from './answerability.js';
 
 const firstWith = (obs, fn) => obs.find(fn) || null;
+
+/** "a", "a and b", "a, b and c" — titles are read aloud to clients. */
+function listPhrase(items) {
+  if (items.length <= 1) return items[0] || '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
 /** One entry per URL — markup does not change between viewports. */
 function uniquePages(observations) {
   const seen = new Set();
@@ -79,6 +86,68 @@ export const RETRIEVAL_CHECKS = [
           ? `${byWildcard.map(([a]) => a).join(', ')} ${byWildcard.length === 1 ? 'is' : 'are'} blocked by a catch-all rule rather than by name, which is usually accidental — a broad Disallow written for scrapers catches answer engines too. Decide each one deliberately: if the content should be quotable by assistants, allow them by name; if not, keep the block and this finding is answered.`
           : 'These are blocked by name, which reads as deliberate. Nothing to fix if that was the intent — confirm it and this finding is answered.',
       })];
+    },
+  },
+
+  {
+    id: 'crawler-probe',
+    axis: 'engine',
+    run(ctx) {
+      const probe = ctx.siteSignals?.probe;
+      if (!probe?.ran) return [];
+
+      const stated = ctx.siteSignals?.robots?.agents || {};
+      const turnedAway = Object.entries(probe.agents)
+        .filter(([, v]) => ['refused', 'challenged', 'partial'].includes(v.state));
+      if (!turnedAway.length) return [];
+
+      // The interesting case is DISAGREEMENT: robots.txt welcomes the crawler
+      // and the server does not. That gap is invisible to every tool that only
+      // reads robots.txt, and it is usually bot protection nobody connected to
+      // the answer-engine question.
+      const contradicting = turnedAway.filter(([agent]) => {
+        const policy = stated[agent]?.state;
+        return policy === 'allowed' || policy === 'partial';
+      });
+
+      const out = [];
+      if (contradicting.length) {
+        out.push(createFinding({
+          checkId: 'engine-crawler-blocked-at-edge', axis: 'engine', surface: 'site',
+          scope: 'extractive', basis: 'practice',
+          title: `${contradicting.length} crawler${contradicting.length === 1 ? ' is' : 's are'} permitted by robots.txt but turned away by the server`,
+          // Almost always unintentional: someone enabled bot protection and
+          // nobody connected it to the answer-engine question.
+          impact: 7, effort: 5,
+          evidence: {
+            agents: contradicting.map(([agent, v]) => ({
+              agent, operator: v.operator, observed: v.state, status: v.status,
+              statedPolicy: stated[agent]?.state || 'unknown',
+              bytes: v.detail?.bytes, browserBytes: v.detail?.baselineBytes,
+            })),
+            pagesProbed: probe.pagesProbed,
+            method: 'Each page was requested with the crawler\u2019s declared user-agent and compared against the same request from a browser user-agent.',
+            caveat: 'A single probe from one address. Rate limiting and geography can produce a refusal that is not a standing policy \u2014 re-run before acting on it.',
+          },
+          recommendation: 'robots.txt says these are welcome and the edge disagrees, which is nearly always a bot-protection rule nobody connected to this question. Allow the agents you meant to allow at the CDN or WAF, or change robots.txt so the stated policy matches what actually happens.',
+        }));
+      }
+
+      const consistent = turnedAway.filter(([agent]) => stated[agent]?.state === 'blocked');
+      if (consistent.length && !contradicting.length) {
+        out.push(createFinding({
+          checkId: 'engine-crawler-block-confirmed', axis: 'engine', surface: 'site',
+          scope: 'extractive', basis: 'practice',
+          title: `${consistent.length} crawler block${consistent.length === 1 ? '' : 's'} confirmed at the server, matching robots.txt`,
+          impact: 2, effort: 10,
+          evidence: {
+            agents: consistent.map(([agent, v]) => ({ agent, operator: v.operator, observed: v.state, status: v.status })),
+            note: 'Stated policy and observed behaviour agree. Recorded so the decision is visible, not because anything is wrong.',
+          },
+          recommendation: 'Nothing to do if this was intended \u2014 the block is real and enforced, which is what a deliberate policy should look like.',
+        }));
+      }
+      return out;
     },
   },
 
@@ -318,6 +387,96 @@ export const RETRIEVAL_CHECKS = [
     },
   },
 
+  // ===== ANSWERABILITY ====================================================
+  // Availability asks "can a machine reach this". This asks the question
+  // underneath it: "so can it answer anything?"
+
+  {
+    id: 'answerability',
+    axis: 'engine',
+    run(ctx) {
+      const results = uniquePages(ctx.observations)
+        .map(evaluateAnswerability)
+        .filter(Boolean);
+      if (!results.length) return [];
+
+      const measurable = results.filter((r) => r.measurable);
+      if (!measurable.length) {
+        // Say so rather than scoring what was not measured.
+        return [createFinding({
+          checkId: 'engine-answerability-unmeasured', axis: 'engine', surface: 'site',
+          scope: 'extractive', basis: 'practice',
+          title: 'Answerability could not be measured — the un-rendered HTML was not fetched',
+          impact: 2, effort: 10,
+          evidence: { pages: results.length, reason: results[0].reason },
+          recommendation: 'Run the analyser against a reachable URL so it can fetch the raw response. Without it there is no machine payload to reason about, and guessing from the rendered DOM would answer the wrong question.',
+        })];
+      }
+      const out = [];
+
+      // Group by surface: "PDPs cannot answer price" is one story about a
+      // template, not one finding per product.
+      const bySurface = new Map();
+      for (const r of measurable) {
+        if (!bySurface.has(r.surface)) bySurface.set(r.surface, []);
+        bySurface.get(r.surface).push(r);
+      }
+
+      for (const [surface, pages] of bySurface) {
+        const total = BUYER_QUESTIONS[surface].length;
+        // A question counts as unanswerable for the template only if it fails
+        // on every page of that type — one odd product is not a template fault.
+        const alwaysMissing = BUYER_QUESTIONS[surface]
+          .filter((q) => pages.every((p) => p.unanswered.some((u) => u.id === q.id)));
+        if (!alwaysMissing.length) continue;
+
+        const criticalMissing = alwaysMissing.filter((q) => q.critical);
+        const worst = pages.sort((a, b) => a.score - b.score)[0];
+
+        out.push(createFinding({
+          checkId: `engine-unanswerable-${surface}`, axis: 'engine', surface,
+          scope: 'extractive', basis: 'practice', url: worst.url,
+          title: criticalMissing.length
+            ? `A machine reader cannot recover ${listPhrase(criticalMissing.map((q) => q.short || q.id))} from ${surface.toUpperCase()} pages`
+            : `${alwaysMissing.length} buyer question${alwaysMissing.length === 1 ? '' : 's'} unanswerable from ${surface.toUpperCase()} pages`,
+          impact: criticalMissing.length ? Math.min(9, 6 + criticalMissing.length) : 4,
+          effort: 6,
+          evidence: {
+            surface,
+            pagesChecked: pages.length,
+            answerable: `${total - alwaysMissing.length} of ${total}`,
+            unanswerable: alwaysMissing.map((q) => ({ id: q.id, question: q.question, critical: !!q.critical })),
+            answeredOn: worst.answered.map((a) => ({ question: a.question, value: a.value, from: a.from })),
+            method: 'Resolved from the un-rendered HTML only — the payload a crawler that does not execute JavaScript receives. Template placeholders such as {{ price }} count as unresolved, because a field-presence check would score them as present.',
+          },
+          recommendation: criticalMissing.length
+            ? `These are the questions a shopping query actually asks. Emit ${listPhrase(criticalMissing.map((q) => q.short || q.id))} server-side in the markup, so each answer is a value rather than something to be inferred from prose.`
+            : 'Worth closing if these pages are meant to be quotable by assistants. None of them are load-bearing on their own.',
+        }));
+      }
+
+      // Recoverable, but only by reading prose — a real but weaker answer.
+      const proseHeavy = measurable.filter((r) => r.proseOnly.length >= 2);
+      if (proseHeavy.length >= 2) {
+        out.push(createFinding({
+          checkId: 'engine-answers-prose-only', axis: 'engine', surface: ctx.scopeSurface,
+          scope: 'extractive', basis: 'practice',
+          title: `${proseHeavy.length} pages answer buyer questions only in prose, not in markup`,
+          impact: 4, effort: 7,
+          evidence: {
+            pages: proseHeavy.slice(0, 5).map((r) => ({
+              url: r.url,
+              proseOnly: r.proseOnly.map((a) => ({ question: a.question, value: a.value })),
+            })),
+            why: 'The facts are on the page and a reader has to parse them out of sentences. Structured markup turns the same fact into a value, which is the difference between being quoted correctly and being quoted approximately.',
+          },
+          recommendation: 'Move these into the Product markup. The content already exists — this is labelling it, not writing it.',
+        }));
+      }
+      return out;
+    },
+  },
+
   // ===== STRENGTH =========================================================
 
   {
@@ -345,6 +504,26 @@ export const RETRIEVAL_CHECKS = [
           recommendation: 'Every machine reader gets the full page, including the ones that never execute scripts. Protect this in the rebuild — it is the single thing most easily lost to a client-side framework or an app-rendered section.',
         }));
       }
+      // Fully answerable product pages are worth naming — it is the outcome
+      // every other retrieval check is a proxy for.
+      const answerable = pages
+        .map(evaluateAnswerability)
+        .filter((r) => r && r.measurable && !r.criticalMissing.length && r.surface === 'pdp');
+      if (answerable.length) {
+        out.push(createFinding({
+          checkId: 'strength-answerable-pdp', axis: 'engine', surface: 'pdp',
+          kind: 'strength', scope: 'extractive', basis: 'practice',
+          title: 'A machine reader can answer every critical buyer question from the product pages',
+          impact: 8, effort: 10,
+          evidence: {
+            pages: answerable.length,
+            example: answerable[0].url,
+            answered: answerable[0].answered.map((a) => ({ question: a.question, from: a.from })),
+          },
+          recommendation: 'This is the outcome the rest of the retrieval checks are proxies for. Protect it through the rebuild: name, price, currency and availability must stay in server-rendered markup.',
+        }));
+      }
+
       if (withProduct) {
         out.push(createFinding({
           checkId: 'strength-product-schema', axis: 'engine', surface: 'pdp',

@@ -141,7 +141,7 @@ server.registerTool('echoflow_analyze', {
     );
   }
 
-  const siteSignals = await collectSiteSignals(target.origin);
+  const siteSignals = await collectSiteSignals(target.origin, () => {}, { probeUrls: urls });
   const analysis = analyze({ observations, axes, site: target.hostname, siteSignals });
   await writeBundle(analysis, dest);
 

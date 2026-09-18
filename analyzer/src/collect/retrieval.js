@@ -150,17 +150,26 @@ export async function compareStatic(url, rendered) {
 
   const jsonLdBlocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
   const staticTypes = [];
+  // Keep the parsed OBJECTS, not just the type names. Answerability asks
+  // whether a value is actually recoverable — "does offers.price hold a number"
+  // — and a list of type names cannot answer that.
+  const staticItems = [];
   for (const block of jsonLdBlocks) {
     try {
       const parsed = JSON.parse(block[1]);
       const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
       for (const item of items) {
-        let t = item?.['@type'];
+        if (!item || typeof item !== 'object') continue;
+        let t = item['@type'];
         if (Array.isArray(t)) t = t[0];
         if (t) staticTypes.push(t);
+        if (staticItems.length < 12) staticItems.push(item);
       }
     } catch { /* malformed — the DOM pass reports that separately */ }
   }
+
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i);
 
   const renderedLen = rendered?.totalTextLength || 0;
   const ratio = renderedLen ? +(stripped.length / renderedLen).toFixed(2) : null;
@@ -180,15 +189,40 @@ export async function compareStatic(url, rendered) {
     jsonLdTypesInStatic: [...new Set(staticTypes)],
     jsonLdOnlyAfterJs: (rendered?.jsonLdTypes || []).filter((t) => !staticTypes.includes(t)),
     canonicalInStatic: /<link[^>]+rel=["']canonical["']/i.test(html),
+
+    // The payload a non-JS machine reader actually receives. Everything the
+    // answerability pass reasons about comes from here and nowhere else — the
+    // whole point is to stop asking the rendered DOM questions the machine
+    // never got to see.
+    payload: {
+      jsonLd: staticItems,
+      text: stripped.slice(0, 20000),
+      title: titleMatch ? titleMatch[1].trim() : null,
+      metaDescription: descMatch ? descMatch[1].trim() : null,
+    },
   };
 }
 
-/** Everything that is true of the site rather than of one page. */
-export async function collectSiteSignals(origin, log = () => {}) {
+/**
+ * Everything that is true of the site rather than of one page.
+ *
+ * @param {string} origin
+ * @param {(m:string)=>void} [log]
+ * @param {{probeUrls?:string[]}} [opts] pass urls to additionally probe what
+ *   the server actually serves each crawler; omit to skip the probe entirely.
+ */
+export async function collectSiteSignals(origin, log = () => {}, opts = {}) {
   log('  reading robots.txt and llms.txt');
   const [robots, llmsTxt] = await Promise.all([fetchRobots(origin), fetchLlmsTxt(origin)]);
   const blocked = Object.entries(robots.agents || {}).filter(([, v]) => v.state === 'blocked');
   if (robots.present) log(`  robots.txt: ${blocked.length} AI crawler(s) blocked of ${Object.keys(robots.agents).length}`);
   else log('  robots.txt: not found');
-  return { robots, llmsTxt, origin };
+
+  let probe = null;
+  if (opts.probeUrls?.length) {
+    const { probeCrawlers } = await import('./probe.js');
+    probe = await probeCrawlers({ urls: opts.probeUrls, log });
+  }
+
+  return { robots, llmsTxt, probe, origin };
 }

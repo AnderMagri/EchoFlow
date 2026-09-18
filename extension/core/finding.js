@@ -211,10 +211,12 @@ function ownerFor(checkId, axis) {
   // Marketing decides these, whoever implements them.
   const MARKETING = [
     'engine-ai-crawlers-blocked', 'engine-no-robots-txt', 'engine-no-llms-txt',
+    'engine-crawler-blocked-at-edge', 'engine-crawler-block-confirmed',
     'engine-no-structured-data', 'engine-missing-schema', 'engine-incomplete-product-schema',
     'engine-schema-drift', 'engine-metadata-drift', 'engine-missing-description',
     'engine-thin-content', 'engine-unmarked-faq', 'engine-h1-structure',
-    'strength-product-schema',
+    'strength-product-schema', 'strength-answerable-pdp',
+    'engine-unanswerable', 'engine-answers-prose-only', 'engine-answerability-unmeasured',
     'ux-missing-alt', 'ux-cta-drift', 'ux-price-format-drift',
     'ux-confirmshaming', 'ux-pre-checked-optin', 'ux-urgency-pressure',
     'ux-hard-to-cancel', 'ux-late-costs', 'ux-disguised-promos',
