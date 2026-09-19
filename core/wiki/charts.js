@@ -67,6 +67,11 @@ export const CHART_CSS = `
 }
 .viz-tip.on { opacity: 1; }
 .viz-tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+
+.band-strip { margin: 14px 0 22px; }
+.band-strip .strip { display: flex; height: 8px; gap: 2px; }
+.band-strip .seg { display: block; }
+.band-strip .viz-legend { margin-top: 9px; font-size: 11.5px; }
 `;
 
 export const CHART_JS = `
@@ -275,8 +280,22 @@ export function impactEffortScatter(findings, { title = 'Impact against ease of 
  * @param {{owner:string, label:string, bands:Record<string,number>, total:number}[]} rows
  */
 export function ownerBars(rows, { title = 'Work by owner' } = {}) {
+  return stackedBandBars(rows, { title });
+}
+
+/**
+ * Findings per group, stacked by severity band.
+ *
+ * `ownerBars` was this chart with one caller's vocabulary baked into its name.
+ * The shape — a label, a band breakdown, a total — is the same question asked
+ * of owners, of GEO groups, of anything that partitions the pile, and copying
+ * the drawing code per caller is how two charts of the same thing drift apart.
+ *
+ * @param {{label:string, bands:Record<string,number>, total:number}[]} rows
+ */
+export function stackedBandBars(rows, { title = 'Work by group', minRows = 2 } = {}) {
   const live = rows.filter((r) => r.total > 0);
-  if (live.length < 2) return '';
+  if (live.length < minRows) return '';
   const max = Math.max(...live.map((r) => r.total));
   const ROW = 34, PAD = 8, LABEL = 148;
   const W = 720, plotW = W - LABEL - 44;
@@ -305,4 +324,74 @@ export function ownerBars(rows, { title = 'Work by owner' } = {}) {
   return `<div class="viz"><div class="v-title">${esc(title)}</div>
 <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${live.map((r) => `${r.label} ${r.total}`).join(', ')}">${body}</svg>
 <div class="viz-legend">${legend}</div></div>`;
+}
+
+/**
+ * The buy path, as steps.
+ *
+ * Operability is measured as STEPS, not a percentage, because an agent does not
+ * get part-way into a cart — it stops at the first control it cannot see. A
+ * percentage would average that into something reassuring and wrong; a ladder
+ * shows exactly where it stops, which is also where the fix goes.
+ *
+ * State, not magnitude, so the status palette — and never colour alone: every
+ * step carries its state as a word, and the stopping point is marked in the
+ * geometry by the rule that cuts the track.
+ *
+ * @param {{step:string, state:string, detail?:string}[]} steps
+ */
+export function stepLadder(steps, { title = 'How far an agent gets' } = {}) {
+  if (!steps?.length) return '';
+  const STATE = { ok: BAND_COLOR.low, degraded: BAND_COLOR.medium, blocked: BAND_COLOR.critical };
+  const WORD = { ok: 'machine-visible', degraded: 'partly visible', blocked: 'no affordance' };
+
+  const W = 720, ROW = 46, PAD = 6;
+  const H = PAD + steps.length * ROW + PAD;
+  const DOT = 30, LABEL = DOT + 22;
+
+  const stopAt = steps.findIndex((s) => s.state === 'blocked');
+
+  const body = steps.map((s, i) => {
+    const y = PAD + i * ROW + ROW / 2;
+    const color = STATE[s.state] || BAND_COLOR.medium;
+    const past = stopAt !== -1 && i > stopAt;
+    // The track after the stopping point is dashed: those steps were never
+    // reached, which is not the same as their having passed or failed.
+    const connector = i < steps.length - 1
+      ? `<line x1="${DOT}" y1="${y + 11}" x2="${DOT}" y2="${y + ROW - 11}" stroke="var(--viz-grid)" stroke-width="2"${i >= stopAt && stopAt !== -1 ? ' stroke-dasharray="3 4"' : ''}/>`
+      : '';
+    return `<g${past ? ' opacity=".5"' : ''}>
+      ${connector}
+      <circle cx="${DOT}" cy="${y}" r="9" fill="${past ? 'none' : color}" stroke="${color}" stroke-width="2"/>
+      <text class="v-value" x="${LABEL}" y="${y - 1}">${esc(s.step)}</text>
+      <text class="v-axis" x="${LABEL}" y="${y + 14}">${esc(past ? 'not reached' : WORD[s.state] || s.state)}${s.detail && !past ? ' — ' + esc(String(s.detail).slice(0, 70)) : ''}</text>
+    </g>`;
+  }).join('');
+
+  const legend = ['ok', 'degraded', 'blocked']
+    .filter((k) => steps.some((s) => s.state === k))
+    .map((k) => `<span><i style="background:${STATE[k]}"></i>${esc(WORD[k])}</span>`).join('');
+
+  return `<div class="viz"><div class="v-title">${esc(title)}</div>
+<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(steps.map((s) => `${s.step}: ${s.state}`).join(', '))}">${body}</svg>
+<div class="viz-legend">${legend}</div></div>`;
+}
+
+/**
+ * A compact severity strip for a page header — the band mix at a glance,
+ * without spending a whole chart on it.
+ *
+ * @param {Record<string, number>} bands
+ */
+export function bandStrip(bands, { label = '' } = {}) {
+  const order = ['critical', 'high', 'medium', 'low'];
+  const total = order.reduce((n, b) => n + (bands[b] || 0), 0);
+  if (!total) return '';
+  const segs = order.filter((b) => bands[b] > 0).map((b) =>
+    `<span class="seg" style="flex:${bands[b]};background:${BAND_COLOR[b]}" title="${bands[b]} ${b}"></span>`).join('');
+  const words = order.filter((b) => bands[b] > 0)
+    .map((b) => `<span><i style="background:${BAND_COLOR[b]}"></i>${bands[b]} ${b}</span>`).join('');
+  return `<div class="band-strip">${label ? `<div class="v-title">${esc(label)}</div>` : ''}
+  <div class="strip">${segs}</div>
+  <div class="viz-legend">${words}</div></div>`;
 }

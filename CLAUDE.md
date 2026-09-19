@@ -84,6 +84,14 @@ says nothing about ownership.
 
 **Never add a per-owner score.** The one ranking model stands.
 
+The **GEO page** (`geo`) is the same thing again: `geoGroupFor()` in
+`finding.js` maps check ids into five groups (access, structured, answerability,
+operability, parity), and the page is a filtered view carrying **no score**.
+Performance is Engine but NOT GEO — `engine-lcp`, `engine-cls` and
+`engine-page-weight` are a different argument with a different owner. A test
+asserts every check id in `checks-retrieval.js` and `checks-operability.js`
+lands in a group, so a new retrieval check cannot vanish from the page.
+
 ## GEO lives on the Engine axis, not a fourth one
 
 The concept forbids adding axes ("no axes with equal weights comparable by
@@ -229,6 +237,16 @@ It is **self-contained** — inline styles, inline charts, no external reference
 so a moved, re-zipped or partially copied folder still opens. Renderers build at
 flat paths and `buildBundle` moves everything under `report/` in one place, so no
 renderer knows where the bundle root is.
+
+**Every page must be reachable from START HERE.** It had four hand-picked
+routes and no way to reach an axis, surface or GEO page — the landing screen of
+a wiki was the one screen you could not navigate from. The menu is built from
+`model.pages`, plus a sticky top bar, and a test asserts every page is linked.
+
+**Structure pages are NOT in `model.pages`.** The bundler builds them from the
+observations, so `renderStartHere` takes them as a second argument. The old code
+asked `model.pages` whether any existed, which is never true — so no report ever
+generated linked to them from the entry point.
 
 **Severity bands count problems, not strengths.** A strength carries a priority
 because every Finding does, but counting it as "critical" makes the headline

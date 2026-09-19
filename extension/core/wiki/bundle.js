@@ -19,11 +19,11 @@
 
 import { atDensity, buildWikiModel } from './model.js';
 import {
-  renderAxisPage, renderFinding, renderIndex, renderOwnerPage, renderSurfacePage,
+  renderAxisPage, renderFinding, renderGeoPage, renderIndex, renderOwnerPage, renderSurfacePage,
   renderTokensPage,
 } from './render-md.js';
 import {
-  WIKI_CSS, WIKI_JS, renderAxisHTML, renderIndexHTML, renderOwnerHTML,
+  WIKI_CSS, WIKI_JS, renderAxisHTML, renderGeoHTML, renderIndexHTML, renderOwnerHTML,
   renderSurfaceHTML, renderTokensHTML,
 } from './render-html.js';
 import { AXIS_LABELS, OWNER_LABELS } from '../finding.js';
@@ -76,6 +76,7 @@ export function buildBundle(analysis) {
     if (page.kind === 'axis') files[`pages/${page.slug}.md`] = renderAxisPage(page, model);
     else if (page.kind === 'owner') files[`pages/${page.slug}.md`] = renderOwnerPage(page, model);
     else if (page.kind === 'surface') files[`pages/${page.slug}.md`] = renderSurfacePage(page, model);
+    else if (page.kind === 'geo') files['pages/geo.md'] = renderGeoPage(page, model);
     else if (page.kind === 'tokens') files['pages/tokens.md'] = renderTokensPage(model);
   }
 
@@ -87,6 +88,7 @@ export function buildBundle(analysis) {
     if (page.kind === 'axis') files[`site/${page.slug}.html`] = renderAxisHTML(page, model);
     else if (page.kind === 'owner') files[`site/${page.slug}.html`] = renderOwnerHTML(page, model);
     else if (page.kind === 'surface') files[`site/${page.slug}.html`] = renderSurfaceHTML(page, model);
+    else if (page.kind === 'geo') files['site/geo.html'] = renderGeoHTML(page, model);
     else if (page.kind === 'tokens') files['site/tokens.html'] = renderTokensHTML(model);
   }
 
@@ -125,6 +127,7 @@ export function buildBundle(analysis) {
       if (page.kind === 'axis') files[`site/${page.slug}.html`] = withNav(renderAxisHTML(page, model), nav);
       else if (page.kind === 'owner') files[`site/${page.slug}.html`] = withNav(renderOwnerHTML(page, model), nav);
       else if (page.kind === 'surface') files[`site/${page.slug}.html`] = withNav(renderSurfaceHTML(page, model), nav);
+      else if (page.kind === 'geo') files['site/geo.html'] = withNav(renderGeoHTML(page, model), nav);
       else if (page.kind === 'tokens') files['site/tokens.html'] = withNav(renderTokensHTML(model), nav);
     }
     files['site/index.html'] = withNav(renderIndexHTML(model), navWithStructure(model, structurePages, 'index'));
@@ -139,7 +142,7 @@ export function buildBundle(analysis) {
   // One file at the top of the folder, everything else beneath it. Someone who
   // unzips this should not have to guess which of site/, pages/, data/ and
   // findings/ is the one to open.
-  const bundled = { 'START HERE.html': renderStartHere(model) };
+  const bundled = { 'START HERE.html': renderStartHere(model, structurePages) };
   for (const [path, contents] of Object.entries(files)) {
     bundled[`report/${path}`] = contents;
   }

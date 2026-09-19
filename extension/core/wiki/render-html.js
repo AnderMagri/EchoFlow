@@ -12,11 +12,13 @@
  */
 
 import {
-  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS, OWNERS,
-  SURFACE_LABELS, effortLabel, priorityBand,
+  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, GEO_GROUP_BRIEF, GEO_GROUP_LABELS,
+  OWNER_BRIEF, OWNER_LABELS, OWNERS, SURFACE_LABELS, effortLabel, geoGroupFor,
+  priorityBand,
 } from '../finding.js';
 import {
-  CHART_CSS, CHART_JS, impactEffortScatter, ownerBars, scoreBars, severityBar,
+  CHART_CSS, CHART_JS, bandStrip, impactEffortScatter, ownerBars, scoreBars,
+  severityBar, stackedBandBars, stepLadder,
 } from './charts.js';
 import { GRADE_COPY } from '../consistency.js';
 
@@ -183,9 +185,12 @@ p.lede { color: var(--muted); margin: 0 0 24px; font-size: 16px; }
   border-left: 2px solid var(--border-strong); padding: 2px 0 2px 14px;
   color: var(--muted); font-size: 15px; margin: 0 0 26px;
 }
-.owner-counts { display: flex; gap: 26px; margin: 0 0 8px; }
-.owner-counts div .n { font-size: 26px; font-weight: 350; letter-spacing: -.02em; }
-.owner-counts div .l { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 650; }
+.owner-counts, .page-counts { display: flex; gap: 26px; margin: 0 0 8px; }
+.owner-counts div .n, .page-counts div .n { font-size: 26px; font-weight: 350; letter-spacing: -.02em; }
+.owner-counts div .l, .page-counts div .l { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 650; }
+.page-counts .crit .n { color: #d03b3b; }
+p.lede.small { font-size: 14px; margin-bottom: 14px; max-width: 70ch; }
+h2 .count { font-size: 12px; color: var(--faint); font-weight: 500; font-variant-numeric: tabular-nums; }
 .limits { margin-top: 12px; }
 .limits li { color: var(--muted); font-size: 13.5px; margin-bottom: 3px; }
 
@@ -325,6 +330,39 @@ function navFor(model, current) {
     `<a href="${slug}.html"${slug === current ? ' aria-current="page"' : ''}>${esc(label)}</a>`).join('');
 }
 
+/**
+ * The counts-and-bands header every findings page now carries.
+ *
+ * The axis, owner and surface pages were a heading, a table and a wall of
+ * cards. The verdict page had every chart and they had none, so the one screen
+ * a reader actually lands on from the nav was the least legible in the bundle.
+ * Same data, drawn once, used everywhere.
+ */
+function pageHeader(findings, { scatter = true } = {}) {
+  const problems = findings.filter((f) => f.kind !== 'strength');
+  const strengths = findings.length - problems.length;
+  const bands = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of problems) bands[priorityBand(f.priority)]++;
+
+  return `<div class="page-counts">
+  <div><div class="n">${problems.length}</div><div class="l">finding${problems.length === 1 ? '' : 's'}</div></div>
+  ${bands.critical ? `<div class="crit"><div class="n">${bands.critical}</div><div class="l">critical</div></div>` : ''}
+  ${bands.high ? `<div><div class="n">${bands.high}</div><div class="l">high</div></div>` : ''}
+  ${strengths ? `<div><div class="n">${strengths}</div><div class="l">working well</div></div>` : ''}
+</div>
+${bandStrip(bands)}
+${scatter ? impactEffortScatter(problems.map((f) => ({
+    title: f.title, impact: f.impact, effort: f.effort, priority: f.priority,
+    band: priorityBand(f.priority), owner: OWNER_LABELS[f.owner] || f.owner,
+  })), { title: 'What to do first on this page' }) : ''}`;
+}
+
+const bandsOf = (findings) => {
+  const bands = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of findings.filter((x) => x.kind !== 'strength')) bands[priorityBand(f.priority)]++;
+  return bands;
+};
+
 function findingCard(f) {
   const band = priorityBand(f.priority);
   return `<article class="finding ${band}" data-priority="${f.priority}" id="${esc(f.id)}">
@@ -438,9 +476,16 @@ const reading = (s) => (s == null ? 'not measured'
 
 export function renderAxisHTML(page, model) {
   const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const groups = Object.entries(model.consistency.byGroup || {})
+    .filter(([, g]) => g.axis === page.axis)
+    .sort((a, b) => (a[1].score ?? 999) - (b[1].score ?? 999))
+    .map(([name, g]) => ({ name, score: g.score, measured: g.measured, declared: g.declared }));
+
   const body = `
 <h1>${esc(page.title)}</h1>
 <p class="lede">${esc(page.summary)}</p>
+${pageHeader(findings)}
+${scoreBars(groups, { title: `Where the ${AXIS_LABELS[page.axis].toLowerCase()} score comes from` })}
 
 <h2>Dimensions</h2>
 <table>
@@ -467,9 +512,17 @@ export function renderSurfaceHTML(page, model) {
 ${ids.map((id) => model.findingIndex[id]).filter(Boolean).map(findingCard).join('\n')}</div>`)
     .join('\n');
 
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const axisRows = Object.entries(page.byAxis).map(([axis, ids]) => {
+    const list = ids.map((id) => model.findingIndex[id]).filter(Boolean);
+    return { label: AXIS_LABELS[axis], bands: bandsOf(list), total: list.filter((f) => f.kind !== 'strength').length };
+  });
+
   const body = `
 <h1>${esc(page.title)}</h1>
 <p class="lede">${esc(page.summary)}</p>
+${pageHeader(findings)}
+${stackedBandBars(axisRows, { title: 'Which axis this surface is failing on' })}
 <div class="note">All three axes on one screen. Each finding also lives on its axis page — same record, reached two ways.</div>
 ${sections || '<p class="empty">Nothing found on this surface.</p>'}`;
   return layout({ title: page.title, site: model.site, nav: navFor(model, page.slug), body, generatedAt: model.generatedAt });
@@ -519,6 +572,68 @@ base ${t.typography.bodyPx}px · detected ratio ${t.typography.ratio ?? 'none co
 }
 
 
+/**
+ * The GEO page — can a machine find, read and act on this store?
+ *
+ * A query over the same pile, like every page here. What earns it its own
+ * screen is that the answer was previously spread across the Engine axis page
+ * (mixed in with performance), the marketing owner page and the surface pages,
+ * and you had to know which entries counted as machine-readability to assemble
+ * it. Grouped by the question each finding answers, because being allowed in,
+ * being parseable, having the answer present and being able to act are four
+ * different jobs.
+ *
+ * No score. Machine retrieval already scores through its Engine groups, and a
+ * number here would be the fourth axis the concept forbids.
+ */
+export function renderGeoHTML(page, model) {
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const problems = findings.filter((f) => f.kind !== 'strength');
+
+  const groupRows = Object.entries(page.byGeoGroup).map(([g, ids]) => {
+    const list = ids.map((id) => model.findingIndex[id]).filter(Boolean);
+    return { key: g, label: GEO_GROUP_LABELS[g], list, bands: bandsOf(list),
+      total: list.filter((f) => f.kind !== 'strength').length };
+  }).filter((r) => r.list.length);
+
+  // The buy path, taken from the evidence of whichever operability finding
+  // recorded it. Derived from the pile — not a second measurement.
+  const path = findings
+    .map((f) => f.evidence?.fullPath)
+    .find((p) => Array.isArray(p) && p.length);
+
+  const geoGroups = Object.entries(model.consistency.byGroup || {})
+    .filter(([name]) => ['Structured data', 'Retrieval', 'Machine parity'].includes(name))
+    .map(([name, g]) => ({ name, score: g.score, measured: g.measured, declared: g.declared }));
+
+  const sections = groupRows.map((r) => `<div data-section>
+  <h2>${esc(r.label)} <span class="count">${r.list.length}</span></h2>
+  <p class="lede small">${esc(GEO_GROUP_BRIEF[r.key])}</p>
+  ${r.list.map(findingCard).join('\n')}
+</div>`).join('\n');
+
+  const body = `
+<h1>Machine readability</h1>
+<p class="lede">${esc(page.summary)}</p>
+${pageHeader(findings)}
+
+${geoGroups.length ? `${scoreBars(geoGroups, { title: 'What this contributes to the Engine score' })}
+<div class="note">These bars measure <strong>consistency, not quality</strong> — whether pages of the same type agree with each other. A site with no structured data anywhere is perfectly consistent about it, and scores 100 here while every finding below still stands. The score says how far this is from a coherent system; the findings say what is wrong with it. Read them together.</div>` : ''}
+${stackedBandBars(groupRows, { title: 'Where the work sits', minRows: 1 })}
+
+${path ? `<h2>The buy path</h2>
+<p class="lede small">An agent does not get part-way into a cart — it stops at the first control it cannot see. This is where that happens, not a percentage.</p>
+${stepLadder(path.map((s) => ({ step: s.step, state: s.state, detail: s.detail })))}
+<div class="note">Whether this storefront <em>should</em> be operable by agents is a commercial decision. This reports where the path stops, not whether it ought to.</div>` : ''}
+
+<div class="note"><strong>What this does not say.</strong> Retrievable is not cited. Nothing here predicts traffic, rankings or whether an answer engine will quote this store — only what a machine can and cannot read. Crawler behaviour also moves, and there is no standards body for answer-engine retrieval, so apart from <code>lang</code> (WCAG 3.1.1) none of these findings is prescriptive.</div>
+
+${sections || '<p class="empty">Nothing found.</p>'}
+${problems.length ? '' : '<p class="empty">No machine-readability problems found.</p>'}`;
+
+  return layout({ title: 'Machine readability', site: model.site, nav: navFor(model, 'geo'), body, generatedAt: model.generatedAt });
+}
+
 /** An owner page: the same findings, filtered to one team's work. */
 export function renderOwnerHTML(page, model) {
   const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
@@ -527,16 +642,18 @@ export function renderOwnerHTML(page, model) {
   const bands = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const f of problems) bands[priorityBand(f.priority)]++;
 
+  // Where this team's work sits across the three axes — the question an owner
+  // page raises and could not previously answer without counting cards.
+  const axisRows = model.axes.map((a) => {
+    const mine = problems.filter((f) => f.axis === a);
+    return { label: AXIS_LABELS[a], bands: bandsOf(mine), total: mine.length };
+  });
+
   const body = `
 <h1>${esc(OWNER_LABELS[page.owner])}</h1>
 <p class="owner-lede">${esc(OWNER_BRIEF[page.owner])}</p>
-
-<div class="owner-counts">
-  <div><div class="n">${problems.length}</div><div class="l">findings</div></div>
-  <div><div class="n">${bands.critical}</div><div class="l">critical</div></div>
-  <div><div class="n">${bands.high}</div><div class="l">high</div></div>
-  ${strengths.length ? `<div><div class="n">${strengths.length}</div><div class="l">strengths</div></div>` : ''}
-</div>
+${pageHeader(findings)}
+${stackedBandBars(axisRows, { title: 'Spread across the axes' })}
 <div class="note">The same findings appear on their axis and surface pages. This is one record reached by a different question &mdash; not a second copy, and nothing here is scored separately.</div>
 
 <h2>Findings</h2>

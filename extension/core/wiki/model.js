@@ -12,8 +12,9 @@
  */
 
 import {
-  AXES, AXIS_LABELS, BAND_ORDER, CLIENT_THRESHOLD, OWNERS, OWNER_BRIEF,
-  OWNER_LABELS, SURFACE_LABELS, effortLabel, priorityBand,
+  AXES, AXIS_LABELS, BAND_ORDER, CLIENT_THRESHOLD, GEO_GROUPS, GEO_GROUP_LABELS,
+  OWNERS, OWNER_BRIEF, OWNER_LABELS, SURFACE_LABELS, effortLabel, geoGroupFor,
+  isGeoFinding, priorityBand,
 } from '../finding.js';
 
 /**
@@ -66,6 +67,26 @@ export function buildWikiModel(analysis) {
       title: OWNER_LABELS[owner],
       summary: OWNER_BRIEF[owner],
       findingIds: ownerFindings.map((f) => f.id),
+    });
+  }
+
+  // The GEO page. A query over the same pile, like every other page here — the
+  // findings on it are the ones already on the Engine axis page, reached by the
+  // question "can a machine use this store" instead of "what kind of problem is
+  // this". No score: machine retrieval scores through the Engine groups it
+  // already has, and a second number here would be the fourth axis the concept
+  // forbids.
+  const geoFindings = findings.filter(isGeoFinding);
+  if (geoFindings.length) {
+    pages.push({
+      slug: 'geo',
+      kind: 'geo',
+      title: 'Machine readability',
+      summary: geoSummary(geoFindings, consistency),
+      byGeoGroup: Object.fromEntries(GEO_GROUPS
+        .map((g) => [g, geoFindings.filter((f) => geoGroupFor(f.checkId) === g).map((f) => f.id)])
+        .filter(([, ids]) => ids.length)),
+      findingIds: geoFindings.map((f) => f.id),
     });
   }
 
@@ -141,12 +162,29 @@ function axisSummary(axis, consistency, findings) {
   return `${AXIS_LABELS[axis]} consistency scores ${score}/100 across ${findings.length} finding${findings.length === 1 ? '' : 's'}.${lead}`;
 }
 
+/**
+ * Never claim traffic or citations. Retrievable is not cited — say what a
+ * machine can and cannot read, and stop.
+ */
+function geoSummary(findings, consistency) {
+  const problems = findings.filter((f) => f.kind !== 'strength');
+  const worst = GEO_GROUPS
+    .map((g) => [g, problems.filter((f) => geoGroupFor(f.checkId) === g).length])
+    .filter(([, n]) => n)
+    .sort((a, b) => b[1] - a[1])[0];
+  const lead = worst ? ` Most of it sits in ${GEO_GROUP_LABELS[worst[0]].toLowerCase()}.` : '';
+  return `What an answer engine, a crawler or a shopping agent can read here — ${problems.length} thing${problems.length === 1 ? '' : 's'} standing between this store and a machine that can use it.${lead} This says what a machine can and cannot read; it does not predict traffic or citations.`;
+}
+
 function surfaceSummary(surface, findings) {
   if (!findings.length) return 'Nothing found on this surface.';
   const top = findings[0];
   const label = SURFACE_LABELS[surface] || surface;
   return `${findings.length} finding${findings.length === 1 ? '' : 's'} on ${label}. Highest priority: ${top.title}`;
 }
+
+const filterIdMap = (map, keep) => Object.fromEntries(
+  Object.entries(map).map(([k, ids]) => [k, ids.filter((id) => keep.has(id))]).filter(([, ids]) => ids.length));
 
 /** Filter a model for a density. 'full' = everything; 'client' = above the bar. */
 export function atDensity(model, density) {
@@ -157,9 +195,18 @@ export function atDensity(model, density) {
     ...model,
     findings: kept,
     findingIndex: Object.fromEntries(kept.map((f) => [f.id, f])),
+    // The sub-groupings have to be filtered too, not just findingIds — a page
+    // that renders from byAxis or byGeoGroup would otherwise still walk ids the
+    // density dropped. It survives today only because the lookup misses and
+    // `.filter(Boolean)` swallows it, which is luck, not a design.
     pages: model.pages
-      .map((p) => ({ ...p, findingIds: p.findingIds.filter((id) => keptIds.has(id)) }))
-      .filter((p) => p.kind !== 'surface' || p.findingIds.length),
+      .map((p) => ({
+        ...p,
+        findingIds: p.findingIds.filter((id) => keptIds.has(id)),
+        ...(p.byAxis ? { byAxis: filterIdMap(p.byAxis, keptIds) } : {}),
+        ...(p.byGeoGroup ? { byGeoGroup: filterIdMap(p.byGeoGroup, keptIds) } : {}),
+      }))
+      .filter((p) => (p.kind !== 'surface' && p.kind !== 'geo') || p.findingIds.length),
     stats: stats(kept),
   };
 }

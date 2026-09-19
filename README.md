@@ -140,7 +140,7 @@ node scripts/sync-core.js     # copy core/ into the extension
 ```
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick `extension/`.
-The card should read **EchoFlow 2.0 · 2.3.0**.
+The card should read **EchoFlow 2.0 · 2.4.0**.
 
 **Updating**
 
@@ -217,7 +217,7 @@ Export writes the same bundle the CLI produces, as a `.zip`.
 Unzip it and there is exactly one thing to open:
 
 ```
-START HERE.html    the verdict, the charts, and a route to everything else
+START HERE.html    the verdict, the charts, and a menu of every page
 report/
   site/            static HTML. Host it anywhere. The client's copy.
   pages/           markdown with front-matter — verdict, per axis, per owner, per surface.

@@ -16,8 +16,8 @@
  */
 
 import {
-  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, OWNER_BRIEF, OWNER_LABELS,
-  SURFACE_LABELS, effortLabel, priorityBand,
+  AXIS_LABELS, BASIS_LABELS, BASIS_NOTE, GEO_GROUP_BRIEF, GEO_GROUP_LABELS,
+  OWNER_BRIEF, OWNER_LABELS, SURFACE_LABELS, effortLabel, priorityBand,
 } from '../finding.js';
 import { GRADE_COPY } from '../consistency.js';
 
@@ -329,6 +329,77 @@ export function renderOwnerPage(page, model) {
     '|---|---|---|---|',
     ...findings.map((f) =>
       `| ${f.kind === 'strength' ? 'strength' : f.priority} | [${f.title}](../findings/${f.id}.md) | ${BASIS_LABELS[f.basis]} | ${SURFACE_LABELS[f.surface] || f.surface} |`),
+    '',
+  ].join('\n');
+}
+
+/**
+ * The GEO page, for the half of the audience that is a machine.
+ *
+ * Grouped the same way as the HTML, so an agent reading `pages/geo.md` and a
+ * person reading `site/geo.html` are looking at the same partition of the same
+ * pile — which is the whole point of the wiki being a projection rather than a
+ * document.
+ */
+export function renderGeoPage(page, model) {
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const problems = findings.filter((f) => f.kind !== 'strength');
+  const bands = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of problems) bands[priorityBand(f.priority)]++;
+
+  const path = findings.map((f) => f.evidence?.fullPath).find((p) => Array.isArray(p) && p.length);
+
+  const sections = Object.entries(page.byGeoGroup).flatMap(([g, ids]) => {
+    const list = ids.map((id) => model.findingIndex[id]).filter(Boolean);
+    if (!list.length) return [];
+    return [
+      `## ${GEO_GROUP_LABELS[g]}`,
+      '',
+      GEO_GROUP_BRIEF[g],
+      '',
+      '| Priority | Finding | Basis | Where |',
+      '|---|---|---|---|',
+      ...list.map((f) =>
+        `| ${f.kind === 'strength' ? 'strength' : f.priority} | [${f.title}](../findings/${f.id}.md) | ${BASIS_LABELS[f.basis]} | ${SURFACE_LABELS[f.surface] || f.surface} |`),
+      '',
+    ];
+  });
+
+  return frontMatter({
+    type: 'geo',
+    site: model.site,
+    findings_count: findings.length,
+    critical: bands.critical,
+    high: bands.high,
+    // Stated in the front matter so an agent reading only the header cannot
+    // mistake this for a fourth axis with a score of its own.
+    scored: false,
+    note: 'A filtered view of the Engine axis. No separate score.',
+  }) + [
+    '# Machine readability',
+    '',
+    page.summary,
+    '',
+    `${problems.length} problem${problems.length === 1 ? '' : 's'} \u2014 ${bands.critical} critical, ${bands.high} high.`,
+    '',
+    '_This is a filtered view of findings that already live on the Engine axis page. It carries no score of its own: machine retrieval scores through the Engine groups Structured data, Retrieval and Machine parity._',
+    '',
+    ...(path ? [
+      '## The buy path',
+      '',
+      'An agent stops at the first step with no machine-visible affordance. This reports where, not a percentage.',
+      '',
+      '| Step | State | Detail |',
+      '|---|---|---|',
+      ...path.map((s) => `| ${s.step} | ${s.state} | ${s.detail || ''} |`),
+      '',
+      '_Whether this storefront should be operable by agents is a commercial decision._',
+      '',
+    ] : []),
+    ...sections,
+    '## What this does not say',
+    '',
+    'Retrievable is not cited. Nothing here predicts traffic, rankings or whether an answer engine will quote this store \u2014 only what a machine can and cannot read. Crawler behaviour moves and there is no standards body for answer-engine retrieval, so apart from `lang` (WCAG 3.1.1) none of these findings is prescriptive.',
     '',
   ].join('\n');
 }

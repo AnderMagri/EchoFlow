@@ -246,6 +246,84 @@ function ownerFor(checkId, axis) {
 
 export { ownerFor };
 
+/**
+ * The GEO view — can a machine find, read and act on this store?
+ *
+ * This is a QUERY over the one pile, exactly like the axis, owner and surface
+ * pages. It is NOT a fourth axis and carries NO score of its own: the concept
+ * forbids adding axes, and machine retrieval already has its own lines in the
+ * breakdown as the Engine groups `Structured data`, `Retrieval` and
+ * `Machine parity`. What it does not have is a page, which is why "is my store
+ * readable by an answer engine" could only be answered by reading three
+ * separate lists and knowing which entries counted.
+ *
+ * Grouped by the question each finding answers, because the four are different
+ * jobs on different desks: being allowed in, being parseable, having the answer
+ * present at all, and being able to act.
+ */
+export const GEO_GROUPS = ['access', 'structured', 'answerability', 'operability', 'parity'];
+
+export const GEO_GROUP_LABELS = {
+  access: 'Crawler access',
+  structured: 'Structured data',
+  answerability: 'Answerability',
+  operability: 'Agent operability',
+  parity: 'Machine vs human',
+};
+
+export const GEO_GROUP_BRIEF = {
+  access: 'Whether the crawlers behind answer engines are permitted, and whether the server agrees with what robots.txt says.',
+  structured: 'Whether the facts are marked up in a form a machine parses, rather than left as prose it has to guess at.',
+  answerability: 'Whether the answers to ordinary buyer questions are present in what a machine actually receives.',
+  operability: 'How far an agent gets along the buy path before it meets a control it cannot see.',
+  parity: 'Whether the machine and the person are shown the same price, title and availability.',
+};
+
+/**
+ * Which GEO group a check belongs to — and, by having an entry at all, whether
+ * it is GEO. Prefixes, in the same shape as `ownerFor` and for the same reason:
+ * a new retrieval check cannot silently vanish from the page. `test/run.js`
+ * asserts that every check id produced by `checks-retrieval.js` and
+ * `checks-operability.js` lands in one of these groups.
+ *
+ * Engine is not all GEO: `engine-lcp`, `engine-cls` and `engine-page-weight`
+ * are performance, which is a different argument with a different owner.
+ *
+ * @param {string} checkId
+ * @returns {string|null} the group, or null when the finding is not GEO
+ */
+export function geoGroupFor(checkId) {
+  const GROUPS = {
+    access: [
+      'engine-ai-crawlers-blocked', 'engine-crawler-blocked-at-edge',
+      'engine-crawler-block-confirmed', 'engine-no-robots-txt', 'engine-no-llms-txt',
+    ],
+    structured: [
+      'engine-no-structured-data', 'engine-missing-schema', 'engine-schema-drift',
+      'engine-incomplete-product-schema', 'engine-malformed-jsonld',
+      'engine-metadata-drift', 'engine-missing-description', 'engine-no-lang',
+      'engine-unmarked-faq', 'engine-h1-structure', 'strength-product-schema',
+    ],
+    answerability: [
+      'engine-unanswerable', 'engine-answers-prose-only', 'engine-answerability-unmeasured',
+      'engine-thin-content', 'engine-content-requires-js', 'strength-answerable-pdp',
+      'strength-server-rendered',
+    ],
+    operability: [
+      'engine-agent-blocked-', 'engine-agent-degraded', 'engine-opaque-controls',
+      'engine-json-endpoints-closed', 'strength-agent-operable',
+    ],
+    parity: ['engine-parity-'],
+  };
+  for (const [group, prefixes] of Object.entries(GROUPS)) {
+    if (prefixes.some((p) => checkId.startsWith(p))) return group;
+  }
+  return null;
+}
+
+/** @param {Finding} f */
+export const isGeoFinding = (f) => geoGroupFor(f.checkId) !== null;
+
 /** @param {Finding[]} findings */
 export const byOwner = (findings, owner) => findings.filter((f) => f.owner === owner);
 

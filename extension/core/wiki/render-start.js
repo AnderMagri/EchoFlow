@@ -14,7 +14,7 @@
  */
 
 import {
-  AXIS_LABELS, OWNERS, OWNER_BRIEF, OWNER_LABELS, priorityBand,
+  AXIS_LABELS, OWNERS, OWNER_BRIEF, OWNER_LABELS, SURFACE_LABELS, priorityBand,
 } from '../finding.js';
 import { GRADE_COPY } from '../consistency.js';
 import {
@@ -26,8 +26,17 @@ const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-/** @param {import('./model.js').WikiModel} model */
-export function renderStartHere(model) {
+/**
+ * @param {import('./model.js').WikiModel} model
+ * @param {{slug:string, surface:string}[]} [structurePages]
+ *   Structure pages are built by the bundler, not by `buildWikiModel`, so they
+ *   are NOT in `model.pages`. The old menu tested `model.pages.some(p =>
+ *   p.slug.startsWith('structure-'))`, which is never true — so the entry
+ *   point of the bundle has never linked to the structure pages at all, while
+ *   the report's own nav has. Passing them in is the fix; inferring them here
+ *   would just be the same guess in a new place.
+ */
+export function renderStartHere(model, structurePages = []) {
   const c = model.consistency;
   const problems = model.findings.filter((f) => f.kind !== 'strength');
   const strengths = model.findings.filter((f) => f.kind === 'strength');
@@ -40,6 +49,53 @@ export function renderStartHere(model) {
   });
 
   const hasOwnerPage = (o) => model.pages.some((p) => p.slug === `for-${o}`);
+
+  const geo = model.pages.find((p) => p.kind === 'geo');
+  const structure = structurePages[0] || null;
+
+  /**
+   * Every page in the bundle, as a menu.
+   *
+   * START HERE had four hand-picked "routes" and no way to reach an axis page,
+   * a surface page or the GEO page at all — so the landing screen of a wiki was
+   * the one screen you could not navigate from. Built from `model.pages` rather
+   * than listed by hand, so a page added later cannot go missing again.
+   */
+  const pagesOfKind = (kind) => model.pages.filter((p) => p.kind === kind);
+  const countFor = (p) => p.findingIds.filter((id) => {
+    const f = model.findingIndex[id];
+    return f && f.kind !== 'strength';
+  }).length;
+
+  const menuGroups = [
+    {
+      heading: 'By kind of problem',
+      links: pagesOfKind('axis').map((p) => ({
+        slug: p.slug, label: AXIS_LABELS[p.axis] || p.title, count: countFor(p),
+      })),
+    },
+    {
+      heading: 'By who fixes it',
+      links: pagesOfKind('owner').map((p) => ({
+        slug: p.slug, label: OWNER_LABELS[p.owner] || p.title, count: countFor(p),
+      })),
+    },
+    {
+      heading: 'By page type',
+      links: pagesOfKind('surface').map((p) => ({
+        slug: p.slug, label: SURFACE_LABELS[p.surface] || p.title, count: countFor(p),
+      })),
+    },
+    {
+      heading: 'Reference',
+      links: [
+        { slug: 'index', label: 'Full report' },
+        ...(geo ? [{ slug: 'geo', label: 'Machine readability', count: countFor(geo) }] : []),
+        ...pagesOfKind('tokens').map((p) => ({ slug: p.slug, label: 'Design system seed' })),
+        ...structurePages.map((p) => ({ slug: p.slug, label: `Structure: ${p.surface.toUpperCase()}` })),
+      ],
+    },
+  ].filter((g) => g.links.length);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -75,9 +131,53 @@ ${CHART_CSS}
 .top li b { color: var(--ink); font-weight: 600; }
 .files { font-size: 13px; color: var(--muted); }
 .files code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+
+/* The menu. START HERE is self-contained, so this is a real list of links
+   rather than the report's own nav bar — the report's nav lives in a stylesheet
+   under report/, and depending on it would break the day someone copies this
+   file out on its own. */
+.menu { margin-top: 4px; }
+.menu-group { margin-bottom: 20px; }
+.menu-group > .h {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--faint); font-weight: 650; margin-bottom: 9px;
+}
+.menu-links { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.menu-links a {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 7px 12px; background: var(--raised); color: var(--ink);
+  font-size: 13.5px; text-decoration: none;
+}
+.menu-links a:hover { background: var(--ink); color: var(--bg); text-decoration: none; }
+.menu-links a .n { font-family: var(--mono); font-size: 11px; opacity: .6; }
+
+/* A menu at the foot of a long page is a menu you have to find. This is the
+   one the reader lands on. */
+.topbar { position: sticky; top: 0; z-index: 10; background: var(--bg);
+  border-bottom: 1px solid var(--border); margin: 0 -24px 0; padding: 0 24px; }
+.topbar .inner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  max-width: 980px; margin: 0 auto; padding: 9px 0; }
+.topbar .mark { font-size: 12.5px; font-weight: 650; letter-spacing: -.01em; }
+.topbar .mark span { color: var(--faint); font-weight: 400; }
+.topbar nav { display: flex; gap: 2px; flex-wrap: wrap; margin-left: auto; }
+.topbar nav a { font-size: 12.5px; color: var(--muted); text-decoration: none; padding: 4px 8px; }
+.topbar nav a:hover { background: var(--raised); color: var(--ink); text-decoration: none; }
+@media (max-width: 700px) {
+  .topbar nav { width: 100%; margin-left: 0; }
+}
 </style>
 </head>
 <body>
+<div class="topbar"><div class="inner">
+  <div class="mark">EchoFlow <span>/ ${esc(model.site)}</span></div>
+  <nav>
+    <a href="report/site/index.html">Full report</a>
+    ${model.pages.filter((p) => p.kind === 'axis').map((p) =>
+      `<a href="report/site/${esc(p.slug)}.html">${esc(AXIS_LABELS[p.axis] || p.title)}</a>`).join('')}
+    ${geo ? '<a href="report/site/geo.html">Machine readability</a>' : ''}
+    <a href="#all-pages">All pages &darr;</a>
+  </nav>
+</div></div>
 <div class="wrap">
 
 <div class="hero">
@@ -135,14 +235,29 @@ ${problems.slice(0, 6).map((f) => `<li><b>${esc(f.title)}</b><br>${esc(f.recomme
     <b>Full report</b>
     <span>Every finding with its evidence, by axis and by page. Has a Full/Client density toggle.</span>
   </a>
+  ${geo ? `<a class="route" href="report/site/geo.html">
+    <b>Machine readability</b>
+    <span>What an answer engine, a crawler or a shopping agent can read — crawler access, structured data, answerability, and how far an agent gets along the buy path.</span>
+    <span class="cnt">${geo.findingIds.length} finding${geo.findingIds.length === 1 ? '' : 's'}</span>
+  </a>` : ''}
   ${model.pages.some((p) => p.kind === 'tokens') ? `<a class="route" href="report/site/tokens.html">
     <b>Design system seed</b>
     <span>The palette, type scale and spacing the site is implicitly running — exported as CSS, Figma tokens, Tailwind and Shopify settings.</span>
   </a>` : ''}
-  ${model.pages.some((p) => p.slug.startsWith('structure-')) ? `<a class="route" href="report/site/${esc(model.pages.find((p) => p.slug.startsWith('structure-')).slug)}.html">
+  ${structure ? `<a class="route" href="report/site/${esc(structure.slug)}.html">
     <b>Page structure</b>
     <span>The page as boxes — how many sections a rebuild would have to reproduce.</span>
   </a>` : ''}
+</div>
+
+<h2 id="all-pages">Every page in this report</h2>
+<div class="menu">
+  ${menuGroups.map((g) => `<div class="menu-group">
+    <div class="h">${esc(g.heading)}</div>
+    <div class="menu-links">
+      ${g.links.map((l) => `<a href="report/site/${esc(l.slug)}.html">${esc(l.label)}${l.count != null ? `<span class="n">${l.count}</span>` : ''}</a>`).join('')}
+    </div>
+  </div>`).join('')}
 </div>
 
 <h2>If you are reading this as a machine</h2>

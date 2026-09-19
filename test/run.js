@@ -17,14 +17,16 @@ import {
 } from '../core/consistency.js';
 import {
   createFinding, effortLabel, priorityBand, rank, dedupe, forClient,
-  byOwner, ownerFor, OWNERS,
+  byOwner, ownerFor, OWNERS, geoGroupFor, isGeoFinding, GEO_GROUPS,
 } from '../core/finding.js';
+import { readFile } from 'node:fs/promises';
 import { inferSurface, normalizeObservation, flattenLayout, sectionSkeleton } from '../core/observation.js';
 import { analyze } from '../core/analyze.js';
 import { evaluateAnswerability } from '../core/answerability.js';
 import { evaluateParity } from '../core/parity.js';
 import { evaluateOperability } from '../core/operability.js';
 import { buildBundle } from '../core/wiki/bundle.js';
+import { buildWikiModel } from '../core/wiki/model.js';
 import { discoverPages, isPageUrl, QUOTA } from '../core/discover.js';
 import { cleanSite, messySite } from './fixtures.js';
 
@@ -935,6 +937,40 @@ t('severity bands count problems, not strengths', () => {
   eq(manifest.counts.problems + manifest.counts.strengths, manifest.counts.total);
 });
 
+t('START HERE can reach every page in the bundle', () => {
+  // The landing screen of a wiki was the one screen you could not navigate
+  // from: four hand-picked routes, with no way to reach an axis, surface or GEO
+  // page at all. The menu is built from model.pages so a page added later
+  // cannot silently go missing — this asserts that, not the markup.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(analysis);
+  const start = files['START HERE.html'];
+  const linked = new Set([...start.matchAll(/href="report\/site\/([^".]+)\.html"/g)].map((m) => m[1]));
+
+  for (const page of buildWikiModel(analysis).pages) {
+    ok(linked.has(page.slug), `START HERE links to ${page.slug}`);
+  }
+  ok(linked.size >= 6, `and offers a real menu, not a handful of routes (${linked.size})`);
+});
+
+t('START HERE links to the structure pages', () => {
+  // Structure pages are built by the bundler, not by buildWikiModel, so they
+  // are not in model.pages. The old check asked model.pages for them, which is
+  // never true — the entry point of the bundle linked to none of them, on every
+  // report ever generated, while the report's own nav listed them.
+  const withLayout = messySite().map((o) => ({
+    ...o,
+    layout: { tag: 'body', depth: 0, x: 0, y: 0, w: 1440, h: 2000, children: [] },
+  }));
+  const files = buildBundle(analyze({ observations: withLayout, site: 'm' }));
+  const start = files['START HERE.html'];
+  const structure = Object.keys(files).filter((k) => /^report\/site\/structure-.*\.html$/.test(k));
+  ok(structure.length, `the bundle has structure pages to link to (${structure.length})`);
+  for (const path of structure) {
+    ok(start.includes(path), `START HERE links to ${path}`);
+  }
+});
+
 t('START HERE is self-contained and links into report/', () => {
   const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
   const start = files['START HERE.html'];
@@ -1277,24 +1313,45 @@ t('byOwner partitions the findings with no overlap', () => {
   eq(counts.reduce((a, b) => a + b, 0), r.findings.length);
 });
 
-t('severity bands count problems, not strengths', () => {
-  const r = analyze({ observations: messySite(), site: 'm' });
-  const files = buildBundle(r);
-  const manifest = JSON.parse(files['report/manifest.json']);
-  const bandTotal = Object.values(manifest.counts.bands).reduce((a, b) => a + b, 0);
-  eq(bandTotal, manifest.counts.problems,
-    'the headline count and the severity distribution must agree');
-  eq(manifest.counts.problems + manifest.counts.strengths, manifest.counts.total);
+
+// --- the GEO view -----------------------------------------------------------
+
+t('GEO is a query over the pile, not a fourth axis', () => {
+  const model = buildWikiModel(analyze({ observations: messySite(), site: 'm' }));
+  const geo = model.pages.find((p) => p.slug === 'geo');
+  ok(geo, 'there is a GEO page');
+  ok(!('score' in geo), 'and it carries no score of its own — the three-axis model stands');
+  // Every finding on it is still reachable from its axis page: one record,
+  // linked, never copied.
+  const engine = model.pages.find((p) => p.slug === 'axis-engine');
+  for (const id of geo.findingIds) {
+    ok(engine.findingIds.includes(id), `${id} is still on the Engine axis page`);
+  }
 });
 
-t('START HERE is self-contained and links into report/', () => {
-  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
-  const start = files['START HERE.html'];
-  ok(!/<link[^>]+stylesheet/i.test(start), 'no external stylesheet — it must open from anywhere');
-  ok(!/<script[^>]+src=/i.test(start), 'no external script');
-  ok(start.includes('report/site/index.html'), 'links into the report');
-  for (const m of start.matchAll(/href="(report\/[^"]+)"/g)) {
-    ok(files[m[1]], `START HERE links to a file that exists: ${m[1]}`);
+t('performance is Engine but not GEO', () => {
+  // A slow page is a real defect and a different argument with a different
+  // owner. Folding it in would make "machine readability" mean "engine stuff".
+  for (const id of ['engine-lcp', 'engine-cls', 'engine-page-weight', 'engine-eager-images']) {
+    eq(geoGroupFor(id), null, `${id} is not GEO`);
+  }
+  eq(geoGroupFor('design-colour-fork'), null, 'a design finding is not GEO');
+});
+
+ta('every retrieval and operability check lands in a GEO group', async () => {
+  // The guard that makes the prefix list safe: add a check to either module
+  // and forget to classify it, and it vanishes from the GEO page with nothing
+  // to say so. Same failure mode ownerFor() exists to prevent.
+  const ids = new Set();
+  for (const file of ['../core/checks-retrieval.js', '../core/checks-operability.js']) {
+    const src = await readFile(new URL(file, import.meta.url), 'utf8');
+    for (const m of src.matchAll(/checkId: *[`']([a-z0-9-]+)/g)) ids.add(m[1]);
+  }
+  ok(ids.size > 20, `found the check ids to test (${ids.size})`);
+  const orphans = [...ids].filter((id) => geoGroupFor(id) === null);
+  eq(orphans.length, 0, `unclassified GEO checks: ${orphans.join(', ')}`);
+  for (const id of ids) {
+    ok(GEO_GROUPS.includes(geoGroupFor(id)), `${id} maps to a known group`);
   }
 });
 
