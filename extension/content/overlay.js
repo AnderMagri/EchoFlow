@@ -65,6 +65,164 @@ export function toggleOverlay(mode, columnCount) {
     return { left: +parts[0], width: +parts[1], measured: true, hits: best };
   }
 
+  /**
+   * How many columns is this page actually laid out on?
+   *
+   * Offering 12 in a menu is not detection — it is a guess the reader has to
+   * confirm by eye, which is the work the overlay was supposed to do. Two
+   * sources, in order of authority:
+   *
+   * 1. An explicit CSS grid. `grid-template-columns` resolves to a list of
+   *    real track sizes in the computed style, so the count is a FACT, not an
+   *    inference. A four-up product grid says four and there is nothing to
+   *    argue about.
+   *
+   * 2. The layout grid, inferred from where element edges fall. Most
+   *    storefronts have no `display:grid` on the page skeleton at all — the
+   *    12-column system lives in the designer's head and in a set of widths.
+   *    So search for the (columns, gutter) pair whose boundaries the most
+   *    element edges land on.
+   *
+   * The search has to include the gutter. A 12-column grid with a 24px gutter
+   * puts its edges at multiples of (col + gutter), NOT at twelfths of the
+   * container, so a gutter-less model scores a real 12-col layout near zero
+   * and picks something meaningless instead.
+   */
+  function detectGrid(box) {
+    var explicit = countExplicitGrids();
+    var inferred = inferLayoutGrid(box);
+    return { explicit: explicit, inferred: inferred };
+  }
+
+  /** Real CSS grids on the page, counted by their resolved track lists. */
+  function countExplicitGrids() {
+    var tally = {};
+    var all = document.body.querySelectorAll('*');
+    for (var i = 0; i < all.length && i < 4000; i++) {
+      var cs = getComputedStyle(all[i]);
+      if (cs.display !== 'grid' && cs.display !== 'inline-grid') continue;
+      var tpl = cs.gridTemplateColumns;
+      if (!tpl || tpl === 'none') continue;
+      var r = all[i].getBoundingClientRect();
+      if (r.width < 120 || r.height < 40) continue;
+      // The computed value is a resolved px list, so the token count IS the
+      // column count. `repeat(4, 1fr)` arrives as "260px 260px 260px 260px".
+      var n = tpl.trim().split(/\s+/).length;
+      if (n < 2 || n > 24) continue;
+      tally[n] = (tally[n] || 0) + 1;
+    }
+    return Object.keys(tally)
+      .map(function (n) { return { columns: +n, uses: tally[n] }; })
+      .sort(function (a, b) { return b.uses - a.uses; });
+  }
+
+  /**
+   * Search (columns × gutter) for the grid the most element edges sit on.
+   *
+   * Scoring has to punish large counts. A 16-column grid has more boundaries
+   * than a 4-column one, so it catches more edges by accident and always wins
+   * a naive "how many edges aligned" contest. So the score is coverage TIMES
+   * the share of boundaries that are actually used: a grid whose lines are
+   * mostly empty is not the grid this page was drawn on.
+   */
+  function inferLayoutGrid(box) {
+    var edges = collectEdges(box);
+    if (edges.length < 6) return null;
+
+    var GUTTERS = [0, 8, 10, 12, 16, 20, 24, 30, 32, 40, 48];
+    var candidates = [];
+
+    for (var n = 2; n <= 16; n++) {
+      for (var g = 0; g < GUTTERS.length; g++) {
+        var gut = GUTTERS[g];
+        var col = (box.width - (n - 1) * gut) / n;
+        // A gutter wider than a column is not a grid, it is a coincidence with
+        // a plausible arithmetic.
+        if (col < 24 || gut > col) continue;
+
+        // Tight. The first pass allowed 4% of a column, which let a 4-col
+        // model swallow a 12-col page: 306 and 304 are two different grids and
+        // six pixels of slack cannot tell them apart. Real edges land within
+        // a pixel or two of their line; anything looser is not measuring.
+        var tol = Math.min(3, Math.max(1.5, col * 0.015));
+
+        // Every line an element could legitimately sit on: the start of each
+        // column and the end of each column.
+        var lines = [];
+        for (var i = 0; i < n; i++) {
+          lines.push(box.left + i * (col + gut));
+          lines.push(box.left + i * (col + gut) + col);
+        }
+
+        var hitLines = {};
+        var hits = 0;
+        var residual = 0;
+        for (var e = 0; e < edges.length; e++) {
+          var nearest = Infinity, nearestLine = -1;
+          for (var l = 0; l < lines.length; l++) {
+            var d = Math.abs(edges[e] - lines[l]);
+            if (d < nearest) { nearest = d; nearestLine = l; }
+          }
+          if (nearest <= tol) { hits++; residual += nearest; hitLines[nearestLine] = 1; }
+        }
+        var distinct = Object.keys(hitLines).length;
+        if (distinct < 3) continue;
+        candidates.push({
+          columns: n, gutter: gut,
+          coverage: hits / edges.length,
+          // How CLOSELY it fits, not just whether it fits. The grid a page was
+          // drawn on sits on its edges to within a pixel; a coarser grid that
+          // happens to land nearby averages two or three.
+          residual: hits ? residual / hits : Infinity,
+          lines: distinct,
+        });
+      }
+    }
+    if (!candidates.length) return null;
+
+    // Rank by how much of the page the grid explains, then by how tightly.
+    //
+    // Two earlier attempts got this wrong. Multiplying coverage by the share
+    // of gridlines used punished exactly the grids it was meant to find — a
+    // real 12-column layout leaves most of its 24 lines empty, because you do
+    // not place something against every one. Falling back to "fewer columns
+    // wins" was just as bad: an 8-column page also fits a 4-column reading,
+    // since a coarse grid is a SUBSET of a fine one, and simplicity picked the
+    // wrong one every time.
+    //
+    // Residual settles it. Both models may cover every edge, but only the real
+    // grid sits ON them — 8 columns at 20px fits the 8-column page to within a
+    // fraction of a pixel, while 4 columns at 16px is out by two or three and
+    // only passes because the tolerance is generous.
+    candidates.sort(function (a, b) {
+      if (Math.abs(a.coverage - b.coverage) > 0.02) return b.coverage - a.coverage;
+      if (Math.abs(a.residual - b.residual) > 0.35) return a.residual - b.residual;
+      if (a.columns !== b.columns) return a.columns - b.columns;
+      return a.gutter - b.gutter;
+    });
+
+    var best = candidates[0];
+    return best.coverage < 0.5 ? null : best;
+  }
+
+  /** Left and right edges of everything substantial inside the container. */
+  function collectEdges(box) {
+    var out = [];
+    var all = document.body.querySelectorAll('div, section, article, main, aside, header, footer, ul, ol, figure, img, h1, h2, h3, p, a, form');
+    for (var i = 0; i < all.length && i < 3000; i++) {
+      var cs = getComputedStyle(all[i]);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var r = all[i].getBoundingClientRect();
+      if (r.width < 40 || r.height < 20) continue;
+      var left = r.left + scrollX, right = r.right + scrollX;
+      // Only what is inside the content column; a full-bleed band tells you
+      // nothing about the grid its contents sit on.
+      if (right < box.left - 2 || left > box.left + box.width + 2) continue;
+      out.push(left, right);
+    }
+    return out;
+  }
+
   function roleHue(el, cs) {
     var tag = el.tagName.toLowerCase();
     var cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
@@ -124,29 +282,50 @@ export function toggleOverlay(mode, columnCount) {
   for (var i = 0; i < document.body.children.length; i++) walk(document.body.children[i], 1);
 
   var container = null;
-  var cols = Math.max(2, Math.min(24, columnCount || 12));
+  var grid = null;
+  var cols = null;
+  var gutter = 0;
 
   if (mode === 'columns') {
     container = detectContainer();
+    grid = detectGrid(container);
+
+    // Measured first, asked-for second. `columnCount` is an override for when
+    // the reader knows the intended grid and wants to check the page against
+    // it — not the default, because a default of 12 is a guess wearing the
+    // costume of a measurement.
+    if (columnCount) {
+      cols = Math.max(2, Math.min(24, columnCount));
+      gutter = grid.inferred && grid.inferred.columns === cols ? grid.inferred.gutter : 0;
+    } else if (grid.inferred) {
+      cols = grid.inferred.columns;
+      gutter = grid.inferred.gutter;
+    } else if (grid.explicit.length) {
+      cols = grid.explicit[0].columns;
+    } else {
+      cols = 12; // nothing measurable — say so in the label below
+    }
     // body.scrollHeight alone under-measures whenever the document is taller
     // than the body box, and the grid then stops partway down the page.
     var pageH = Math.max(
       document.body.scrollHeight, document.documentElement.scrollHeight,
       document.documentElement.offsetHeight,
     );
-    var colW = container.width / cols;
+    var colW = (container.width - (cols - 1) * gutter) / cols;
 
     // Bands, not hairlines. A line marks a boundary; a band shows the column
-    // an element is supposed to sit in, which is what you are checking.
+    // an element is supposed to sit in, which is what you are checking. The
+    // gutters are left empty, because an element landing in a gutter is the
+    // defect you are looking for and a gapless grid hides it.
     for (var c = 0; c < cols; c++) {
       var band = document.createElement('div');
       band.setAttribute('data-ef', 'col');
       band.style.cssText = 'position:absolute;pointer-events:none;box-sizing:border-box;'
         + 'top:0;height:' + pageH + 'px;'
-        + 'left:' + (container.left + colW * c) + 'px;width:' + colW + 'px;'
+        + 'left:' + (container.left + c * (colW + gutter)) + 'px;width:' + colW + 'px;'
         + 'background:rgba(31,79,143,.07);'
         + 'border-left:1px solid rgba(31,79,143,.28);'
-        + (c === cols - 1 ? 'border-right:1px solid rgba(31,79,143,.28);' : '');
+        + 'border-right:1px solid rgba(31,79,143,.28);';
       layer.appendChild(band);
     }
 
@@ -154,14 +333,26 @@ export function toggleOverlay(mode, columnCount) {
     // how the old one went wrong unnoticed for so long.
     var tag = document.createElement('span');
     tag.setAttribute('data-ef', 'label');
-    tag.textContent = container.measured
-      ? Math.round(container.width) + 'px content · ' + cols + ' col · ' + Math.round(colW) + 'px each'
-      : 'no repeating content container found — grid drawn on the full ' + pageW + 'px viewport';
+    var how = columnCount ? 'you chose'
+      : grid.inferred ? Math.round(grid.inferred.coverage * 100) + '% of edges fit'
+      : grid.explicit.length ? 'from a CSS grid'
+      : 'no grid detected — showing 12';
+    tag.textContent = Math.round(container.width) + 'px content · ' + cols + ' col'
+      + (gutter ? ' · ' + gutter + 'px gutter' : '') + ' · ' + Math.round(colW) + 'px each'
+      + ' (' + how + ')'
+      + (container.measured ? '' : ' · no content container, using the viewport');
     tag.style.cssText = 'position:absolute;top:' + scrollY + 'px;left:' + container.left + 'px;'
       + 'font:10px ui-monospace,monospace;background:rgba(31,79,143,.92);color:#fff;'
       + 'padding:2px 6px;white-space:nowrap;pointer-events:none';
     layer.appendChild(tag);
   }
 
-  return { active: true, boxes: drawn, columns: mode === 'columns' ? cols : null, container: container };
+  return {
+    active: true,
+    boxes: drawn,
+    columns: mode === 'columns' ? cols : null,
+    gutter: gutter,
+    container: container,
+    grid: grid,
+  };
 }

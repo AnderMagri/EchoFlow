@@ -99,7 +99,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.4.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.5.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -238,9 +238,16 @@ where you are. Three tabs:
 - **Structure** — draws the box skeleton **on the live page**. Sections, all
   boxes, or a column grid. Scroll the site with it on. The grid is measured
   against the site's **content column**, not the window, and the sections stay
-  drawn underneath it so alignment is actually checkable. Pick 12 columns or
-  any count the page's own layout uses. On a full-bleed page it says there is
-  no container rather than inventing one.
+  drawn underneath it so alignment is actually checkable.
+
+  The **column count and gutter are detected, not chosen** — it reads explicit
+  CSS grids off the computed style and infers the layout grid by finding the
+  (columns × gutter) pair the most element edges sit on, then tells you how
+  much of the page fits: *12 columns · 24px gutter — 100% of element edges sit
+  on it, to within a pixel.* The number buttons are an override for checking a
+  page against a grid you already know it should be on. A page with no regular
+  grid says so rather than falling back to 12, and a full-bleed page says it
+  found no content container rather than inventing one.
 
 **Picking pages — by hand or automatically.** Both work, and they compose.
 
@@ -350,7 +357,7 @@ CLI cannot disagree.
 ```bash
 node test/run.js         # 123 — core, calibration, retrieval, parity, operability, bundle
 cd mcp && node test.mjs  # 8   — MCP protocol surface
-node test/overlay.mjs    # 18  — the live structure overlay, in a real browser
+node test/overlay.mjs    # 41  — the overlay and grid detection, in a real browser
 node test/extension.mjs  # 18  — the packaged extension, loaded in a real Chrome
 ```
 

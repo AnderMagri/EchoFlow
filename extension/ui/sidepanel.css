@@ -265,5 +265,8 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 .eng-row .track { flex:1; height:6px; background:var(--hair); }
 .eng-row .track i { display:block; height:100%; background:var(--ink); }
 .eng-row .v { font-variant-numeric:tabular-nums; color:var(--muted); min-width:26px; text-align:right; flex:none; }
-.ovbtns.cols .btn { font-size:11px; padding:4px 8px; }
+.ovbtns.cols { flex-wrap:wrap; }
+.ovbtns.cols .btn { font-size:11px; padding:4px 8px; flex:0 0 auto; }
+.grid-read { border-left:2px solid var(--hair-strong); padding-left:9px; margin-top:8px; }
+.grid-read b { color:var(--ink); font-weight:600; }
 .ovbtns .btn.on { background:var(--ink); color:var(--bg); border-color:var(--ink); }

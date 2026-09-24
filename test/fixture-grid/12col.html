@@ -1,0 +1,17 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+/* container 1200, 12 columns, 24px gutter -> col = (1200 - 11*24)/12 = 78px */
+body{margin:0;font:14px system-ui}
+.wrap{max-width:1200px;margin:0 auto}
+.row{display:flex;gap:24px;margin-bottom:24px}
+/* spans: 3col = 3*78 + 2*24 = 282 ; 6col = 6*78+5*24 = 588 ; 4col = 4*78+3*24=384 */
+.c3{width:282px;height:160px;background:#eee}
+.c6{width:588px;height:160px;background:#ddd}
+.c4{width:384px;height:160px;background:#e5e5e5}
+.c12{width:1200px;height:120px;background:#f0f0f0}
+</style></head><body><div class="wrap">
+<div class="row"><div class="c12">full</div></div>
+<div class="row"><div class="c3">3</div><div class="c3">3</div><div class="c3">3</div><div class="c3">3</div></div>
+<div class="row"><div class="c6">6</div><div class="c6">6</div></div>
+<div class="row"><div class="c4">4</div><div class="c4">4</div><div class="c4">4</div></div>
+<div class="row"><div class="c3">3</div><div class="c6">6</div><div class="c3">3</div></div>
+</div></body></html>

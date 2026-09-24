@@ -201,6 +201,27 @@ name is in `<title>` either way.
   elements, which lands on the container's content box — the right answer,
   since a design tool draws columns inside the margin, not across it. A
   full-bleed page reports `measured:false` instead of inventing a grid.
+- **The column count is MEASURED, not chosen.** Offering 12 in a menu is a
+  guess wearing a measurement's clothes. `detectGrid()` reads explicit CSS
+  grids off `grid-template-columns` (a resolved px track list, so the count is
+  a fact) and infers the layout grid by searching (columns × gutter) for the
+  pair the most element edges land on. The search MUST include the gutter: a
+  12-col grid with a 24px gutter puts edges at multiples of (col + gutter),
+  never at twelfths of the container. The buttons are an override for checking
+  a page against a grid you already know; `null` means use what was measured.
+- **Rank grid candidates by coverage, then RESIDUAL.** Two earlier scorings
+  were wrong. Multiplying coverage by the share of gridlines used punished
+  exactly the grids it was meant to find — a real 12-col layout leaves most of
+  its 24 lines empty. Falling back to "fewer columns wins" was worse: a coarse
+  grid is a SUBSET of a fine one, so an 8-col page also fits 4 columns and
+  simplicity picked wrong every time. Only residual separates them — the real
+  grid sits on the edges to within a pixel, an accidental fit is out by two or
+  three. Tolerance stays tight (≤3px) for the same reason.
+- **A grid the page never demonstrates cannot be detected.** If nothing spans
+  an odd number of columns, an 8-col page is indistinguishable from a 4-col
+  one and the coarser answer is the honest one. `test/fixture-grid/8col.html`
+  carries odd spans deliberately; without them the first version of that test
+  was asserting something unmeasurable.
 - **A grid with nothing under it cannot be checked.** `columns` mode draws the
   section boxes too. It used to draw the grid over an empty layer (`boxes: 0`)
   while still walking the whole DOM to draw nothing.
@@ -265,7 +286,7 @@ in the scatter the band is derived from position, so hue is redundant.
 node scripts/sync-core.js    # the extension loads its own copy
 node test/run.js
 cd mcp && node test.mjs      # MCP protocol surface
-node test/overlay.mjs        # the live overlay, in a real browser
+node test/overlay.mjs        # the overlay + grid detection, in a real browser
 node test/extension.mjs      # the built extension, loaded in a real Chrome
 ```
 

@@ -39,8 +39,8 @@ let siteSignals = null;
 let current = null;
 let tab = 'review';
 let overlayMode = 'off';
-/** How many columns the grid draws. 12 unless the page's own layout says otherwise. */
-let overlayCols = 12;
+/** null = use the grid detected from the page. A number overrides it. */
+let overlayCols = null;
 /** What the overlay reported back — the measured content container. */
 let overlayInfo = null;
 /** How the Findings tab partitions the pile: 'owner' | 'axis' | 'geo'. */
@@ -805,27 +805,62 @@ function renderFindings() {
     + sections;
 }
 
+/**
+ * What the grid detection actually found, with its evidence.
+ *
+ * A column count with no confidence attached is the same guess the menu was,
+ * just wearing a measurement's clothes. The coverage figure is what licenses
+ * the claim, and a page that gives no evidence has to say so rather than
+ * fall back to 12 quietly.
+ */
+function gridReadout(detected, explicit) {
+  const parts = [];
+  if (detected) {
+    parts.push(`<b>${detected.columns} columns</b>${detected.gutter ? ` · <b>${detected.gutter}px</b> gutter` : ' · no gutter'}
+      — ${Math.round(detected.coverage * 100)}% of element edges sit on it${detected.residual < 1 ? ', to within a pixel' : ''}.`);
+  } else if (overlayInfo) {
+    parts.push('<b>No layout grid found.</b> Not enough element edges line up on any regular column system — which is itself the finding.');
+  }
+  if (explicit.length) {
+    parts.push(`CSS grids on the page: ${explicit.map((e) => `<b>${e.columns}-up</b>${e.uses > 1 ? ` ×${e.uses}` : ''}`).join(', ')}.`);
+  }
+  // Only a coarse grid is provable when nothing spans an odd number of
+  // columns — a finer one would be structure the page never demonstrates.
+  if (detected && detected.columns <= 6) {
+    parts.push('A finer grid may be intended; nothing on this page spans an odd number of these columns, so nothing here can show it.');
+  }
+  return parts.length ? `<p class="legend grid-read">${parts.join(' ')}</p>` : '';
+}
+
 function renderStructure() {
   const last = collected[collected.length - 1];
   const sections = last?.layout ? sectionSkeleton(last.layout) : [];
   const nodes = last?.layout ? flattenLayout(last.layout) : [];
   const cols = [...new Set(nodes.map((n) => n.cols).filter(Boolean))].sort((a, b) => a - b);
 
-  // 12 is the convention to check against; the counts the page actually uses
-  // are offered beside it, because a 4-up product grid is a different question
-  // from "does this sit on the layout grid".
-  const choices = [...new Set([12, ...cols.filter((c) => c >= 2 && c <= 24)])].sort((a, b) => a - b);
+  // Detected first. The counts on offer are an OVERRIDE, for checking the page
+  // against a grid you already know it is meant to be on — not the way you
+  // find out what grid it uses, which is the overlay's job.
+  const detected = overlayInfo?.grid?.inferred || null;
+  const explicit = overlayInfo?.grid?.explicit || [];
+  const choices = [...new Set([
+    ...(detected ? [detected.columns] : []),
+    ...explicit.map((e) => e.columns),
+    12, ...cols.filter((c) => c >= 2 && c <= 24),
+  ])].filter((c) => c >= 2 && c <= 24).sort((a, b) => a - b);
 
   out.innerHTML = `
   <div class="ovbtns">
     ${['sections', 'all', 'columns', 'off'].map((m) => `<button class="btn ${overlayMode === m ? 'on' : ''}" data-ov="${m}">${m === 'all' ? 'All boxes' : m[0].toUpperCase() + m.slice(1)}</button>`).join('')}
   </div>
   ${overlayMode === 'columns' ? `<div class="ovbtns cols">
-    ${choices.map((c) => `<button class="btn ${overlayCols === c ? 'on' : ''}" data-cols="${c}">${c} col</button>`).join('')}
+    <button class="btn ${overlayCols === null ? 'on' : ''}" data-cols="auto" title="Measure the grid from the page">Detected</button>
+    ${choices.map((c) => `<button class="btn ${overlayCols === c ? 'on' : ''}" data-cols="${c}">${c}</button>`).join('')}
   </div>` : ''}
+  ${overlayMode === 'columns' ? gridReadout(detected, explicit) : ''}
   <p class="legend">Draws on the live page — scroll the site with it on.${overlayMode === 'columns' && overlayInfo
     ? overlayInfo.container?.measured
-      ? ` Grid measured on the <b>${Math.round(overlayInfo.container.width)}px</b> content column, not the window.`
+      ? ` Measured on the <b>${Math.round(overlayInfo.container.width)}px</b> content column, not the window.`
       : ' <b>No repeating content container</b> — this page is full-bleed, so the grid falls back to the viewport.'
     : ''}</p>
 
@@ -914,7 +949,7 @@ out.addEventListener('click', (e) => {
 out.addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-ov], button[data-cols]');
   if (!b) return;
-  if (b.dataset.cols) overlayCols = +b.dataset.cols;
+  if (b.dataset.cols) overlayCols = b.dataset.cols === 'auto' ? null : +b.dataset.cols;
   else overlayMode = b.dataset.ov;
   await drawOverlay();
   renderStructure();

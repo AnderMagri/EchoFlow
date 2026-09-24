@@ -35,13 +35,18 @@ const check = (cond, msg) => {
 // Serve the fixture storefront: main{max-width:1200px;margin:0 auto;padding:40px}
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.txt': 'text/plain' };
 const root = resolve(here, 'fixture-site');
+const gridRoot = resolve(here, 'fixture-grid');
 const server = createServer(async (req, res) => {
   let rel = decodeURIComponent(req.url.split('?')[0]);
   // resolve() strips the trailing slash, so a directory request has to be
   // turned into index.html BEFORE resolving, not after.
   if (rel.endsWith('/')) rel += 'index.html';
-  const path = resolve(root, '.' + rel);
-  if (!path.startsWith(root)) { res.writeHead(403).end(); return; }
+  // /grid/* serves the measured-grid fixtures, whose column counts and gutters
+  // are known exactly by construction.
+  const isGrid = rel.startsWith('/grid/');
+  const base = isGrid ? gridRoot : root;
+  const path = resolve(base, '.' + (isGrid ? rel.slice(5) : rel));
+  if (!path.startsWith(base)) { res.writeHead(403).end(); return; }
   try {
     const body = await readFile(path);
     res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' }).end(body);
@@ -131,6 +136,65 @@ for (const width of [1440, 1600, 1920]) {
   await draw(page, 'off', 12);
   check(await page.evaluate(() => !document.getElementById('__echoflow_overlay__')),
     'off removes the layer');
+  await page.close();
+}
+
+// --- grid detection ---------------------------------------------------------
+//
+// Offering 12 in a menu is not detection. These fixtures have grids that are
+// known exactly by construction, so "what grid is this page on" has a right
+// answer to check against rather than an eyeball.
+
+console.log('\n  overlay — grid detection\n');
+
+for (const [file, width, wantCols, wantGutter] of [
+  ['12col.html', 1440, 12, 24],
+  ['12col.html', 1680, 12, 24],   // a wider window must not change the answer
+  ['8col.html', 1280, 8, 20],
+  ['8col.html', 1440, 8, 20],
+]) {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  await page.goto(`${origin}/grid/${file}`, { waitUntil: 'load' });
+  const res = await draw(page, 'columns', null);
+  const g = res.grid.inferred;
+  check(!!g, `${file} @${width} — a grid was inferred`);
+  check(g && g.columns === wantCols,
+    `${file} @${width} — ${wantCols} columns (got ${g ? g.columns : 'none'})`);
+  check(g && g.gutter === wantGutter,
+    `${file} @${width} — ${wantGutter}px gutter (got ${g ? g.gutter : 'none'})`);
+  check(g && g.residual < 1.5, `${file} @${width} — fits to within a pixel or so`);
+  check(res.columns === wantCols, `${file} @${width} — and that is what gets drawn`);
+  await page.close();
+}
+
+{
+  // A coarse grid is a SUBSET of a fine one, so an 8-column page also "fits"
+  // 4 columns. Only residual separates them, and getting this backwards made
+  // the detector answer 4 for every 8- and 12-column page it saw.
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(`${origin}/grid/8col.html`, { waitUntil: 'load' });
+  const res = await draw(page, 'columns', null);
+  check(res.grid.inferred.columns !== 4,
+    'an 8-column page is not reported as 4 columns just because 4 also fits');
+  await page.close();
+}
+
+{
+  // An explicit CSS grid is a fact, not an inference.
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(`${origin}/grid/cssgrid.html`, { waitUntil: 'load' });
+  const res = await draw(page, 'columns', null);
+  check(res.grid.explicit.some((e) => e.columns === 4),
+    'a repeat(4, 1fr) product grid is read off the computed style');
+  await page.close();
+}
+
+{
+  // A page with nothing to measure must say so, not fall back to 12 quietly.
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.setContent('<style>body{margin:0}p{margin:40px}</style><p>just some prose</p>');
+  const res = await draw(page, 'columns', null);
+  check(res.grid.inferred === null, 'a page with no grid reports none rather than inventing one');
   await page.close();
 }
 
