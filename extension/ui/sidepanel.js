@@ -814,22 +814,35 @@ function renderFindings() {
  * fall back to 12 quietly.
  */
 function gridReadout(detected, explicit) {
+  if (!overlayInfo) return '';
+  const pageGrid = overlayInfo.grid?.pageGrid || null;
+  // Grids narrower than the content column are components laid out inside the
+  // page, not the page's own grid.
+  const components = explicit.filter((e) => e !== pageGrid && e.span < 0.9);
   const parts = [];
+
   if (detected) {
     parts.push(`<b>${detected.columns} columns</b>${detected.gutter ? ` · <b>${detected.gutter}px</b> gutter` : ' · no gutter'}
       — ${Math.round(detected.coverage * 100)}% of element edges sit on it${detected.residual < 1 ? ', to within a pixel' : ''}.`);
-  } else if (overlayInfo) {
-    parts.push('<b>No layout grid found.</b> Not enough element edges line up on any regular column system — which is itself the finding.');
+  } else if (pageGrid) {
+    // "No layout grid found" next to a list of CSS grids reads as a
+    // contradiction, and it was one: the page plainly has grids. What it does
+    // not have is a single system every element is placed against.
+    parts.push(`<b>${pageGrid.columns} columns</b>, read from the CSS grid that spans the content column.
+      No single page-wide system underneath it — this page is composed from grids rather than placed on one, which is normal for a collection page.`);
+  } else {
+    parts.push('<b>No column system found.</b> No CSS grid spans the content column, and not enough element edges line up on any regular one — which is itself the finding.');
   }
-  if (explicit.length) {
-    parts.push(`CSS grids on the page: ${explicit.map((e) => `<b>${e.columns}-up</b>${e.uses > 1 ? ` ×${e.uses}` : ''}`).join(', ')}.`);
+
+  if (components.length) {
+    parts.push(`Inside it: ${components.map((e) => `<b>${e.columns}-up</b>${e.uses > 1 ? ` ×${e.uses}` : ''}`).join(', ')}.`);
   }
-  // Only a coarse grid is provable when nothing spans an odd number of
-  // columns — a finer one would be structure the page never demonstrates.
-  if (detected && detected.columns <= 6) {
+  // A coarse grid is all that is provable when nothing spans an odd number of
+  // its columns — a finer one would be structure the page never demonstrates.
+  if (detected && detected.columns <= 6 && !pageGrid) {
     parts.push('A finer grid may be intended; nothing on this page spans an odd number of these columns, so nothing here can show it.');
   }
-  return parts.length ? `<p class="legend grid-read">${parts.join(' ')}</p>` : '';
+  return `<p class="legend grid-read">${parts.join(' ')}</p>`;
 }
 
 function renderStructure() {

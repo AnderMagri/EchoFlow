@@ -217,6 +217,19 @@ name is in `<title>` either way.
   simplicity picked wrong every time. Only residual separates them — the real
   grid sits on the edges to within a pixel, an accidental fit is out by two or
   three. Tolerance stays tight (≤3px) for the same reason.
+- **Rank CSS grids by WIDTH, not by how many there are.** A collection page has
+  a dozen 2-up grids inside cards and one 4-up product grid. Counting
+  occurrences picks the cards — reported from a real store, where the panel
+  said "no layout grid found", listed three CSS grids, and drew the 2-up. The
+  grid spanning the content column (`span >= 0.9`) is `pageGrid`; anything
+  narrower is a component laid out inside it.
+- **Dedupe edges before scoring a grid.** Eight identical tiles repeat the same
+  handful of x positions, and counting each occurrence let a 14-column model
+  "explain" 69% of the edges while touching five of its twenty-eight lines. A
+  claim of n columns also needs at least n lines with something on them.
+- **`detectContainer` breaks ties toward the NARROWER box.** A wrapper with
+  32px of padding repeats exactly as often as the content column inside it,
+  and drawing the grid across the padding puts every line out by the padding.
 - **A grid the page never demonstrates cannot be detected.** If nothing spans
   an odd number of columns, an 8-col page is indistinguishable from a 4-col
   one and the coarser answer is the honest one. `test/fixture-grid/8col.html`
@@ -247,6 +260,15 @@ name is in `<title>` either way.
   move the score, so narrative findings that draw conclusions from it (see
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
   blockers before claiming the remainder is polish.
+
+**The bundle root is `report/`, and everything that reads it must know.** When
+START HERE moved to the top, the MCP server kept resolving
+`<dir>/data/analysis.json` while `buildBundle` writes
+`<dir>/report/data/analysis.json` — so every read tool failed on a bundle
+`echoflow_analyze` had just written, and the CLI printed three paths that did
+not exist. `resolveBundle()` now accepts either level. The round-trip test that
+would have caught it was behind an opt-in `if (url)` guard and had never run;
+it serves the fixture itself now and skips only when there is no browser.
 
 ## The bundle has one entry point
 

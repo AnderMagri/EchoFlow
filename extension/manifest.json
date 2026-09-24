@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EchoFlow 2.0",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Shopify consistency audit \u2014 design system drift, machine readability, and whether an agent could complete the buy path.",
   "permissions": [
     "activeTab",

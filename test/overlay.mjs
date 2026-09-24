@@ -190,6 +190,39 @@ for (const [file, width, wantCols, wantGutter] of [
 }
 
 {
+  // A modern collection page: no page-wide column system at all, just
+  // component grids. Reported from ardene.com, where this said "no layout grid
+  // found" while listing three CSS grids — and then drew the 2-up card grid,
+  // because it ranked grids by how MANY there were rather than how wide.
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(`${origin}/grid/component-grids.html`, { waitUntil: 'load' });
+  const res = await draw(page, 'columns', null);
+  check(res.grid.pageGrid && res.grid.pageGrid.columns === 4,
+    `the grid spanning the content column is the page grid (got ${res.grid.pageGrid ? res.grid.pageGrid.columns : 'none'})`);
+  check(res.columns === 4, `and that is what gets drawn, not the 12 card grids (got ${res.columns})`);
+  check(res.grid.explicit[0].columns === 4, 'explicit grids rank by width, not by count');
+  check(res.grid.explicit.some((e) => e.columns === 3),
+    'a short filter row still counts as a 3-up grid');
+  // The container must be the content column, not the padded wrapper: drawing
+  // across the padding puts every line out by the padding width.
+  check(Math.abs(res.container.width - 1280) <= 1,
+    `container is the content column, not the padded wrapper (${res.container.width})`);
+  await page.close();
+}
+
+{
+  // Eight identical tiles repeat the same few x positions. Counting them each
+  // time let a 14-column model explain 69% of the edges while touching five of
+  // its twenty-eight lines.
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(`${origin}/grid/component-grids.html`, { waitUntil: 'load' });
+  const res = await draw(page, 'columns', null);
+  check(!res.grid.inferred || res.grid.inferred.columns <= 6,
+    `no over-parameterised grid from duplicate edges (got ${res.grid.inferred ? res.grid.inferred.columns : 'none'})`);
+  await page.close();
+}
+
+{
   // A page with nothing to measure must say so, not fall back to 12 quietly.
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.setContent('<style>body{margin:0}p{margin:40px}</style><p>just some prose</p>');

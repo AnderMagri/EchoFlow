@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Collection</title><style>
+/* A modern storefront collection page: no page-wide 12-column system at all,
+   just component grids at different counts — the shape ardene.com has. */
+body{margin:0;font:14px system-ui}
+.wrap{max-width:1280px;margin:0 auto;padding:0 32px}
+/* the page's real grid: a 4-up product grid spanning the content column */
+.products{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-bottom:40px}
+.products>a{height:320px;background:#eee;display:block}
+/* small component grids, far more numerous but narrow */
+.card{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:280px;margin-bottom:12px}
+.card>span{height:40px;background:#f3f3f3}
+.filters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:360px;margin-bottom:12px}
+.filters>span{height:32px;background:#f0f0f0}
+</style></head><body><div class="wrap">
+<div class="products">
+  <a>1</a><a>2</a><a>3</a><a>4</a><a>5</a><a>6</a><a>7</a><a>8</a>
+</div>
+<!-- 12 two-up card grids and 10 three-up filter grids, like the real page -->
+<div class="card"><span></span><span></span></div><div class="card"><span></span><span></span></div>
+<div class="card"><span></span><span></span></div><div class="card"><span></span><span></span></div>
+<div class="card"><span></span><span></span></div><div class="card"><span></span><span></span></div>
+<div class="card"><span></span><span></span></div><div class="card"><span></span><span></span></div>
+<div class="card"><span></span><span></span></div><div class="card"><span></span><span></span></div>
+<div class="card"><span></span><span></span></div><div class="card"><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+<div class="filters"><span></span><span></span><span></span></div>
+</div></body></html>

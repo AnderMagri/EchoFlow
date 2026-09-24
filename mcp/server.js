@@ -20,7 +20,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 
@@ -96,9 +96,32 @@ async function writeBundle(analysis, outDir) {
   return outDir;
 }
 
+/**
+ * Find the directory that actually holds `data/`.
+ *
+ * The bundle grew a `report/` level when START HERE moved to the top, and this
+ * did not follow: it resolved `<dir>/data/analysis.json` against a path where
+ * the file now lives at `<dir>/report/data/analysis.json`. Every read tool
+ * therefore failed on a bundle `echoflow_analyze` had just written — analyse,
+ * get a path, pass it straight back, ENOENT.
+ *
+ * Accept both, because a person handing over a path has no reason to know
+ * which level the JSON sits at, and old bundles on disk still have the flat
+ * shape.
+ */
+async function resolveBundle(bundlePath) {
+  if (bundlePath.endsWith('.json')) return { json: bundlePath, base: dirname(dirname(bundlePath)) };
+  for (const base of [resolve(bundlePath, 'report'), bundlePath]) {
+    const json = resolve(base, 'data/analysis.json');
+    try { await stat(json); return { json, base }; } catch { /* try the next shape */ }
+  }
+  // Nothing found — report against the layout we write today.
+  return { json: resolve(bundlePath, 'report/data/analysis.json'), base: resolve(bundlePath, 'report') };
+}
+
 async function loadBundle(bundlePath) {
-  const p = bundlePath.endsWith('.json') ? bundlePath : resolve(bundlePath, 'data/analysis.json');
-  const raw = await readFile(p, 'utf8');
+  const { json } = await resolveBundle(bundlePath);
+  const raw = await readFile(json, 'utf8');
   return JSON.parse(raw);
 }
 
@@ -305,7 +328,7 @@ server.registerTool('echoflow_structure', {
   },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ bundle, surface }) => {
-  const base = bundle.endsWith('.json') ? dirname(dirname(bundle)) : bundle;
+  const { base } = await resolveBundle(bundle);
   let layout;
   try {
     layout = JSON.parse(await readFile(resolve(base, `data/layout-${surface}.json`), 'utf8'));

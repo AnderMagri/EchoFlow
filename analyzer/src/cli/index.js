@@ -120,9 +120,14 @@ async function main() {
   }
   if (errors.length) console.log(`  ${errors.length} page(s) failed to load`);
 
-  console.log(`\n  Report:  ${outDir}/site/index.html`);
-  console.log(`  Data:    ${outDir}/data/analysis.json`);
-  console.log(`  Agents:  ${outDir}/CLAUDE.md\n`);
+  // These must match where buildBundle actually puts things. When START HERE
+  // moved to the top and everything else under report/, these three lines were
+  // left pointing at paths that no longer exist — a run that worked perfectly
+  // and then told you to open three files that were not there.
+  console.log(`\n  Open:    ${outDir}/START HERE.html`);
+  console.log(`  Report:  ${outDir}/report/site/index.html`);
+  console.log(`  Data:    ${outDir}/report/data/analysis.json`);
+  console.log(`  Agents:  ${outDir}/report/CLAUDE.md\n`);
 }
 
 /**

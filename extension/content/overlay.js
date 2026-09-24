@@ -58,8 +58,17 @@ export function toggleOverlay(mode, columnCount) {
       var key = Math.round(rc.left + scrollX) + '|' + Math.round(rc.width);
       tally[key] = (tally[key] || 0) + 1;
     }
-    var bestKey = null, best = 0;
-    for (var k in tally) { if (tally[k] > best) { best = tally[k]; bestKey = k; } }
+    var bestKey = null, best = 0, bestWidth = Infinity;
+    for (var k in tally) {
+      var w = +k.split('|')[1];
+      // More repeats wins. On a tie the NARROWER box wins: a wrapper with
+      // 32px of padding repeats exactly as often as the content column inside
+      // it, and drawing the grid across the padding puts every line in the
+      // wrong place by the padding width.
+      if (tally[k] > best || (tally[k] === best && w < bestWidth)) {
+        best = tally[k]; bestKey = k; bestWidth = w;
+      }
+    }
     if (!bestKey) return { left: 0, width: pageW, measured: false, hits: 0 };
     var parts = bestKey.split('|');
     return { left: +parts[0], width: +parts[1], measured: true, hits: best };
@@ -89,14 +98,28 @@ export function toggleOverlay(mode, columnCount) {
    * and picks something meaningless instead.
    */
   function detectGrid(box) {
-    var explicit = countExplicitGrids();
+    var explicit = countExplicitGrids(box);
     var inferred = inferLayoutGrid(box);
-    return { explicit: explicit, inferred: inferred };
+    // The one the page is actually laid out on: the widest CSS grid that
+    // fills the content column. Below that it is a component, not the page.
+    var pageGrid = null;
+    for (var i = 0; i < explicit.length; i++) {
+      if (explicit[i].span >= 0.9) { pageGrid = explicit[i]; break; }
+    }
+    return { explicit: explicit, inferred: inferred, pageGrid: pageGrid };
   }
 
-  /** Real CSS grids on the page, counted by their resolved track lists. */
-  function countExplicitGrids() {
-    var tally = {};
+  /**
+   * Real CSS grids on the page, by their resolved track lists.
+   *
+   * Ranked by WIDTH, not by how many there are. A collection page has a dozen
+   * two-up grids inside cards and one four-up product grid — counting
+   * occurrences picks the cards, which is the component, not the page. The
+   * grid that spans the content column is the page's grid; everything
+   * narrower is something laid out inside it.
+   */
+  function countExplicitGrids(box) {
+    var byCols = {};
     var all = document.body.querySelectorAll('*');
     for (var i = 0; i < all.length && i < 4000; i++) {
       var cs = getComputedStyle(all[i]);
@@ -104,16 +127,24 @@ export function toggleOverlay(mode, columnCount) {
       var tpl = cs.gridTemplateColumns;
       if (!tpl || tpl === 'none') continue;
       var r = all[i].getBoundingClientRect();
-      if (r.width < 120 || r.height < 40) continue;
+      // Short grids still count. A filter row 32px tall is a real 3-up grid,
+      // and the old 40px floor dropped it silently.
+      if (r.width < 120 || r.height < 8) continue;
       // The computed value is a resolved px list, so the token count IS the
       // column count. `repeat(4, 1fr)` arrives as "260px 260px 260px 260px".
       var n = tpl.trim().split(/\s+/).length;
       if (n < 2 || n > 24) continue;
-      tally[n] = (tally[n] || 0) + 1;
+      var span = box && box.width ? r.width / box.width : 0;
+      if (!byCols[n]) byCols[n] = { columns: n, uses: 0, width: 0, span: 0 };
+      byCols[n].uses++;
+      if (r.width > byCols[n].width) {
+        byCols[n].width = r.width;
+        byCols[n].span = span;
+      }
     }
-    return Object.keys(tally)
-      .map(function (n) { return { columns: +n, uses: tally[n] }; })
-      .sort(function (a, b) { return b.uses - a.uses; });
+    return Object.keys(byCols)
+      .map(function (n) { return byCols[n]; })
+      .sort(function (a, b) { return b.width - a.width; });
   }
 
   /**
@@ -126,7 +157,7 @@ export function toggleOverlay(mode, columnCount) {
    * mostly empty is not the grid this page was drawn on.
    */
   function inferLayoutGrid(box) {
-    var edges = collectEdges(box);
+    var edges = dedupe(collectEdges(box));
     if (edges.length < 6) return null;
 
     var GUTTERS = [0, 8, 10, 12, 16, 20, 24, 30, 32, 40, 48];
@@ -166,7 +197,12 @@ export function toggleOverlay(mode, columnCount) {
           if (nearest <= tol) { hits++; residual += nearest; hitLines[nearestLine] = 1; }
         }
         var distinct = Object.keys(hitLines).length;
-        if (distinct < 3) continue;
+        // A grid has to be evidenced across its own width. Eight product tiles
+        // repeat the same handful of x positions, and before the edges were
+        // deduplicated that let a 14-column model "explain" 69% of them while
+        // touching five of its twenty-eight lines. A claim of n columns needs
+        // at least n lines with something on them.
+        if (distinct < Math.max(3, n)) continue;
         candidates.push({
           columns: n, gutter: gut,
           coverage: hits / edges.length,
@@ -203,6 +239,26 @@ export function toggleOverlay(mode, columnCount) {
 
     var best = candidates[0];
     return best.coverage < 0.5 ? null : best;
+  }
+
+  /**
+   * Distinct positions only.
+   *
+   * A row of identical tiles contributes the same x values over and over, and
+   * counting them repeatedly lets a wrong model score well by explaining one
+   * popular edge many times. What matters is how many DIFFERENT places on the
+   * page the grid accounts for.
+   */
+  function dedupe(values) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < values.length; i++) {
+      var k = Math.round(values[i]);
+      if (seen[k]) continue;
+      seen[k] = 1;
+      out.push(values[i]);
+    }
+    return out;
   }
 
   /** Left and right edges of everything substantial inside the container. */
@@ -300,6 +356,8 @@ export function toggleOverlay(mode, columnCount) {
     } else if (grid.inferred) {
       cols = grid.inferred.columns;
       gutter = grid.inferred.gutter;
+    } else if (grid.pageGrid) {
+      cols = grid.pageGrid.columns;
     } else if (grid.explicit.length) {
       cols = grid.explicit[0].columns;
     } else {
@@ -335,7 +393,8 @@ export function toggleOverlay(mode, columnCount) {
     tag.setAttribute('data-ef', 'label');
     var how = columnCount ? 'you chose'
       : grid.inferred ? Math.round(grid.inferred.coverage * 100) + '% of edges fit'
-      : grid.explicit.length ? 'from a CSS grid'
+      : grid.pageGrid ? 'the CSS grid spanning this column'
+      : grid.explicit.length ? 'the widest CSS grid on the page'
       : 'no grid detected — showing 12';
     tag.textContent = Math.round(container.width) + 'px content · ' + cols + ' col'
       + (gutter ? ' · ' + gutter + 'px gutter' : '') + ' · ' + Math.round(colW) + 'px each'
