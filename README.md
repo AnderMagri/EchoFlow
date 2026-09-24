@@ -6,8 +6,9 @@ from a clean system, and what do I fix first?*
 Not a generic site analyser. Shopify is the product — for sites that **are** one
 or **will be** one.
 
-> v1 (the screenshot tool) is retired and lives in [`archive/v1`](archive/). 2.0
-> shares no code with it. The reasoning behind the rewrite is in
+> v1 (the screenshot tool) is retired and shares no code with 2.0. It is not in
+> the working tree; it remains in git history at `39d5bd6` and earlier if it is
+> ever needed. The reasoning behind the rewrite is in
 > [`docs/CONCEPT.md`](docs/CONCEPT.md).
 
 ---
@@ -74,13 +75,6 @@ Shopify theme settings.
 
 ## Install
 
-> **Read this first.** EchoFlow 2.0 lives on the branch
-> `claude/vibrant-pascal-m7sfbk`. The `main` branch still holds **v1.6**, the
-> retired screenshot tool, with its own `manifest.json` at the repo root. If you
-> clone and point Chrome at the folder without switching branch, Chrome installs
-> **v1.6** and nothing on this page applies. Every command below checks out the
-> right branch first.
-
 Pick the one that matches what you want to do. They are independent — you do not
 need the others.
 
@@ -110,7 +104,6 @@ folder every time it starts — delete or move it and the extension disappears.
 ```bash
 git clone https://github.com/AnderMagri/EchoFlow.git
 cd EchoFlow
-git checkout claude/vibrant-pascal-m7sfbk
 node scripts/sync-core.js
 ```
 
@@ -141,9 +134,7 @@ and a stale download is how v1 kept handing out the wrong version.
 
 ```bash
 git clone https://github.com/AnderMagri/EchoFlow.git
-cd EchoFlow
-git checkout claude/vibrant-pascal-m7sfbk
-cd analyzer && npm install && npx playwright install chromium
+cd EchoFlow/analyzer && npm install && npx playwright install chromium
 ```
 
 `npx playwright install chromium` downloads a browser (~150 MB) — the CLI renders
@@ -161,7 +152,7 @@ Then point your client at it — see [Use it — MCP](#use-it--mcp) below.
 
 | What you see | What it means |
 |---|---|
-| The card says **EchoFlow 1.6** | You are on `main`, or you picked the repo root. Switch to the branch above and select the `extension/` folder. |
+| The card says **EchoFlow 1.6** | You are on an old clone from before 2.0 landed on `main`. `git pull`, then select the `extension/` folder. |
 | **Manifest file is missing or unreadable** | You selected the wrong folder. Pick the one that directly contains `manifest.json`. |
 | **fatal: not a git repository** | You are not inside the cloned folder. `cd` into `EchoFlow` first. |
 | **Your local changes would be overwritten** | `git stash` then retry the checkout. |
@@ -379,7 +370,6 @@ extension/     MV3 sidebar. Injects the same collector, runs the same core.
 mcp/           MCP server. Same core, exposed as six tools over stdio.
 knowledge/     Shopify domain knowledge (themes, sections, components, platform)
 docs/          CONCEPT.md (source of record) · REFERENCE.md (threshold provenance)
-archive/v1/    the retired screenshot tool
 ```
 
 `core/` is shared verbatim — `scripts/sync-core.js` copies it into the extension.
