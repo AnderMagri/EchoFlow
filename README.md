@@ -1,5 +1,13 @@
 # EchoFlow 2.0
 
+### [⬇ Download the Chrome extension](https://github.com/AnderMagri/EchoFlow/releases/latest)
+
+Unzip it, open `chrome://extensions`, turn on **Developer mode**, click **Load
+unpacked** and pick the unzipped folder. No terminal, no clone. Full steps and
+troubleshooting are under [Install](#a-chrome-extension).
+
+---
+
 **A Shopify readiness audit.** It answers two questions that turn out to be the
 same one: *how easily could this site become a Shopify store — and how
 consistent is it already?*
@@ -128,15 +136,21 @@ node scripts/sync-core.js
 Then hit **↻ reload** on the EchoFlow card. No reinstall — Chrome re-reads the
 folder.
 
-**To hand it to someone else**, build them a zip:
+**To publish a new build**, cut a release — that is what the download link at
+the top of this page points at:
 
 ```bash
-npm run package        # → dist/echoflow-extension-<version>.zip
+npm run package                      # → dist/echoflow-extension-<version>.zip
+VERSION=$(node -p "require('./extension/manifest.json').version")
+gh release create "v$VERSION" "dist/echoflow-extension-$VERSION.zip" \
+  --title "EchoFlow $VERSION" --notes "Load unpacked from the unzipped folder."
 ```
 
-That syncs `core/` first, so a stale copy cannot ship. The zip is deliberately
-not committed to the repo: a binary in git goes stale the moment anyone pushes,
-and a stale download is how v1 kept handing out the wrong version.
+`npm run package` syncs `core/` first, so a stale copy cannot ship. The zip is
+deliberately **not committed** to the repo: a binary in git goes stale the
+moment anyone pushes, and a stale download is exactly how v1 kept handing out
+the wrong version — it had `EchoFlow.zip` sitting at the repo root. A release is
+versioned, dated, and cannot drift from the tag it was built at.
 
 ### B. CLI
 
