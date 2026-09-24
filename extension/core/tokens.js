@@ -24,12 +24,16 @@ import { mergeTallies, numericTallies } from './observation.js';
  * @param {import('./observation.js').PageObservation[]} observations
  */
 export function buildTokenSeed(observations) {
-  const colorEntries = ['colorText', 'colorBackground', 'colorBorder']
-    .flatMap((k) => mergeTallies(observations, k));
-  const folded = fold(colorEntries);
-  const { chromatic, neutral } = splitColorEntries(folded);
+  // Kept APART, not merged. Which property a colour was painted with is the
+  // only evidence there is for what it is FOR, and folding the three together
+  // throws it away before anything can use it.
+  const byProperty = {
+    text: fold(mergeTallies(observations, 'colorText')),
+    background: fold(mergeTallies(observations, 'colorBackground')),
+    border: fold(mergeTallies(observations, 'colorBorder')),
+  };
 
-  const color = buildColors(chromatic, neutral, observations);
+  const color = buildColors(byProperty, observations);
   const typography = buildTypography(observations);
   const spacing = buildSpacing(observations);
   const radius = buildScale(observations, 'borderRadius', TOLERANCES.radius, numericDistance, 'radius');
@@ -49,67 +53,117 @@ export function buildTokenSeed(observations) {
 
 // --- colour ----------------------------------------------------------------
 
-function buildColors(chromatic, neutral, observations) {
-  const chromaClusters = cluster(chromatic, colorDistance, TOLERANCES.colorChromatic);
-  const neutralClusters = cluster(neutral, colorDistance, TOLERANCES.colorNeutral);
-
-  // Neutrals sorted light -> dark become a usable ramp. This ordering is the
-  // whole value: an unordered list of greys is what the site already has.
-  const ramp = neutralClusters
-    .map((c) => ({ hex: c.leader, uses: c.count, l: lightnessOf(c.leader) }))
-    .sort((a, b) => b.l - a.l);
-
-  const surface = ramp[0]?.hex || '#ffffff';
-  const ink = ramp[ramp.length - 1]?.hex || '#000000';
+/**
+ * Colour, classified by the ROLE it plays in the interface.
+ *
+ * The old model named one colour "primary" and called it the brand. A rendered
+ * page cannot support that claim — it has no access to a brand, only to where
+ * paint was applied — and trying to make it produced exactly the failure you
+ * would expect: a store with a black logo and black buttons was told its brand
+ * colour was the red on its sale badges.
+ *
+ * So describe what is measurable. Every label here answers "what was this used
+ * for", which is also the question a rebuild asks:
+ *
+ *   action   the colour of the main call to action
+ *   ink      colours text is set in
+ *   surface  colours things are painted on
+ *   line     borders and dividers
+ *   accent   chromatic colours doing none of the above
+ *
+ * Nothing is called primary, nothing is called brand, and no colour is ranked
+ * above another except by how much it is used.
+ */
+function buildColors(byProperty, observations) {
+  const clusterOf = (entries, tolerance) => cluster(entries, colorDistance, tolerance)
+    .map((c) => ({ hex: c.leader, uses: c.count }));
 
   /**
-   * The primary is whatever the site spends on its MAIN ACTION — including
-   * black.
+   * The structural ramp for one property: its neutrals, plus a chromatic ONLY
+   * when that chromatic is the single most-used value of the property.
    *
-   * This used to require the button to be chromatic (`chroma > 6`), and fell
-   * back to the most-used chromatic colour when it was not. On a black-branded
-   * store that is catastrophic: the black button is discarded for "not being a
-   * colour", and the winner by frequency is the sale badge. Reported from a
-   * real storefront whose logo and buttons are black and which was told its
-   * brand colour was red.
+   * Without that rule a sale badge lands in the surface list next to white and
+   * grey, and the export names it `--color-surface-2` — which says the page is
+   * painted red somewhere structural. It is not; it is sixteen small badges.
+   * The promotion rule keeps the genuinely chromatic case working: a store with
+   * a navy page background has navy as its most-used background, so navy is
+   * surface-0 and not an accent.
    *
-   * A monochrome brand is not a missing brand. Reading the action is the
-   * measurement; the chroma test was an assumption laid over it.
+   * Neutrals and chromatics also need different tolerances, so they are split
+   * within each property rather than across the merged pile. See consistency.js.
+   */
+  const ramp = (entries) => {
+    const { chromatic, neutral } = splitColorEntries(entries);
+    const neutrals = clusterOf(neutral, TOLERANCES.colorNeutral);
+    const chromatics = clusterOf(chromatic, TOLERANCES.colorChromatic);
+    const topChromatic = chromatics.sort((a, b) => b.uses - a.uses)[0];
+    const topNeutral = neutrals.slice().sort((a, b) => b.uses - a.uses)[0];
+    const promoted = topChromatic && (!topNeutral || topChromatic.uses > topNeutral.uses)
+      ? [topChromatic] : [];
+    return [...neutrals, ...promoted].sort((a, b) => b.uses - a.uses);
+  };
+
+  const ink = ramp(byProperty.text);
+  const line = ramp(byProperty.border);
+  // Surfaces read light to dark: that ordering is the whole value of the list,
+  // because an unordered set of greys is what the site already has.
+  const surface = ramp(byProperty.background).sort((a, b) => lightnessOf(b.hex) - lightnessOf(a.hex));
+
+  const pageSurface = surface[0]?.hex || '#ffffff';
+  const bodyInk = ink[0]?.hex || '#000000';
+
+  /**
+   * The action colour, read off the main call to action — including when it is
+   * black. A monochrome interface is an answer, not a missing one.
+   *
+   * A button painted the same colour as the page is an outlined button: that
+   * is the surface showing through, not a decision, so it is not an action
+   * colour.
    */
   const buttonBg = mostCommon(observations
     .map((o) => o.roles?.primaryButton?.background)
     .map((c) => {
       const parsed = c ? parseColor(c) : null;
-      // A transparent or ghost button says nothing about a brand colour.
       return parsed && parsed.a !== 0 ? toHex(parsed) : null;
     })
     .filter(Boolean));
+  const action = buttonBg && buttonBg !== pageSurface ? buttonBg : null;
 
-  // A button the same colour as the page is an outlined button: it is the
-  // page surface showing through, not a choice about brand.
-  const actionColor = buttonBg && buttonBg !== surface ? buttonBg : null;
-
-  const primary = actionColor || chromaClusters[0]?.leader || null;
-  const primarySource = actionColor ? 'action' : primary ? 'frequency' : null;
-
-  const accents = chromaClusters
-    .map((c) => c.leader)
-    .filter((c) => c !== primary)
-    .slice(0, 5);
+  /**
+   * Accents: chromatic colours that are not the action and not the dominant
+   * text or background. On a sale page this is where the badge red lands —
+   * described by where it was seen rather than promoted to "the brand".
+   */
+  const seen = new Map();
+  for (const [prop, entries] of Object.entries(byProperty)) {
+    const { chromatic } = splitColorEntries(entries);
+    for (const c of clusterOf(chromatic, TOLERANCES.colorChromatic)) {
+      const at = seen.get(c.hex) || { hex: c.hex, uses: 0, where: [] };
+      at.uses += c.uses;
+      if (!at.where.includes(prop)) at.where.push(prop);
+      seen.set(c.hex, at);
+    }
+  }
+  // Anything already carrying a structural role is not also an accent.
+  const structural = new Set([action, ...surface.map((x) => x.hex),
+    ...ink.map((x) => x.hex), ...line.map((x) => x.hex)]);
+  const accents = [...seen.values()]
+    .filter((c) => !structural.has(c.hex))
+    .sort((a, b) => b.uses - a.uses)
+    .slice(0, 6);
 
   return {
-    primary,
-    // How the primary was decided, and whether it is a neutral. Without this
-    // the UI cannot tell "the brand is black" from "we could not find one",
-    // and would go on implying every brand has a hue.
-    primarySource,
-    primaryIsNeutral: primary ? chroma(parseColor(primary)) <= 6 : false,
+    action,
+    // Where the action colour came from, so the UI never has to guess whether
+    // "none" means monochrome or unmeasured.
+    actionFrom: action ? 'primary button' : null,
+    actionIsNeutral: action ? chroma(parseColor(action)) <= 6 : false,
+    ink: ink.slice(0, 6),
+    surface: surface.slice(0, 6),
+    line: line.slice(0, 4),
     accents,
-    neutral: ramp.map((r, i) => ({ name: rampName(i, ramp.length), hex: r.hex, uses: r.uses })),
-    semantic: { surface, ink },
-    // Flag pairs that will fail once someone uses them together. Cheap to
-    // compute here because we already have every colour in hand.
-    contrastWarnings: contrastWarnings(primary, surface, ink),
+    semantic: { surface: pageSurface, ink: bodyInk },
+    contrastWarnings: contrastWarnings(action, pageSurface, bodyInk),
   };
 }
 
@@ -288,9 +342,12 @@ function buildShadows(observations) {
 
 function toCSS(seed) {
   const L = [':root {'];
-  if (seed.color.primary) L.push(`  --color-primary: ${seed.color.primary};`);
-  seed.color.accents.forEach((c, i) => L.push(`  --color-accent-${i + 1}: ${c};`));
-  seed.color.neutral.forEach((n) => L.push(`  --color-${n.name}: ${n.hex};`));
+  const c = seed.color;
+  if (c.action) L.push(`  --color-action: ${c.action};`);
+  c.surface.forEach((x, i) => L.push(`  --color-surface-${i}: ${x.hex};`));
+  c.ink.forEach((x, i) => L.push(`  --color-ink-${i}: ${x.hex};`));
+  c.line.forEach((x, i) => L.push(`  --color-line-${i}: ${x.hex};`));
+  c.accents.forEach((x, i) => L.push(`  --color-accent-${i + 1}: ${x.hex};`));
   L.push('');
   if (seed.typography.families.heading) L.push(`  --font-heading: ${seed.typography.families.heading};`);
   if (seed.typography.families.body) L.push(`  --font-body: ${seed.typography.families.body};`);
@@ -309,9 +366,11 @@ function toCSS(seed) {
 /** W3C Design Tokens Community Group format — what Figma/Style Dictionary read. */
 function toDTCG(seed) {
   const color = {};
-  if (seed.color.primary) color.primary = { $type: 'color', $value: seed.color.primary };
-  seed.color.accents.forEach((c, i) => { color[`accent-${i + 1}`] = { $type: 'color', $value: c }; });
-  seed.color.neutral.forEach((n) => { color[n.name] = { $type: 'color', $value: n.hex }; });
+  if (seed.color.action) color.action = { $type: 'color', $value: seed.color.action };
+  seed.color.surface.forEach((x, i) => { color[`surface-${i}`] = { $type: 'color', $value: x.hex }; });
+  seed.color.ink.forEach((x, i) => { color[`ink-${i}`] = { $type: 'color', $value: x.hex }; });
+  seed.color.line.forEach((x, i) => { color[`line-${i}`] = { $type: 'color', $value: x.hex }; });
+  seed.color.accents.forEach((x, i) => { color[`accent-${i + 1}`] = { $type: 'color', $value: x.hex }; });
 
   const fontSize = {};
   seed.typography.scale.forEach((s) => { fontSize[s.name] = { $type: 'dimension', $value: `${s.px}px` }; });
@@ -331,9 +390,12 @@ function toDTCG(seed) {
 }
 
 function toTailwind(seed) {
-  const colors = { primary: seed.color.primary };
-  seed.color.neutral.forEach((n) => { colors[n.name] = n.hex; });
-  seed.color.accents.forEach((c, i) => { colors[`accent${i + 1}`] = c; });
+  const colors = {};
+  if (seed.color.action) colors.action = seed.color.action;
+  seed.color.surface.forEach((x, i) => { colors[`surface${i}`] = x.hex; });
+  seed.color.ink.forEach((x, i) => { colors[`ink${i}`] = x.hex; });
+  seed.color.line.forEach((x, i) => { colors[`line${i}`] = x.hex; });
+  seed.color.accents.forEach((x, i) => { colors[`accent${i + 1}`] = x.hex; });
 
   const fontSize = {};
   seed.typography.scale.forEach((s) => { fontSize[s.name] = `${s.px}px`; });
@@ -371,15 +433,15 @@ function toShopifySettings(seed) {
       'scheme-1': {
         settings: {
           background: surface, text: ink,
-          button: seed.color.primary || ink,
+          button: seed.color.action || ink,
           button_label: surface,
           shadow: seed.shadow.steps[0]?.value || 'rgba(0,0,0,0.08)',
         },
       },
       'scheme-2': {
         settings: {
-          background: seed.color.neutral[1]?.hex || surface, text: ink,
-          button: seed.color.accents[0] || seed.color.primary || ink,
+          background: seed.color.surface[1]?.hex || surface, text: ink,
+          button: seed.color.accents[0]?.hex || seed.color.action || ink,
           button_label: surface,
         },
       },

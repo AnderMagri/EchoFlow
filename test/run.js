@@ -1339,37 +1339,75 @@ const blackBrand = () => {
   }];
 };
 
-t('a black brand is black, not the sale badge', () => {
-  // Reported from a real storefront: logo and buttons black, sale flags red,
-  // and the audit announced red as the brand colour. The primary used to
-  // require chroma > 6, so a black button was discarded for "not being a
-  // colour" and the winner by frequency was the badge.
-  const t2 = analyze({ observations: blackBrand(), axes: ['design'], site: 'b' }).tokens;
-  eq(t2.color.primary, '#000000', 'the main action is the brand colour, whatever its hue');
-  eq(t2.color.primarySource, 'action', 'and it says it came from the action');
-  ok(t2.color.primaryIsNeutral, 'flagged as monochrome, so the UI need not imply a hue');
-  ok(t2.color.accents.includes('#d0021b'), 'the sale red is an accent, not the brand');
+t('colour is classified by role, not by brand', () => {
+  // "Brand colour" was a claim about identity that a rendered page cannot
+  // support — it has no access to a brand, only to where paint was applied.
+  // Trying to make it told a store with a black logo and black buttons that
+  // its brand colour was the red on its sale badges.
+  const c = analyze({ observations: blackBrand(), axes: ['design'], site: 'b' }).tokens.color;
+  ok(!('primary' in c), 'nothing is called primary');
+  eq(c.action, '#000000', 'the action colour is read off the button, whatever its hue');
+  eq(c.actionFrom, 'primary button', 'and says where it came from');
+  ok(c.actionIsNeutral, 'flagged monochrome, so the UI need not imply a hue');
+  ok(c.surface.some((x) => x.hex === '#ffffff'), 'the page white is a surface');
+  ok(c.ink.some((x) => x.hex === '#111111'), 'the body colour is ink');
+  ok(c.line.some((x) => x.hex === '#e6e6e6'), 'the border colour is a line');
 });
 
-t('with no action button the primary falls back, and says so', () => {
-  // A weaker claim has to be labelled as one rather than presented the same way.
+t('a badge colour is an accent, not a surface', () => {
+  // Sixteen small badges are not a page background. Listed among the surfaces
+  // the export names it --color-surface-2, which says the page is painted red
+  // somewhere structural.
+  const c = analyze({ observations: blackBrand(), axes: ['design'], site: 'b' }).tokens.color;
+  const red = c.accents.find((x) => x.hex === '#d0021b');
+  ok(red, 'the sale red is an accent');
+  ok(red.where.includes('background') && red.where.includes('text'),
+    `named by where it was seen (${red ? red.where.join('+') : '—'})`);
+  ok(!c.surface.some((x) => x.hex === '#d0021b'), 'and not listed as a surface');
+});
+
+t('a chromatic that dominates its property is promoted to that role', () => {
+  // The rule has to keep working the other way: a store with a navy page has
+  // navy as its most-used background, and calling that an accent would be as
+  // wrong as calling a badge a surface.
   const [o] = blackBrand();
-  const t2 = analyze({
+  const c = analyze({
+    observations: [{ ...o, styles: { ...o.styles,
+      colorBackground: [{ value: '#1b2a4a', count: 80 }, { value: '#ffffff', count: 10 }] } }],
+    axes: ['design'], site: 'b',
+  }).tokens.color;
+  ok(c.surface.some((x) => x.hex === '#1b2a4a'), 'the navy page is a surface');
+  ok(!c.accents.some((x) => x.hex === '#1b2a4a'), 'not an accent');
+});
+
+t('with no action button there is no action colour, and nothing stands in', () => {
+  // The old model filled the gap with the most-used chromatic value. That is
+  // the substitution that produced the wrong answer in the first place.
+  const [o] = blackBrand();
+  const c = analyze({
     observations: [{ ...o, roles: { ...o.roles, primaryButton: null } }],
     axes: ['design'], site: 'b',
-  }).tokens;
-  eq(t2.color.primarySource, 'frequency', 'the source is reported honestly');
-  eq(t2.color.primary, '#d0021b', 'and it is the most-used colour, for want of anything better');
+  }).tokens.color;
+  eq(c.action, null, 'no action colour is invented');
+  eq(c.actionFrom, null, 'and nothing claims to have found one');
 });
 
-t('an outlined button is the page showing through, not a brand colour', () => {
+t('an outlined button is the page showing through, not an action colour', () => {
   const [o] = blackBrand();
-  const t2 = analyze({
+  const c = analyze({
     observations: [{ ...o, roles: { ...o.roles, primaryButton: { background: '#ffffff' } } }],
     axes: ['design'], site: 'b',
-  }).tokens;
-  eq(t2.color.primarySource, 'frequency',
-    'a button the same colour as the surface tells us nothing and is not used');
+  }).tokens.color;
+  eq(c.action, null, 'a button the colour of the surface tells us nothing');
+});
+
+t('the exports name colours by role', () => {
+  const seed = analyze({ observations: blackBrand(), axes: ['design'], site: 'b' }).tokens;
+  ok(seed.formats.css.includes('--color-action: #000000'), 'CSS emits the action token');
+  ok(seed.formats.css.includes('--color-surface-0'), 'and a surface ramp');
+  ok(!/--color-primary/.test(seed.formats.css), 'and nothing called primary');
+  ok(seed.formats.dtcg.color.action, 'DTCG carries action');
+  ok(!seed.formats.dtcg.color.primary, 'and not primary');
 });
 
 // --- the GEO view -----------------------------------------------------------

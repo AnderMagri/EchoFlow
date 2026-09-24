@@ -565,6 +565,23 @@ const firstFamily = (stack) => String(stack).split(',')[0].trim().replace(/^["']
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+/**
+ * One colour role.
+ *
+ * Roles replaced "brand colour", which was a claim about identity that a
+ * rendered page cannot support — and which told a store with a black logo that
+ * its brand was the red on its sale badges. Every label here answers "what was
+ * this used for", which is measurable and is also the question a rebuild asks.
+ */
+function colorRole(name, swatches, note) {
+  return `<h3>${esc(name)} <span>${swatches.length ? plural(swatches.length, 'colour') : 'none found'}</span></h3>
+  ${swatches.length ? `<div class="sw-row">${swatches.map((c) => `<div class="sw">
+    <i style="background:${esc(c.hex)}"></i>${esc(c.hex)}
+    ${c.where ? `<b>${esc(c.where.join(' · '))}</b>` : ''}
+  </div>`).join('')}</div>` : ''}
+  <p class="legend">${note}</p>`;
+}
+
 const SAMPLE = 'Handgloves 123';
 const SAMPLE_BODY = 'The quick brown fox jumps over the lazy dog.';
 
@@ -582,21 +599,18 @@ function renderReview() {
   const maxSpace = Math.max(...t.spacing.steps, ...t.spacing.strays.map((s) => s.value), 1);
 
   out.innerHTML = scoreBlock() + `
-  <h3>Brand colour <span>${plural(t.color.accents.length + (t.color.primary ? 1 : 0), 'token')}</span></h3>
-  <div class="sw-row">
-    ${t.color.primary ? `<div class="sw"><i style="background:${esc(t.color.primary)}"></i>${esc(t.color.primary)}<b>primary</b></div>` : '<div class="sw">none detected</div>'}
-    ${t.color.accents.map((c) => `<div class="sw"><i style="background:${esc(c)}"></i>${esc(c)}</div>`).join('')}
-  </div>
-  <p class="legend">${t.color.primarySource === 'action'
-    ? `Taken from the main action button${t.color.primaryIsNeutral ? ' — this brand is <b>monochrome</b>, and that is the answer, not a missing one' : ''}. Accents beside it are every other colour in the palette, which on a sale page usually includes the badge red.`
-    : t.color.primary
-      ? 'No primary action button was found, so this is the <b>most-used</b> colour on the page — which is a weaker claim. Collect a page with a clear call to action for a better reading.'
-      : 'No brand colour could be measured on this page.'}</p>
+  ${colorRole('Action', t.color.action ? [{ hex: t.color.action }] : [], t.color.action
+    ? `The colour of the main call to action, read off the button itself${t.color.actionIsNeutral ? ' — this interface is <b>monochrome</b>, which is an answer, not a missing one' : ''}.`
+    : 'No call-to-action button was found on the pages collected, so there is nothing to read this from.')}
 
-  <h3>Neutral ramp <span>${plural(t.color.neutral.length, 'step')}</span></h3>
-  <div class="sw-row">
-    ${t.color.neutral.map((n) => `<div class="sw"><i style="background:${esc(n.hex)}"></i>${esc(n.hex)}<b>${esc(n.name)}</b></div>`).join('')}
-  </div>
+  ${colorRole('Surface', t.color.surface, 'What things are painted on, lightest first. A chromatic only appears here when it is the most-used background on the page.')}
+
+  ${colorRole('Ink', t.color.ink, 'What text is set in.')}
+
+  ${colorRole('Line', t.color.line, 'Borders and dividers.')}
+
+  ${colorRole('Accent', t.color.accents, 'Chromatic colours doing none of the above. On a sale page this is usually where the badge red lands — named by where it was seen, not promoted to "the brand".')}
+
   ${t.color.contrastWarnings.map((w) => `<div class="note warn"><strong>${esc(w.pair)}</strong> is ${w.ratio}:1, needs ${w.required}:1. ${esc(w.note)}</div>`).join('')}
 
   <h3>Typefaces <span>${plural(typ.families.all.length, 'face')} in use</span></h3>

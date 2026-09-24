@@ -99,7 +99,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.11.1**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.12.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -230,10 +230,12 @@ where you are. Three tabs:
 
 - **Design review** — the extracted system (palette, ramp, type scale, spacing
   rhythm, contrast warnings) with typefaces rendered in the real face, and a
-  link to Google Fonts for any family the page loads from there. The brand
-  colour is read off the **main action button**, including when that is black:
-  a monochrome brand is an answer, not a missing one, and the panel says where
-  the colour came from so a weaker reading is never presented as a strong one.
+  link to Google Fonts for any family the page loads from there. Colour is
+  classified by the **role** it plays — action, surface, ink, line, accent —
+  not as a brand: a rendered page has no access to a brand, only to where paint
+  was applied. The action colour is read off the call-to-action button,
+  including when that is black, and with no such button there simply is no
+  action colour rather than a substitute.
 - **Findings** — one pile, three groupings you switch between: **by owner**
   (design, marketing, engineering), **by axis**, or **machine readability**
   (crawler access, structured data, answerability, agent operability). Above
@@ -380,10 +382,10 @@ CLI cannot disagree.
 ## Test
 
 ```bash
-node test/run.js         # 126 — core, calibration, retrieval, parity, operability, bundle
+node test/run.js         # 129 — core, calibration, retrieval, parity, operability, bundle
 cd mcp && node test.mjs  # 31  — MCP protocol surface
 node test/overlay.mjs    # 47  — the overlay and grid detection, in a real browser
-node test/extension.mjs  # 58  — the packaged extension, loaded in a real Chrome
+node test/extension.mjs  # 59  — the packaged extension, loaded in a real Chrome
 ```
 
 The last two need Chromium and skip cleanly without one. They exist because

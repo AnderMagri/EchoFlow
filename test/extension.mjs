@@ -403,9 +403,12 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
     return { button: r.result.roles?.primaryButton?.background, color: a.tokens.color };
   }, origin);
   check(brand.button === 'rgb(0, 0, 0)', `the collector reads the black action button (${brand.button})`);
-  check(brand.color.primary === '#000000',
-    `and the brand colour is black, not the sale badge (${brand.color.primary})`);
-  check(brand.color.accents.includes('#d0021b'), 'with the badge red kept as an accent');
+  check(brand.color.action === '#000000',
+    `and the action colour is black, not the sale badge (${brand.color.action})`);
+  check(brand.color.accents.some((c) => c.hex === '#d0021b'),
+    'with the badge red as an accent, named by where it was seen');
+  check(!brand.color.surface.some((c) => c.hex === '#d0021b'),
+    'and never listed among the surfaces');
   await shop.close();
 
   // Google's stylesheet is cross-origin, so its @font-face rules are invisible

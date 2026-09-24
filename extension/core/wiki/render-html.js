@@ -536,13 +536,16 @@ export function renderTokensHTML(model) {
 <div class="note">This is a <strong>starting point, not a finished system</strong>. It reflects what the site does today, mistakes included. Review it before shipping.</div>
 
 <h2>Colour</h2>
-<div class="swatches">
-${t.color.primary ? `<div class="sw"><i style="background:${esc(t.color.primary)}"></i>${esc(t.color.primary)}<br><span style="color:var(--faint)">primary</span></div>` : ''}
-${t.color.accents.map((c) => `<div class="sw"><i style="background:${esc(c)}"></i>${esc(c)}</div>`).join('')}
-</div>
-<div class="swatches">
-${t.color.neutral.map((n) => `<div class="sw"><i style="background:${esc(n.hex)}"></i>${esc(n.hex)}<br><span style="color:var(--faint)">${esc(n.name)}</span></div>`).join('')}
-</div>
+<p style="color:var(--muted);font-size:14px">Classified by the <strong>role</strong> each colour plays, because that is what a rendered page can actually show. Nothing here is called a brand colour: a page has no access to a brand, only to where paint was applied.</p>
+${[
+  ['Action', t.color.action ? [{ hex: t.color.action }] : [], 'The main call to action, read off the button itself.'],
+  ['Surface', t.color.surface, 'What things are painted on, lightest first.'],
+  ['Ink', t.color.ink, 'What text is set in.'],
+  ['Line', t.color.line, 'Borders and dividers.'],
+  ['Accent', t.color.accents, 'Chromatic colours doing none of the above, named by where they were seen.'],
+].map(([name, list, note]) => `<h3>${esc(name)} <span style="color:var(--faint);font-weight:400;font-size:13px">${list.length ? '' : '— none found'}</span></h3>
+<p style="color:var(--muted);font-size:13.5px;margin:0 0 8px">${esc(note)}</p>
+${list.length ? `<div class="swatches">${list.map((c) => `<div class="sw"><i style="background:${esc(c.hex)}"></i>${esc(c.hex)}${c.where ? `<br><span style="color:var(--faint)">${esc(c.where.join(' · '))}</span>` : ''}</div>`).join('')}</div>` : ''}`).join('')}
 ${t.color.contrastWarnings.length ? `<div class="note"><strong>Contrast warnings</strong><ul style="margin:6px 0 0;padding-left:18px">
 ${t.color.contrastWarnings.map((w) => `<li><code>${esc(w.pair)}</code> is ${w.ratio}:1, needs ${w.required}:1. ${esc(w.note)}</li>`).join('')}
 </ul></div>` : ''}

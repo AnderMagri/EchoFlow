@@ -245,16 +245,28 @@ name is in `<title>` either way.
   `label`): the `border` shorthand makes a band and a box indistinguishable by
   style alone, which fooled the first verification pass into counting boxes as
   columns.
-- **The brand colour is the MAIN ACTION's colour, including black.** It used to
-  require `chroma > 6` and fall back to the most-used chromatic value
-  otherwise. On a black-branded store that is catastrophic: the black button is
-  discarded for "not being a colour" and the winner by frequency is the sale
-  badge. Reported from a real storefront whose logo and buttons are black and
-  which was told its brand colour was red. A monochrome brand is not a missing
-  brand. `primarySource` says whether it came from the action or from raw
-  frequency, and `primaryIsNeutral` lets the UI say "monochrome" rather than
-  imply a hue. A button the same colour as the surface is an outlined button —
-  the page showing through, not a choice — so it is not used.
+- **Colour is classified by ROLE, never as a brand.** `action` / `surface` /
+  `ink` / `line` / `accent`, each read off the property the colour was painted
+  with. "Brand colour" was a claim about identity that a rendered page cannot
+  support — it has no access to a brand, only to where paint was applied — and
+  trying to make it told a store with a black logo that its brand colour was
+  the red on its sale badges. Nothing is called primary. The three colour
+  properties (`colorText`, `colorBackground`, `colorBorder`) are kept APART in
+  `buildTokenSeed`, because which property a colour was painted with is the
+  only evidence there is for what it is for.
+- **The action colour comes off the CTA, including when it is black.** A
+  monochrome interface is an answer, not a missing one. With no call-to-action
+  button there is simply NO action colour — nothing stands in for it, because
+  substituting the most-used chromatic value is exactly what produced the wrong
+  answer before. A button the colour of the page surface is an outlined
+  button — the surface showing through, not a decision — so it does not count.
+- **A chromatic joins a role ramp only if it DOMINATES that property.** Without
+  that rule sixteen sale badges land in the surface list beside white and grey,
+  and the export names one `--color-surface-2` — which says the page is painted
+  red somewhere structural. The rule keeps the real case working: a store with
+  a navy page has navy as its most-used background, so navy is `surface-0` and
+  not an accent. Everything chromatic that is left is an accent, carrying
+  `where` (text / background / border) rather than a promotion.
 - **Google Fonts are read off the STYLESHEET URL, not `@font-face`.** Google
   serves its CSS cross-origin, so `.cssRules` throws and the font-face loop
   never sees those families at all. `engine.googleFonts` parses `family=` from
