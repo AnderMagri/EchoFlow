@@ -229,13 +229,20 @@ The sidebar is the working surface — browse the client's site and analyse from
 where you are. Three tabs:
 
 - **Design review** — the extracted system (palette, ramp, type scale, spacing
-  rhythm, contrast warnings) with typefaces rendered in the real face, and a
-  provenance on every family — a Google Fonts link when the page really loads from Google, the serving host when it does not, and a look-up either way. Colour is
-  classified by the **role** it plays — action, surface, ink, line, accent —
-  not as a brand: a rendered page has no access to a brand, only to where paint
-  was applied. The action colour is read off the call-to-action button,
-  including when that is black, and with no such button there simply is no
-  action colour rather than a substitute.
+  rhythm, contrast warnings) with typefaces rendered in the real face.
+
+  Every typeface says where it comes from: a **Google Fonts** link when the
+  page genuinely loads from Google, the **serving host** when it does not
+  (Shopify's font picker serves many Google families from its own CDN), or
+  **system** when no `@font-face` exists at all. The specimen link is a claim,
+  so it is only made when it is true; everything else gets a look-up instead.
+
+  Colour is classified by the **role** it plays — action, surface, ink, line,
+  accent — not as a brand: a rendered page has no access to a brand, only to
+  where paint was applied. The action colour is read off the call-to-action
+  button, including when that is black, and with no such button there simply is
+  no action colour rather than a substitute.
+
 - **Findings** — one pile, three groupings you switch between: **by owner**
   (design, marketing, engineering), **by axis**, or **machine readability**
   (crawler access, structured data, answerability, agent operability). Above
