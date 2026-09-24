@@ -132,6 +132,30 @@ check(ui.version === mf.version,
 for (const id of ['scan', 'add', 'auto', 'export', 'send']) {
   check(ui.controls.includes(id), `the ${id} control is present`);
 }
+
+// The axes are a segmented toggle now, but the inputs underneath are still
+// real checkboxes — the styling is paint, not a replacement. If that ever
+// stops being true, the control looks the same and silently stops working.
+{
+  const axes = await panel.evaluate(() => ({
+    inputs: document.querySelectorAll('#axes input[type="checkbox"]').length,
+    focusable: [...document.querySelectorAll('#axes input')].every((i) => i.tabIndex >= 0),
+    allOn: [...document.querySelectorAll('#axes input:checked')].length,
+  }));
+  check(axes.inputs === 3, `three real checkboxes underneath (${axes.inputs})`);
+  check(axes.focusable, 'still reachable by keyboard');
+  check(axes.allOn === 3, 'all three on by default');
+
+  await panel.click('#axes .axis:nth-child(2) span');
+  await panel.waitForTimeout(150);
+  const after = await panel.evaluate(() =>
+    [...document.querySelectorAll('#axes input:checked')].map((i) => i.value));
+  check(after.join() === 'design,engine', `clicking a segment toggles it (${after.join(', ')})`);
+  await panel.click('#axes .axis:nth-child(2) span');
+  await panel.waitForTimeout(150);
+  check(await panel.evaluate(() => document.querySelectorAll('#axes input:checked').length) === 3,
+    'and back on again');
+}
 check(hard.length === 0, `the panel module graph evaluates without errors${hard.length ? ': ' + hard[0] : ''}`);
 
 // --- a real run, through the packaged core ---------------------------------
@@ -288,6 +312,77 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
   // every download to a GUID, so the harness always sees the second.
   check(fell.asks.some((a) => /Read my EchoFlow audit/.test(a)),
     'and offers the line to paste');
+
+  // Leave the panel usable for what follows: an open sheet covers the page and
+  // swallows every later click.
+  await panel.evaluate(() => document.querySelector('#sheet-close').click());
+}
+
+// --- the score breakdown folds away -----------------------------------------
+//
+// Fifteen group rows under the headline pushed the rest of the review off the
+// screen. Collapsed by default, with the weakest group on the summary line so
+// folding it never hides the one number that would make you open it.
+{
+  const collapsed = await panel.evaluate(() => {
+    const d = document.querySelector('.bd-wrap');
+    const row = document.querySelector('.bd-row');
+    return {
+      present: !!d,
+      open: d?.open,
+      // checkVisibility() is the test that works inside a closed <details>;
+      // offsetParent stays non-null there and reports rows as visible.
+      rowVisible: row ? row.checkVisibility() : null,
+      summary: d?.querySelector('summary')?.textContent.replace(/\s+/g, ' ').trim(),
+    };
+  });
+  check(collapsed.present, 'the breakdown is a disclosure, not a wall of rows');
+  check(collapsed.open === false, 'closed by default');
+  check(collapsed.rowVisible === false, 'and its rows really are hidden');
+  check(/weakest:/i.test(collapsed.summary || ''),
+    `with the weakest group on the summary line ("${collapsed.summary}")`);
+
+  await panel.click('.bd-wrap summary');
+  await panel.waitForTimeout(250);
+  const opened = await panel.evaluate(() => ({
+    open: document.querySelector('.bd-wrap').open,
+    rowVisible: document.querySelector('.bd-row').checkVisibility(),
+  }));
+  check(opened.open && opened.rowVisible, 'the chevron opens it');
+
+  // A panel that re-collapses on every tab switch is worse than one that never
+  // folded, because you lose the state you just chose.
+  await panel.click('[data-tab="findings"]');
+  await panel.waitForTimeout(200);
+  await panel.click('[data-tab="review"]');
+  await panel.waitForTimeout(200);
+  check(await panel.evaluate(() => document.querySelector('.bd-wrap').open),
+    'and it stays open across a tab switch');
+}
+
+// --- the priority number explains itself ------------------------------------
+//
+// "What means the numbers in front of the findings? like 35, 24?" — asked
+// directly, which is the proof a bare number was not carrying its meaning.
+{
+  await panel.click('[data-tab="findings"]');
+  await panel.waitForTimeout(400);
+  const key = await panel.evaluate(() => {
+    const p = document.querySelector('.f .p');
+    return {
+      legend: document.querySelector('.legend.key')?.textContent.replace(/\s+/g, ' ').trim() || '',
+      band: p?.querySelector('small')?.textContent.trim(),
+      tip: p?.getAttribute('title') || '',
+    };
+  });
+  check(/priority/i.test(key.legend), 'the list says once what the number is');
+  check(/impact/i.test(key.legend) && /easy/i.test(key.legend),
+    'and that it is impact against ease, not effort — the scale is inverted');
+  check(!!key.band, `each number wears its band as a word ("${key.band}")`);
+  check(/^Priority \d+ — impact \d+\/10/.test(key.tip),
+    `and explains its own arithmetic on hover ("${key.tip}")`);
+  await panel.click('[data-tab="review"]');
+  await panel.waitForTimeout(200);
 }
 
 // --- what the collector reads off a page ------------------------------------

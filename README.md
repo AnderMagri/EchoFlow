@@ -99,7 +99,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.10.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.11.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -383,7 +383,7 @@ CLI cannot disagree.
 node test/run.js         # 126 — core, calibration, retrieval, parity, operability, bundle
 cd mcp && node test.mjs  # 31  — MCP protocol surface
 node test/overlay.mjs    # 47  — the overlay and grid detection, in a real browser
-node test/extension.mjs  # 43  — the packaged extension, loaded in a real Chrome
+node test/extension.mjs  # 58  — the packaged extension, loaded in a real Chrome
 ```
 
 The last two need Chromium and skip cleanly without one. They exist because

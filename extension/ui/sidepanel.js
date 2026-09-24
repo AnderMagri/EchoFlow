@@ -45,6 +45,8 @@ let overlayCols = null;
 let overlayInfo = null;
 /** How the Findings tab partitions the pile: 'owner' | 'axis' | 'geo'. */
 let grouping = 'owner';
+/** Kept across re-renders: a panel that re-collapses on every tab switch is worse than one that never folded. */
+let breakdownOpen = false;
 /** Pages discovery proposed, awaiting confirmation. @type {{url:string,surface:string,on:boolean}[]} */
 let proposed = [];
 /** True once anything was collected in a background tab — changes what we can claim. */
@@ -509,18 +511,31 @@ function scoreBlock() {
     .filter(([, g]) => current.axes.includes(g.axis))
     .sort((a, b) => (a[1].score ?? 999) - (b[1].score ?? 999));
 
+  // Fifteen group rows under the headline pushed everything else off the
+  // screen, and most of the time the reader wants the number and the verdict.
+  // Collapsed by default — but the summary carries the weakest group, so
+  // folding it away never hides the one line that would make you open it.
+  const weakest = groups.find(([, g]) => typeof g.score === 'number');
+
   return `${platformBanner()}
   <div class="score">
     <span class="n">${c.overall ?? '—'}</span><span class="of">/100</span>
     <span class="g">${esc(c.grade)}${c.provisional ? ' · <span class="provisional">provisional</span>' : ''}</span>
     <div class="verdict">${esc(c.verdict)}</div>
-    <div class="bd">
-      ${groups.map(([name, g]) => `<div class="bd-row ${g.score == null ? 'dim' : ''}">
-        <span class="k">${esc(name)}</span>
-        <span class="track"><i style="width:${g.score ?? 0}%"></i></span>
-        <span class="v">${g.score ?? '—'}</span>
-      </div>`).join('')}
-    </div>
+    ${groups.length ? `<details class="bd-wrap"${breakdownOpen ? ' open' : ''}>
+      <summary>
+        <span class="chev" aria-hidden="true"></span>
+        <span class="lbl">Breakdown</span>
+        ${weakest ? `<span class="teaser">weakest: ${esc(weakest[0])} ${weakest[1].score}</span>` : ''}
+      </summary>
+      <div class="bd">
+        ${groups.map(([name, g]) => `<div class="bd-row ${g.score == null ? 'dim' : ''}">
+          <span class="k">${esc(name)}</span>
+          <span class="track"><i style="width:${g.score ?? 0}%"></i></span>
+          <span class="v">${g.score ?? '—'}</span>
+        </div>`).join('')}
+      </div>
+    </details>` : ''}
     ${c.caveat ? `<div class="note warn">${esc(c.caveat)}</div>` : ''}
   </div>`;
 }
@@ -698,10 +713,21 @@ async function verifySpecimens() {
   }
 }
 
+/**
+ * One finding.
+ *
+ * The leading number is the PRIORITY, and it used to sit there unlabelled —
+ * asked about directly, which is the proof it was not carrying its meaning.
+ * It now wears its band as a word underneath and explains itself on hover,
+ * because "35" is only useful once you know it is impact times ease.
+ */
 const findingRow = (f) => {
   const band = f.kind === 'strength' ? 'strength' : priorityBand(f.priority);
+  const why = f.kind === 'strength'
+    ? 'Working well — no action needed'
+    : `Priority ${f.priority} — impact ${f.impact}/10 × ${effortLabel(f.effort)} to fix. Higher is more worth doing now.`;
   return `<div class="f ${band}">
-    <div class="p">${f.kind === 'strength' ? '&#10003;' : f.priority}</div>
+    <div class="p" title="${esc(why)}">${f.kind === 'strength' ? '&#10003;' : f.priority}<small>${esc(band)}</small></div>
     <div>
       <div class="t">${esc(f.title)}</div>
       <div class="r">${esc(f.recommendation)}</div>
@@ -815,6 +841,8 @@ function renderFindings() {
   out.innerHTML = scoreBlock() + enginePanel()
     + `<div class="ovbtns group">${tabs.map(([k, label]) =>
         `<button class="btn ${grouping === k ? 'on' : ''}" data-group="${k}">${esc(label)}</button>`).join('')}</div>`
+    + `<p class="legend key">The number is <b>priority</b> — impact × how easy the fix is,
+       so something big and cheap outranks something big and slow. Highest first.</p>`
     + sections;
 }
 
@@ -1153,6 +1181,12 @@ $('#pagelist').addEventListener('click', (e) => {
   }
   reanalyze().catch((err) => { out.innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
 });
+
+// `toggle` does not bubble, so listen in the capture phase rather than
+// attaching a handler to a <details> that every render replaces.
+out.addEventListener('toggle', (e) => {
+  if (e.target.classList?.contains('bd-wrap')) breakdownOpen = e.target.open;
+}, true);
 
 $('#tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-tab]');
