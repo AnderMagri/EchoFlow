@@ -431,6 +431,55 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
   check(gf.includes('Lora') && gf.includes('Open Sans'),
     'and the older pipe-separated css v1 shape too');
   await fonts.close();
+
+  // Every typeface states where it comes from. Without that, a font that is
+  // simply not from Google looks identical to a broken link — which is exactly
+  // how it was reported.
+  const sources = await ctx.newPage();
+  await sources.route('**fonts.googleapis.com**', (r) =>
+    r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await sources.route('**cdn.example-shop.com**', (r) => r.fulfill({ status: 404, body: '' }));
+  await sources.goto(`${origin}/brand/font-sources.html`, { waitUntil: 'load' });
+  const srcTabId = await panel.evaluate(async (base) =>
+    (await chrome.tabs.query({ url: base + '/brand/font-sources.html' }))[0].id, origin);
+  await panel.evaluate((id) => chrome.tabs.update(id, { active: true }), srcTabId);
+  await panel.click('#scan');
+  await panel.waitForTimeout(3000);
+
+  const specs = await panel.evaluate(() => [...document.querySelectorAll('.spec')].map((e) => ({
+    fam: e.dataset.family,
+    link: e.querySelector('.gf')?.getAttribute('href') || null,
+    src: e.querySelector('.src')?.textContent.trim() || null,
+  })));
+  const by = (n) => specs.find((x) => x.fam === n);
+  check(by('Lora')?.link === 'https://fonts.google.com/specimen/Lora',
+    // An @import'ed sheet is not a top-level document.styleSheets entry, so
+    // the href loop never sees it; it is a CSSImportRule on the parent.
+    `a Google face reached by @import still gets its link (${by('Lora')?.link})`);
+  check(/^webfont · cdn\.example-shop\.com$/.test(by('HouseSans')?.src || ''),
+    `a self-hosted face names its host instead (${by('HouseSans')?.src})`);
+  check(by('Georgia')?.src === 'system',
+    `and a system stack says so (${by('Georgia')?.src})`);
+  // A family can be on Google Fonts and not be served from Google — Shopify's
+  // font picker does exactly that. The direct specimen link is a claim, so it
+  // is only used when the page really loads from Google; everything else gets
+  // a search, which asserts nothing.
+  check(/fonts\.google\.com\/\?query=/.test(by('HouseSans')?.link || ''),
+    'a self-hosted family offers a look-up rather than a specimen link');
+
+  // Two hairlines stacked under a heading. `.spec:first-of-type` means "first
+  // div among its siblings", not "first .spec" — one div ahead of it and the
+  // rule silently misses, so the heading's own rule and the row's doubled up.
+  const rules = await panel.evaluate(() => {
+    const h = [...document.querySelectorAll('#out h3')].find((x) => /TYPEFACES/i.test(x.textContent));
+    return {
+      heading: getComputedStyle(h).borderBottomWidth,
+      firstRow: getComputedStyle(h.nextElementSibling).borderTopWidth,
+    };
+  });
+  check(rules.heading === '1px' && rules.firstRow === '0px',
+    `one rule under the heading, not two (${rules.heading} + ${rules.firstRow})`);
+  await sources.close();
 }
 
 await ctx.close();

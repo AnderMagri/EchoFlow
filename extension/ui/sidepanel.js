@@ -595,6 +595,15 @@ function renderReview() {
   const googleFonts = new Map(collected
     .flatMap((o) => o.engine?.googleFonts || [])
     .map((name) => [name.toLowerCase(), name]));
+  // Where each family's file is served from, so a missing Google link reads as
+  // "this font is not from Google" rather than "the link is broken".
+  const fontHost = new Map(collected
+    .flatMap((o) => o.engine?.fontFaces || [])
+    .map((f) => {
+      try { return [f.family.toLowerCase(), new URL(f.src).hostname.replace(/^www\./, '')]; }
+      catch { return null; }
+    })
+    .filter(Boolean));
   const typ = t.typography;
   const maxSpace = Math.max(...t.spacing.steps, ...t.spacing.strays.map((s) => s.value), 1);
 
@@ -618,13 +627,33 @@ function renderReview() {
     const fam = firstFamily(f.stack);
     const have = loadable.has(fam.toLowerCase());
     const google = googleFonts.get(fam.toLowerCase());
+    const host = fontHost.get(fam.toLowerCase());
+    /**
+     * Where the face is SERVED FROM, which is the only thing a page can show.
+     *
+     * A family can be on Google Fonts and not be loaded from Google — Shopify's
+     * font picker serves many of them from its own CDN, and plenty of themes
+     * self-host. Reported as "Figtree is a Google font, why is there no link":
+     * the page was right, and so was the tool, but the panel said nothing about
+     * provenance so the silence read as a bug.
+     *
+     * The direct specimen link is only used when the page really does load from
+     * Google, because that link is a claim. Otherwise the host is named and a
+     * SEARCH link offered — which asserts nothing about whether the family is
+     * in the catalogue, and still gets you there in one click.
+     */
+    const source = google
+      ? `<a class="gf" href="https://fonts.google.com/specimen/${encodeURIComponent(google).replace(/%20/g, '+')}" target="_blank" rel="noreferrer">Google Fonts &#8599;</a>`
+      : host
+        ? `<span class="src" title="The font file is served from ${esc(host)}, not from Google">webfont · ${esc(host)}</span>
+           <a class="gf find" href="https://fonts.google.com/?query=${encodeURIComponent(fam)}" target="_blank" rel="noreferrer" title="Look this family up on Google Fonts">look up &#8599;</a>`
+        : `<span class="src" title="No @font-face was found for this family — a system font, or loaded in a way the page does not expose">system</span>
+           <a class="gf find" href="https://fonts.google.com/?query=${encodeURIComponent(fam)}" target="_blank" rel="noreferrer" title="Look this family up on Google Fonts">look up &#8599;</a>`;
     // Prefer the captured webfont; fall back to the raw stack, which still
     // renders correctly for system faces.
     const ff = have ? `"EF ${esc(cssEscape(fam))}", ${esc(f.stack)}` : esc(f.stack);
     return `<div class="spec" data-family="${esc(fam)}" data-captured="${have}">
-      <div class="name"><b>${esc(fam)}</b>${google
-        ? `<a class="gf" href="https://fonts.google.com/specimen/${encodeURIComponent(google).replace(/%20/g, '+')}" target="_blank" rel="noreferrer">Google Fonts &#8599;</a>`
-        : ''}<span>${plural(f.uses, 'use')}</span></div>
+      <div class="name"><b>${esc(fam)}</b>${source}<span>${plural(f.uses, 'use')}</span></div>
       <div class="sample" style="font-family:${ff}">${SAMPLE}</div>
       <div class="sample small" style="font-family:${ff}">${SAMPLE_BODY}</div>
       <div class="unavail" hidden></div>

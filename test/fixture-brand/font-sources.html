@@ -1,0 +1,17 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Font sources</title>
+<!-- 1. Google, via a plain link -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700">
+<style>
+/* 2. Google, via @import inside a readable sheet — an imported sheet is not a
+      top-level entry in document.styleSheets, so the href loop cannot see it. */
+@import url("https://fonts.googleapis.com/css2?family=Lora:wght@400");
+/* 3. A genuinely self-hosted webfont */
+@font-face { font-family: "HouseSans"; src: url("https://cdn.example-shop.com/fonts/house.woff2") format("woff2"); }
+body{margin:0;font-family:Inter,sans-serif}
+h1{font-family:"HouseSans",sans-serif}
+h2{font-family:Lora,serif}
+/* 4. A system stack, no @font-face anywhere */
+p{font-family:Georgia,serif}
+</style></head><body>
+<h1>Self-hosted heading</h1><h2>Imported Google face</h2><p>System serif body copy for the page.</p>
+</body></html>

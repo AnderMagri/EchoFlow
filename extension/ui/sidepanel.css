@@ -241,7 +241,11 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 
 /* ---- findings: hairline rows, hanging priority. No cards. ---- */
 .f { display:grid; grid-template-columns:42px 1fr; gap:10px; padding:11px 0; border-top:1px solid var(--hair); }
-.f:first-of-type { border-top:0; }
+/* NOT :first-of-type. That means "first div among its siblings", not "first
+   .f" — any div ahead of it in the same parent and the rule silently misses,
+   leaving a row rule stacked under the heading's own. Target the adjacency
+   instead: a heading already draws the separating line. */
+h3 + .f { border-top:0; }
 .f .p { font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums; line-height:1.3; font-weight:600; cursor:help; }
 .f .p small {
   display:block; font-size:8px; text-transform:uppercase; letter-spacing:.05em;
@@ -265,9 +269,12 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 .sw b { display:block; font-weight:400; color:var(--muted); font-size:8.5px; margin-top:1px; }
 
 /* ---- type specimens ---- */
-.spec { padding:10px 0; border-top:1px solid var(--hair); }
-.spec:first-of-type { border-top:0; }
-.spec .name { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:5px; }
+.spec { padding:12px 0 14px; border-top:1px solid var(--hair); }
+h3 + .spec { border-top:0; }
+.spec .name { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+/* The use count is metadata, not a peer of the name — push it to the end so
+   the family and its provenance read as one phrase. */
+.spec .name > span:last-child { margin-left:auto; }
 .spec .name b { font-size:11.5px; font-weight:600; }
 .spec .name span { font-family:var(--mono); font-size:10px; color:var(--faint); }
 .spec .sample { font-size:21px; line-height:1.25; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -315,6 +322,14 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
   border-bottom:1px solid currentColor; margin-left:7px; white-space:nowrap;
 }
 .spec .gf:hover { opacity:.75; }
+.spec .src {
+  font-size:10px; color:var(--faint); white-space:nowrap;
+  font-family:var(--mono); cursor:help;
+}
+/* A search link makes no claim about the catalogue, so it is quieter than the
+   direct specimen link, which does. */
+.spec .gf.find { color:var(--faint); border-bottom-color:var(--hair-strong); font-size:9.5px; margin-left:0; }
+.spec .gf.find:hover { color:var(--accent); }
 .eng-bars { margin-top:8px; }
 .eng-row { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:11.5px; }
 .eng-row .k { font-family:var(--mono); font-size:9.5px; text-transform:uppercase; color:var(--faint); min-width:34px; flex:none; }

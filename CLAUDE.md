@@ -267,11 +267,29 @@ name is in `<title>` either way.
   a navy page has navy as its most-used background, so navy is `surface-0` and
   not an accent. Everything chromatic that is left is an accent, carrying
   `where` (text / background / border) rather than a promotion.
+- **Served-from is not available-on.** A family can be on Google Fonts and not
+  be loaded from Google — Shopify's font picker serves many of them from its
+  own CDN, and plenty of themes self-host. Reported as "Figtree is a Google
+  font, why is there no link": the page was right and so was the tool, but the
+  panel said nothing about provenance so the silence read as a bug. Every
+  typeface now states its source. The direct specimen link is a CLAIM, so it is
+  used only when the page really loads from Google; otherwise the host is named
+  and a search link offered, which asserts nothing about the catalogue. The
+  catalogue itself cannot be bundled — the proxy blocks fonts.google.com — and
+  a hand-curated partial list would make absence ambiguous all over again.
+- **Never use `:first-of-type` for a class.** It means "first element of that
+  TAG among its siblings", not "first of that class". One `div` ahead of
+  `.spec` in the same parent and `.spec:first-of-type` silently misses, leaving
+  the row's top border stacked under the heading's bottom border — two
+  hairlines a few pixels apart, which is what "these 2 lines make no sense"
+  was. Use the adjacency (`h3 + .spec`) instead.
 - **Google Fonts are read off the STYLESHEET URL, not `@font-face`.** Google
   serves its CSS cross-origin, so `.cssRules` throws and the font-face loop
   never sees those families at all. `engine.googleFonts` parses `family=` from
   any `fonts.googleapis.com` href — css2 repeats the parameter, css v1
   separates with `|` — and also claims any face served from `fonts.gstatic.com`.
+  An `@import`ed sheet is NOT a top-level `document.styleSheets` entry either;
+  it is a `CSSImportRule` on the parent, so it needs its own pass.
 - **Classify controls by role, not by class name.** A `div.chip` is not
   tappable. Name-based classification is how an audit turns into damage.
 - **Viewports are USABLE heights** (`USABLE_VIEWPORT`): mobile 390×**640**,

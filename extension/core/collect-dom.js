@@ -447,6 +447,30 @@ export function collectFromDocument(options) {
         }
       }
     }
+    // @import url(https://fonts.googleapis.com/...) inside a readable sheet.
+    // An imported sheet is NOT a top-level entry in document.styleSheets, so
+    // the href loop above never sees it — it is a CSSImportRule on the parent.
+    for (var ii = 0; ii < document.styleSheets.length; ii++) {
+      var irules = null;
+      try { irules = document.styleSheets[ii].cssRules; } catch (e) { continue; }
+      if (!irules) continue;
+      for (var ir = 0; ir < irules.length; ir++) {
+        if (irules[ir].type !== 3 /* CSSImportRule */) continue;
+        var ihref = irules[ir].href || '';
+        if (ihref.indexOf('fonts.googleapis.com') === -1) continue;
+        var iq = (ihref.split('?')[1] || '').split('&');
+        for (var ip = 0; ip < iq.length; ip++) {
+          if (iq[ip].indexOf('family=') !== 0) continue;
+          var iraw = decodeURIComponent(iq[ip].slice(7).replace(/\+/g, ' '));
+          var iparts = iraw.split('|');
+          for (var ipp = 0; ipp < iparts.length; ipp++) {
+            var iname = iparts[ipp].split(':')[0].trim();
+            if (iname && googleFonts.indexOf(iname) === -1) googleFonts.push(iname);
+          }
+        }
+      }
+    }
+
     // A face served from fonts.gstatic.com is a Google font even when the
     // stylesheet was self-hosted and the family never appeared in a URL.
     for (var ffi = 0; ffi < fontFaces.length; ffi++) {
