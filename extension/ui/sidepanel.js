@@ -1079,3 +1079,11 @@ $('#export').addEventListener('click', exportBundle);
 $('#send').addEventListener('click', sendToClaude);
 
 activeTab().then((t) => { try { $('#host').textContent = new URL(t.url).hostname; } catch { /* chrome:// */ } });
+
+// The running build, stated by the build itself.
+//
+// "Is my extension actually updated?" was answered by walking to
+// chrome://extensions and reading a card, which is far enough away that a
+// stale load went unnoticed for several releases. The panel knows its own
+// version; there is no reason to make anyone go and look it up.
+try { $('#ver').textContent = chrome.runtime.getManifest().version; } catch { /* not in an extension */ }

@@ -118,8 +118,13 @@ await panel.waitForTimeout(800);
 const ui = await panel.evaluate(() => ({
   controls: [...document.querySelectorAll('button[id]')].map((b) => b.id),
   styled: getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)',
+  version: document.querySelector('#ver')?.textContent.trim(),
 }));
 check(ui.styled, 'the stylesheet loads from the extension origin');
+// A stale load went unnoticed for several releases because the only place the
+// version appeared was a card in chrome://extensions.
+check(ui.version === mf.version,
+  `the sidebar states the build it is running (${ui.version})`);
 for (const id of ['scan', 'add', 'auto', 'export', 'send']) {
   check(ui.controls.includes(id), `the ${id} control is present`);
 }
