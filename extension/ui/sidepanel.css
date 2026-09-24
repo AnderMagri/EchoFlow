@@ -252,5 +252,18 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
 .ovbtns { display:flex; gap:5px; margin:14px 0 4px; }
 .ovbtns .btn { flex:1; font-size:11.5px; padding:6px 4px; }
 .ovbtns.cols { margin-top:6px; }
+.ovbtns.group { margin:16px 0 10px; }
+.ovbtns.group .btn { font-size:11px; padding:5px 4px; }
+.chip {
+  display:inline-block; font-family:var(--mono); font-size:10px;
+  background:var(--raised); color:var(--muted); padding:2px 6px; margin:0 4px 4px 0;
+}
+.kv dd code { font-family:var(--mono); font-size:10.5px; }
+.eng-bars { margin-top:8px; }
+.eng-row { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:11.5px; }
+.eng-row .k { font-family:var(--mono); font-size:9.5px; text-transform:uppercase; color:var(--faint); min-width:34px; flex:none; }
+.eng-row .track { flex:1; height:6px; background:var(--hair); }
+.eng-row .track i { display:block; height:100%; background:var(--ink); }
+.eng-row .v { font-variant-numeric:tabular-nums; color:var(--muted); min-width:26px; text-align:right; flex:none; }
 .ovbtns.cols .btn { font-size:11px; padding:4px 8px; }
 .ovbtns .btn.on { background:var(--ink); color:var(--bg); border-color:var(--ink); }

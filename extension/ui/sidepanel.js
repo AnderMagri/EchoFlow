@@ -18,7 +18,8 @@ import { analyze } from '../core/analyze.js';
 import { collectFromDocument } from '../core/collect-dom.js';
 import { inferSurface, sectionSkeleton, flattenLayout } from '../core/observation.js';
 import {
-  OWNERS, OWNER_BRIEF, OWNER_LABELS, effortLabel, priorityBand, SURFACE_LABELS,
+  AXIS_LABELS, GEO_GROUPS, GEO_GROUP_BRIEF, GEO_GROUP_LABELS, OWNERS, OWNER_BRIEF,
+  OWNER_LABELS, SURFACE_LABELS, effortLabel, geoGroupFor, isGeoFinding, priorityBand,
 } from '../core/finding.js';
 import { buildBundle } from '../core/wiki/bundle.js';
 import { toggleOverlay } from '../content/overlay.js';
@@ -42,6 +43,8 @@ let overlayMode = 'off';
 let overlayCols = 12;
 /** What the overlay reported back — the measured content container. */
 let overlayInfo = null;
+/** How the Findings tab partitions the pile: 'owner' | 'axis' | 'geo'. */
+let grouping = 'owner';
 /** Pages discovery proposed, awaiting confirmation. @type {{url:string,surface:string,on:boolean}[]} */
 let proposed = [];
 /** True once anything was collected in a background tab — changes what we can claim. */
@@ -694,26 +697,112 @@ const findingRow = (f) => {
 };
 
 /**
- * Findings grouped by who owns the fix.
+ * What the site is actually running.
  *
- * The axes answer "what kind of problem is this"; a reader also needs "is this
- * mine". Engine mixed both badly — "third-party script set differs" and "no
- * meta description" sat next to each other, and different people fix them.
+ * The findings say what is wrong; this says what is THERE. An audit that
+ * reports "the third-party script set differs across pages" without ever
+ * naming the apps leaves the reader to go and look for themselves, which is
+ * the work the tool was supposed to do. Facts, not findings — so nothing here
+ * is scored or ranked.
+ */
+function enginePanel() {
+  const engines = collected.map((o) => o.engine).filter(Boolean);
+  if (!engines.length) return '';
+
+  const apps = [...new Set(engines.flatMap((e) => e.apps || []))].sort();
+  const hosts = [...new Set(engines.flatMap((e) => (e.scripts || [])
+    .map((src) => { try { return new URL(src).hostname.replace(/^www\./, ''); } catch { return null; } })
+    .filter(Boolean)))];
+  // First-party scripts are not third-party weight; separating them is the
+  // whole point of counting.
+  let own = null;
+  try { own = new URL(collected[0].url).hostname.replace(/^www\./, ''); } catch { /* unparseable */ }
+  const thirdParty = hosts.filter((h) => h !== own);
+
+  const avg = (pick) => {
+    const vals = engines.map(pick).filter((n) => typeof n === 'number' && n > 0);
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+  };
+  const weight = avg((e) => e.transferBytes);
+  const requests = avg((e) => e.requests);
+  const sections = [...new Set(engines.flatMap((e) => e.sections || []))];
+  const theme = engines.find((e) => e.theme)?.theme;
+
+  // Per page, because "how many apps does this store run" is a different
+  // question from "how many does this page load".
+  const perPage = collected.map((o) => ({
+    surface: o.surface,
+    apps: (o.engine?.apps || []).length,
+    scripts: (o.engine?.scripts || []).length,
+  }));
+  const maxScripts = Math.max(...perPage.map((p) => p.scripts), 1);
+
+  return `<h3>What this store runs <span>facts, not findings</span></h3>
+  <dl class="kv">
+    <dt>Platform</dt><dd>${esc(PLATFORM_NAMES[current.platform] || current.platform || 'unrecognised')}${theme ? ` · theme <b>${esc(theme)}</b>` : ''}</dd>
+    <dt>Apps detected</dt><dd>${apps.length ? apps.map((a) => `<span class="chip">${esc(a)}</span>`).join('') : 'none recognised'}</dd>
+    <dt>Third-party hosts</dt><dd>${thirdParty.length}${thirdParty.length ? ` — ${esc(thirdParty.slice(0, 6).join(', '))}${thirdParty.length > 6 ? ` +${thirdParty.length - 6} more` : ''}` : ''}</dd>
+    ${requests ? `<dt>Requests</dt><dd>${requests} average per page</dd>` : ''}
+    ${weight ? `<dt>Transferred</dt><dd>${(weight / 1024).toFixed(0)} KB average per page</dd>` : ''}
+    ${sections.length ? `<dt>Theme sections</dt><dd>${sections.length} distinct</dd>` : ''}
+  </dl>
+  ${maxScripts > 1 ? `<div class="eng-bars">${perPage.map((p) => `<div class="eng-row">
+    <span class="k">${esc(p.surface)}</span>
+    <span class="track"><i style="width:${Math.max(2, (p.scripts / maxScripts) * 100)}%"></i></span>
+    <span class="v">${p.scripts}</span>
+  </div>`).join('')}</div>
+  <p class="legend">Scripts per page. A set that differs from page to page is drift; the finding for it is in the list below.</p>` : ''}
+  <p class="legend">App names come from known vendor URLs, so an unrecognised app is not counted — absence here means <b>not recognised</b>, never "not present".</p>`;
+}
+
+const sectionFor = (label, brief, list) => {
+  if (!list.length) return '';
+  const critical = list.filter((f) => f.kind !== 'strength' && priorityBand(f.priority) === 'critical').length;
+  return `<h3>${esc(label)} <span>${list.length}${critical ? ` · ${critical} critical` : ''}</span></h3>
+    ${brief ? `<p class="legend">${esc(brief)}</p>` : ''}
+    ${list.map(findingRow).join('')}`;
+};
+
+/**
+ * One pile, three groupings.
+ *
+ * Owner answers "is this mine", axis answers "what kind of problem is this",
+ * and machine readability answers "can an answer engine or a shopping agent
+ * use this store" — the question the Engine axis buried, because a missing
+ * meta description and a heavy third-party script set are both Engine and are
+ * nothing like each other.
+ *
+ * A switch rather than extra sections: a finding appearing twice on one screen
+ * is the copying the wiki model exists to avoid, and in a panel with no links
+ * there is nothing to link it back to.
  */
 function renderFindings() {
   const fs = current.findings;
   if (!fs.length) { out.innerHTML = scoreBlock() + '<div class="empty">Nothing found at this scope.</div>'; return; }
 
-  const sections = OWNERS.map((owner) => {
-    const mine = fs.filter((f) => f.owner === owner);
-    if (!mine.length) return '';
-    const critical = mine.filter((f) => f.kind !== 'strength' && priorityBand(f.priority) === 'critical').length;
-    return `<h3>${esc(OWNER_LABELS[owner])} <span>${mine.length}${critical ? ` · ${critical} critical` : ''}</span></h3>
-      <p class="legend">${esc(OWNER_BRIEF[owner])}</p>
-      ${mine.map(findingRow).join('')}`;
-  }).join('');
+  const geoCount = fs.filter(isGeoFinding).length;
+  const tabs = [['owner', 'By owner'], ['axis', 'By axis'], ['geo', `Machine readability${geoCount ? ` · ${geoCount}` : ''}`]];
 
-  out.innerHTML = scoreBlock() + sections;
+  let sections;
+  if (grouping === 'owner') {
+    sections = OWNERS.map((o) =>
+      sectionFor(OWNER_LABELS[o], OWNER_BRIEF[o], fs.filter((f) => f.owner === o))).join('');
+  } else if (grouping === 'axis') {
+    sections = current.axes.map((a) =>
+      sectionFor(AXIS_LABELS[a], '', fs.filter((f) => f.axis === a))).join('');
+  } else {
+    const geo = fs.filter(isGeoFinding);
+    sections = geo.length
+      ? `<p class="legend">What an answer engine, a crawler or a shopping agent can read. These findings also sit on the Engine axis — this is the same record asked a different question, and it carries no score of its own. Retrievable is not cited: nothing here predicts traffic or rankings.</p>
+         ${GEO_GROUPS.map((g) => sectionFor(GEO_GROUP_LABELS[g], GEO_GROUP_BRIEF[g],
+           geo.filter((f) => geoGroupFor(f.checkId) === g))).join('')}`
+      : '<div class="empty">No machine-readability findings — run the Engine axis to measure it.</div>';
+  }
+
+  out.innerHTML = scoreBlock() + enginePanel()
+    + `<div class="ovbtns group">${tabs.map(([k, label]) =>
+        `<button class="btn ${grouping === k ? 'on' : ''}" data-group="${k}">${esc(label)}</button>`).join('')}</div>`
+    + sections;
 }
 
 function renderStructure() {
@@ -813,6 +902,13 @@ $('#tabs').addEventListener('click', (e) => {
   tab = b.dataset.tab;
   document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
   render();
+});
+
+out.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-group]');
+  if (!b) return;
+  grouping = b.dataset.group;
+  renderFindings();
 });
 
 out.addEventListener('click', async (e) => {

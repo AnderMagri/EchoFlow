@@ -9,7 +9,8 @@
     "test": "node test/run.js",
     "test:overlay": "node test/overlay.mjs",
     "analyze": "node analyzer/src/cli/index.js",
-    "package": "node scripts/package-extension.js"
+    "package": "node scripts/package-extension.js",
+    "test:extension": "node test/extension.mjs"
   },
   "engines": {
     "node": ">=18"

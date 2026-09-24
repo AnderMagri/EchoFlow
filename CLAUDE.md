@@ -266,11 +266,21 @@ node scripts/sync-core.js    # the extension loads its own copy
 node test/run.js
 cd mcp && node test.mjs      # MCP protocol surface
 node test/overlay.mjs        # the live overlay, in a real browser
+node test/extension.mjs      # the built extension, loaded in a real Chrome
 ```
 
-`test/overlay.mjs` needs Chromium and skips cleanly without one. It exists
-because the column grid was wrong for its whole life and looked right at the
-one window width anyone checked.
+The last two need Chromium and skip cleanly without one.
+
+`test/overlay.mjs` exists because the column grid was wrong for its whole life
+and looked right at the one window width anyone checked.
+
+`test/extension.mjs` exists because nothing else can see the failures that only
+appear once the thing is an extension: a stale `extension/core/`, an import that
+resolves on disk but not from an extension origin, a manifest naming a file
+nobody shipped, a binary mangled by the zip writer. It reads the manifest back
+from **Chrome**, not from disk, and drives a full collect → analyse → export in
+the side panel's own document. Dynamic `import()` is barred in a service worker
+by spec, so that work belongs on the panel page.
 
 ## Testing against a real page
 
