@@ -99,7 +99,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.8.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.9.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -287,8 +287,9 @@ note says when it happened.
 Export writes the same bundle the CLI produces, as a `.zip`.
 
 **Send to Claude** pushes the audit straight into the running MCP server.
-Nothing is downloaded and there is no path to paste — click it, then ask Claude
-for your latest EchoFlow audit.
+Nothing is downloaded and there is no path to paste. A sheet then tells you
+exactly what to do next — switch to Claude and ask *"Look at my latest EchoFlow
+audit"* — with a few follow-ups worth asking. Click any of them to copy it.
 
 The extension still cannot speak MCP (that is a stdio process its client
 launches), so the server opens a small **loopback listener** whose only job is
@@ -378,7 +379,7 @@ CLI cannot disagree.
 node test/run.js         # 123 — core, calibration, retrieval, parity, operability, bundle
 cd mcp && node test.mjs  # 31  — MCP protocol surface
 node test/overlay.mjs    # 47  — the overlay and grid detection, in a real browser
-node test/extension.mjs  # 33  — the packaged extension, loaded in a real Chrome
+node test/extension.mjs  # 38  — the packaged extension, loaded in a real Chrome
 ```
 
 The last two need Chromium and skip cleanly without one. They exist because

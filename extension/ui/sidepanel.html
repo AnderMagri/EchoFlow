@@ -52,8 +52,17 @@
 
 <footer id="foot" hidden>
   <button id="export" class="btn">Export wiki bundle</button>
-  <button id="send" class="btn" title="Save the audit where the MCP server can read it, and copy the line to paste">Send to Claude</button>
+  <button id="send" class="btn" title="Push the audit to the running MCP server, or save it if that is not available">Send to Claude</button>
 </footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+  <header>
+    <h2 id="sheet-title"></h2>
+    <button class="x" id="sheet-close" aria-label="Close">&#10005;</button>
+  </header>
+  <div id="sheet-body"></div>
+</section>
 
 <script type="module" src="sidepanel.js"></script>
 </body>

@@ -219,6 +219,9 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
     await new Promise((r) => setTimeout(r, 4000));
     return {
       hint: document.querySelector('#hint').textContent,
+      sheetOpen: !document.querySelector('#sheet').hidden,
+      sheetTitle: document.querySelector('#sheet-title').textContent,
+      asks: [...document.querySelectorAll('[data-ask]')].map((b) => b.dataset.ask),
       downloadsAdded: (await chrome.downloads.search({ limit: 100 })).length - before,
     };
   });
@@ -229,7 +232,17 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
   check(received[0]?.observations?.length === 2,
     'and its observations, so the server can build layouts from it');
   check(pushed.downloadsAdded === 0, `nothing was downloaded (${pushed.downloadsAdded} new files)`);
-  check(/nothing was downloaded/i.test(pushed.hint), 'and the panel says so');
+
+  // Sending finishes somewhere else, so the panel has to say what to do next
+  // rather than leave a line of text under the buttons to be missed.
+  check(pushed.sheetOpen, 'a sheet opens to say what happened');
+  check(/sent to claude/i.test(pushed.sheetTitle), `and names the outcome ("${pushed.sheetTitle}")`);
+  check(pushed.asks.includes('Look at my latest EchoFlow audit'),
+    'and gives the exact sentence to ask Claude');
+  check(pushed.asks.length >= 3, `plus follow-ups worth asking (${pushed.asks.length})`);
+
+  await panel.evaluate(() => document.querySelector('#sheet-close').click());
+  check(await panel.evaluate(() => document.querySelector('#sheet').hidden), 'and it closes');
 
   await ingest.close();
 
@@ -260,9 +273,18 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
     'carrying a score and findings, not an empty shell');
   check(!!layout, 'and a layout, so echoflow_structure has something to read');
 
-  const hint = await panel.evaluate(() => document.querySelector('#hint')?.textContent || '');
-  check(/clipboard/i.test(hint), 'and says the line to paste is on the clipboard');
-  check(/not running/i.test(hint), 'and explains why it had to save rather than send');
+  const fell = await panel.evaluate(() => ({
+    open: !document.querySelector('#sheet').hidden,
+    title: document.querySelector('#sheet-title').textContent,
+    asks: [...document.querySelectorAll('[data-ask]')].map((b) => b.dataset.ask),
+  }));
+  check(fell.open, 'the fallback opens a sheet too');
+  check(/not running/i.test(fell.title), `explaining why it saved rather than sent ("${fell.title}")`);
+  // Two legitimate wordings: one naming the absolute path when Chrome gives a
+  // usable one, one naming the folder when it does not. Playwright renames
+  // every download to a GUID, so the harness always sees the second.
+  check(fell.asks.some((a) => /Read my EchoFlow audit/.test(a)),
+    'and offers the line to paste');
 }
 
 await ctx.close();

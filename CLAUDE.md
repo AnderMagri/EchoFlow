@@ -261,6 +261,13 @@ name is in `<title>` either way.
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
   blockers before claiming the remainder is polish.
 
+**Sending finishes somewhere else, so say so in a sheet.** The outcome of
+"Send to Claude" is an instruction — go to Claude and ask this — not a status.
+A line under the buttons sits where the panel puts page-collection hints and
+was being missed. Both routes open the sheet: one says it was sent and gives
+the sentence to ask, the other says why it had to save and gives the line to
+paste. Every ask copies itself on click.
+
 **"Send to Claude" pushes over loopback; downloading is the FALLBACK.** The
 first version had this backwards — it saved files and handed over a path, which
 is the opposite of handing an audit to Claude. `mcp/ingest.js` opens a receive-

@@ -894,6 +894,47 @@ function renderStructure() {
 
 // --- export ----------------------------------------------------------------
 
+/**
+ * The bottom sheet.
+ *
+ * Sending an audit finishes somewhere else — in a conversation, in another
+ * app. A line of text under the buttons is the wrong place to say so: it sits
+ * where the panel puts hints about page collection, and it was being missed.
+ * The sheet interrupts, says what happened, and gives the sentence to say
+ * next, because "it worked" is not the useful part — "go and ask this" is.
+ */
+function showSheet(title, bodyHtml) {
+  $('#sheet-title').textContent = title;
+  $('#sheet-body').innerHTML = bodyHtml;
+  $('#scrim').hidden = false;
+  $('#sheet').hidden = false;
+  $('#sheet-close').focus();
+}
+
+function closeSheet() {
+  $('#sheet').hidden = true;
+  $('#scrim').hidden = true;
+}
+
+/** A question worth asking, that copies itself when clicked. */
+const askButton = (text) => `<button class="ask" data-ask="${esc(text)}">${esc(text)}</button>`;
+
+$('#sheet-close').addEventListener('click', closeSheet);
+$('#scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+
+$('#sheet-body').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ask]');
+  if (!b) return;
+  try {
+    await navigator.clipboard.writeText(b.dataset.ask);
+    const was = b.textContent;
+    b.classList.add('copied');
+    b.textContent = `${was}   — copied`;
+    setTimeout(() => { b.textContent = was; b.classList.remove('copied'); }, 1600);
+  } catch { /* clipboard blocked; the text is on screen to read anyway */ }
+});
+
 /** Ports the MCP server's ingest listener tries, in the same order. */
 const INGEST_PORTS = [8787, 8788, 8789, 8790];
 
@@ -960,8 +1001,21 @@ async function sendToClaude() {
     const pushed = await pushToServer(current);
     if (pushed) {
       btn.textContent = 'Sent ✓';
-      $('#hint').innerHTML = `Sent to the EchoFlow MCP server — <b>${esc(pushed.site)}</b>,
-        ${pushed.findings} findings. Ask Claude for your latest EchoFlow audit; nothing was downloaded.`;
+      showSheet('Sent to Claude', `
+        <p><b>${esc(pushed.site)}</b> — ${pushed.findings} findings${typeof pushed.score === 'number' ? `, scoring ${pushed.score}/100` : ''}.
+        It went straight to the MCP server on this machine. Nothing was downloaded.</p>
+        <div class="step"><span class="n">1</span><span>Switch to Claude — the app or the terminal, wherever the EchoFlow MCP server is configured.</span></div>
+        <div class="step"><span class="n">2</span><span>In any conversation, ask:</span></div>
+        ${askButton('Look at my latest EchoFlow audit')}
+        <div class="more">
+          <div class="lbl">Then, for example</div>
+          ${askButton('What should I fix first, and who owns it?')}
+          ${askButton('What can a machine not read on this store?')}
+          ${askButton('Show me the marketing findings')}
+          ${askButton('Give me the design tokens as CSS')}
+        </div>
+        <p style="margin-top:12px">Click any of those to copy it. This does not reach claude.ai in a browser —
+        the audit is on <b>this machine</b>, and only a Claude that runs here can read it.</p>`);
       return;
     }
     btn.textContent = 'Saving…';
@@ -1002,10 +1056,14 @@ async function sendToClaude() {
     await navigator.clipboard.writeText(line);
 
     btn.textContent = 'Saved ✓';
-    $('#hint').innerHTML = `<b>The MCP server is not running</b>, so this was saved instead:
-      ${esc(wanted.length)} file${wanted.length === 1 ? '' : 's'} in <code>${esc(absolute || 'Downloads/' + dir)}</code>,
-      and the line to paste is on your clipboard. Start Claude with the EchoFlow MCP server configured and
-      this button sends directly, with no download.`;
+    showSheet('Saved — the MCP server is not running', `
+      <p>Nothing was listening on this machine, so the audit was written to disk instead:
+      <code>${esc(absolute || 'Downloads/' + dir)}</code></p>
+      <div class="step"><span class="n">1</span><span>Open Claude and paste this — it is already on your clipboard:</span></div>
+      ${askButton(line)}
+      <div class="step"><span class="n">2</span><span>Or attach <code>data/analysis.json</code> from that folder to a conversation on claude.ai.</span></div>
+      <p style="margin-top:12px">Start Claude with the <b>EchoFlow MCP server</b> configured and this button
+      sends the audit directly next time, with no file and no path to paste.</p>`);
   } catch (err) {
     $('#hint').innerHTML = `<span class="warn">${esc(err.message)}</span>`;
     btn.textContent = label;
