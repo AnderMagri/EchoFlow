@@ -20,7 +20,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 
@@ -35,6 +35,21 @@ import { discoverPages } from '../core/discover.js';
 import { collectSiteSignals } from '../analyzer/src/collect/retrieval.js';
 
 const DEFAULT_OUT = process.env.ECHOFLOW_OUT || resolve(homedir(), '.echoflow', 'audits');
+
+/**
+ * Where audits turn up.
+ *
+ * The CLI and this server write to DEFAULT_OUT. The Chrome sidebar cannot —
+ * an extension can only write through the downloads API, which is rooted at
+ * the browser's download directory — so its "Send to Claude" lands under
+ * Downloads/echoflow. Both are searched, because the person asking "look at my
+ * latest audit" does not care which tool produced it.
+ */
+const AUDIT_ROOTS = [
+  DEFAULT_OUT,
+  resolve(homedir(), 'Downloads', 'echoflow'),
+  resolve(homedir(), 'Downloads'),
+];
 
 const server = new McpServer({ name: 'echoflow', version: '2.0.0' });
 
@@ -342,6 +357,66 @@ server.registerTool('echoflow_structure', {
     ...layout.sections.map((s, i) => `${i + 1}. ${s.label} — ${s.height}px${s.cols ? `, ${s.cols} cols` : ''}${s.role ? `, ${s.role}` : ''}`),
   ].join('\n');
   return reply(text, { url: layout.url, viewport: layout.viewport, sections: layout.sections });
+});
+
+server.registerTool('echoflow_recent', {
+  title: 'Find recent audits on this machine',
+  description:
+    'List EchoFlow audits already on disk, newest first, so you do not need a path. '
+    + 'Use this when someone refers to "my latest audit", "the audit I just ran", or names a store '
+    + 'without giving a directory \u2014 then pass the returned bundle path to the other tools. '
+    + 'It searches where the CLI writes and where the Chrome extension\u2019s "Send to Claude" saves. '
+    + 'It only reads what is already there; it never renders or analyses anything.',
+  inputSchema: {
+    site: z.string().optional().describe('Only audits whose folder name contains this, e.g. "ardene".'),
+    limit: z.number().int().min(1).max(20).default(5),
+  },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ site, limit }) => {
+  const found = [];
+  for (const root of AUDIT_ROOTS) {
+    let entries;
+    try { entries = await readdir(root, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      if (site && !e.name.toLowerCase().includes(site.toLowerCase())) continue;
+      const dir = resolve(root, e.name);
+      const { json } = await resolveBundle(dir);
+      let when;
+      try { when = (await stat(json)).mtime; } catch { continue; }
+      // Same audit reachable from two roots (Downloads and Downloads/echoflow)
+      // is one audit.
+      if (found.some((f) => f.bundle === dir)) continue;
+      found.push({ bundle: dir, name: e.name, when });
+    }
+  }
+  if (!found.length) {
+    return fail(`No audits found under ${AUDIT_ROOTS.join(', ')}.`,
+      'run echoflow_analyze with a URL, or use "Send to Claude" in the Chrome sidebar and try again');
+  }
+
+  found.sort((a, b) => b.when - a.when);
+  const top = found.slice(0, limit);
+
+  // Read each one's headline so the answer is useful without a second call.
+  const rows = [];
+  for (const f of top) {
+    let score = null, grade = null, findings = null, when = f.when;
+    try {
+      const a = await loadBundle(f.bundle);
+      score = a.consistency?.overall ?? null;
+      grade = a.consistency?.grade ?? null;
+      findings = a.findings?.length ?? null;
+      if (a.generatedAt) when = new Date(a.generatedAt);
+    } catch { /* unreadable; still worth listing that it is there */ }
+    rows.push({ bundle: f.bundle, site: f.name, score, grade, findings, generatedAt: when.toISOString() });
+  }
+
+  const text = rows.map((r, i) =>
+    `${i + 1}. ${r.site} \u2014 ${r.score ?? '?'}/100 ${r.grade || ''} \u00b7 ${r.findings ?? '?'} findings`
+    + `\n   ${r.bundle}`).join('\n');
+  return reply(`${rows.length} audit${rows.length === 1 ? '' : 's'}, newest first:\n${text}`,
+    { audits: rows, latest: rows[0].bundle });
 });
 
 server.registerTool('echoflow_explain', {

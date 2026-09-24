@@ -120,7 +120,7 @@ const ui = await panel.evaluate(() => ({
   styled: getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)',
 }));
 check(ui.styled, 'the stylesheet loads from the extension origin');
-for (const id of ['scan', 'add', 'auto', 'export']) {
+for (const id of ['scan', 'add', 'auto', 'export', 'send']) {
   check(ui.controls.includes(id), `the ${id} control is present`);
 }
 check(hard.length === 0, `the panel module graph evaluates without errors${hard.length ? ': ' + hard[0] : ''}`);
@@ -176,6 +176,62 @@ check(run.findings > 0, `and findings (${run.findings})`);
 check(run.robots, 'robots.txt is read from the extension origin');
 check(run.discovered > 0, `automatic discovery finds pages (${run.discovered})`);
 check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
+
+// --- Send to Claude ---------------------------------------------------------
+//
+// The handoff to the MCP server. An extension cannot speak MCP — the server is
+// a stdio process its client launches — so this writes the files the read tools
+// take a path to, and copies the line to paste.
+//
+// Playwright rewrites every download target to a GUID in its own directory, so
+// the PATH this produces cannot be asserted here. What can be is the thing that
+// actually matters: that the right files are written, and that their contents
+// are what the MCP tools read.
+{
+  // Drive the real buttons first. The run above imported core/ into the page
+  // and analysed there, which leaves the PANEL's own state empty — sendToClaude
+  // returns immediately with nothing to send. The button has to be exercised
+  // the way a person exercises it.
+  const tabIds = await panel.evaluate(async (base) =>
+    (await chrome.tabs.query({ url: base + '/*' })).map((t) => t.id), origin);
+  await panel.evaluate((id) => chrome.tabs.update(id, { active: true }), tabIds[0]);
+  await panel.click('#scan');
+  await panel.waitForTimeout(2500);
+  await panel.evaluate((id) => chrome.tabs.update(id, { active: true }), tabIds[1]);
+  await panel.click('#add');
+  await panel.waitForTimeout(2500);
+  const collected = await panel.evaluate(() => +document.querySelector('#pagecount').textContent);
+  check(collected === 2, `the panel collected both pages through its own buttons (${collected})`);
+
+  const written = await panel.evaluate(async () => {
+    const before = (await chrome.downloads.search({ limit: 100 })).length;
+    document.querySelector('#send').click();
+    for (let i = 0; i < 40 && (await chrome.downloads.search({ limit: 100 })).length === before; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await new Promise((r) => setTimeout(r, 1200));
+    const items = await chrome.downloads.search({ limit: 100 });
+    return items.filter((i) => i.state === 'complete').map((i) => i.filename);
+  });
+  check(written.length >= 2, `it writes the analysis and at least one layout (${written.length} files)`);
+
+  let analysis = null, layout = null;
+  for (const f of written) {
+    try {
+      const j = JSON.parse(await readFile(f, 'utf8'));
+      if (j.consistency && j.findings) analysis = j;
+      else if (j.sections && j.viewport) layout = j;
+    } catch { /* not one of ours */ }
+  }
+  check(!!analysis, 'one of them is a complete analysis the MCP can load');
+  check(analysis && typeof analysis.consistency?.overall === 'number'
+    && Array.isArray(analysis.findings) && analysis.findings.length > 0,
+    'carrying a score and findings, not an empty shell');
+  check(!!layout, 'and a layout, so echoflow_structure has something to read');
+
+  const hint = await panel.evaluate(() => document.querySelector('#hint')?.textContent || '');
+  check(/clipboard/i.test(hint), 'and it says the line to paste is on the clipboard');
+}
 
 await ctx.close();
 server.close();

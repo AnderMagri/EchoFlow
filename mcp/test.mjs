@@ -51,10 +51,15 @@ const client = new Client({ name: 'echoflow-test', version: '2.0.0' });
 await client.connect(transport);
 
 const { tools } = await client.listTools();
-ok(tools.length === 7, `exposes 7 tools (got ${tools.length})`);
+ok(tools.length === 8, `exposes 8 tools (got ${tools.length})`);
+ok(tools.some((t) => t.name === 'echoflow_recent'),
+  'echoflow_recent is there, so "my latest audit" needs no path');
 ok(tools.every((t) => t.description && t.description.length > 60), 'every tool has a real description');
 ok(tools.every((t) => t.annotations), 'every tool declares annotations');
-ok(tools.filter((t) => t.annotations?.readOnlyHint).length === 6, 'only echoflow_analyze is non-read-only');
+// The rule, not a count: analysing renders pages and writes a bundle;
+// everything else only reads what is already on disk.
+ok(tools.filter((t) => !t.annotations?.readOnlyHint).map((t) => t.name).join() === 'echoflow_analyze',
+  'echoflow_analyze is the only tool that is not read-only');
 
 const ex = await client.callTool({ name: 'echoflow_explain', arguments: {} });
 ok(ex.structuredContent?.dimensions?.length === 20, 'explain returns all 20 dimensions');
@@ -96,6 +101,17 @@ ok(/Try:/.test(err.content[0].text), 'and the error suggests a next step');
   ok(!t.isError, 'tokens read back from the same path analyse returned');
   const r = await client.callTool({ name: 'echoflow_retrieval', arguments: { bundle } });
   ok(!r.isError, 'retrieval reads back from the same path too');
+
+  // "Look at my latest audit" has to find the one just written, without a path.
+  const recent = await client.callTool({ name: 'echoflow_recent', arguments: {} });
+  ok(!recent.isError, `recent finds audits on disk${recent.isError ? ': ' + recent.content?.[0]?.text?.slice(0, 90) : ''}`);
+  ok(recent.structuredContent?.audits?.length > 0, 'and lists at least one');
+  ok(typeof recent.structuredContent?.latest === 'string', 'and names the newest outright');
+  const back = await client.callTool({
+    name: 'echoflow_findings',
+    arguments: { bundle: recent.structuredContent.latest, limit: 3 },
+  });
+  ok(!back.isError, 'the path it returns is one the other tools accept');
   }
 }
 

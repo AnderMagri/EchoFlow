@@ -894,6 +894,94 @@ function renderStructure() {
 
 // --- export ----------------------------------------------------------------
 
+/**
+ * Hand the audit to Claude.
+ *
+ * NOT a connection, and it deliberately is not called one. An extension cannot
+ * speak MCP: the server is a stdio process the MCP client launches, and a page
+ * can neither spawn it nor open a pipe to it. Native messaging could bridge
+ * that, at the cost of a per-OS host manifest install — which is exactly the
+ * friction this tool just spent a release removing.
+ *
+ * What is real is that every MCP read tool takes a PATH. So write the files
+ * those tools read, somewhere predictable, and hand back the line to paste.
+ * `Copy JSON` put 80KB on the clipboard and left the rest to the reader.
+ */
+async function sendToClaude() {
+  if (!current) return;
+  const btn = $('#send');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const files = buildBundle(current);
+    const site = current.site.replace(/[^a-z0-9.-]/gi, '-');
+    const stamp = new Date().toISOString().slice(0, 10);
+    const dir = `echoflow/${site}-${stamp}`;
+
+    // Only what the MCP tools actually read: the analysis, and a layout per
+    // surface for echoflow_structure. The rest of the bundle is for people and
+    // belongs in the zip.
+    const wanted = Object.keys(files).filter((p) =>
+      p === 'report/data/analysis.json' || /^report\/data\/layout-.*\.json$/.test(p));
+
+    let firstId = null;
+    for (const path of wanted) {
+      const rel = path.replace(/^report\//, '');
+      const url = URL.createObjectURL(new Blob([files[path]], { type: 'application/json' }));
+      const id = await chrome.downloads.download({
+        url,
+        filename: `${dir}/${rel}`,
+        // Re-running the same day must overwrite, not become "analysis (1).json"
+        // — a uniquified name is a path the pasted line no longer points at.
+        conflictAction: 'overwrite',
+        saveAs: false,
+      });
+      firstId = firstId ?? id;
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+
+    // Chrome knows the absolute path; the panel does not, and guessing at
+    // someone's home directory is how a pasted path fails on one machine in
+    // three.
+    const absolute = await bundleDir(firstId);
+    const line = absolute
+      ? `Read my EchoFlow audit at ${absolute} — use echoflow_findings, echoflow_tokens and echoflow_retrieval on that path.`
+      : `Read my EchoFlow audit — it is the newest folder under Downloads/${dir}. Use echoflow_findings on it.`;
+    await navigator.clipboard.writeText(line);
+
+    btn.textContent = 'Copied ✓';
+    $('#hint').innerHTML = `Saved <b>${esc(wanted.length)}</b> file${wanted.length === 1 ? '' : 's'} to
+      <code>${esc(absolute || 'Downloads/' + dir)}</code>. The line to paste into Claude is on your clipboard —
+      or just ask it for your latest EchoFlow audit.`;
+  } catch (err) {
+    $('#hint').innerHTML = `<span class="warn">${esc(err.message)}</span>`;
+    btn.textContent = label;
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = label; }, 2600);
+  }
+}
+
+/** The directory Chrome actually wrote to, from the download record. */
+async function bundleDir(id) {
+  if (id == null) return null;
+  try {
+    const [item] = await chrome.downloads.search({ id });
+    if (!item?.filename) return null;
+    // filename is the absolute path of data/analysis.json; the bundle root is
+    // two levels up, which is what the MCP tools want.
+    //
+    // Only claim a path when the shape is actually there. A non-matching
+    // replace() returns the string unchanged, which would have handed back the
+    // FILE path labelled as the bundle directory — and anything downstream
+    // would then look for data/analysis.json inside a .json file.
+    const m = /^(.*)[\\/]data[\\/][^\\/]+$/.exec(item.filename);
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+
 async function exportBundle() {
   if (!current) return;
   const blob = createZip(buildBundle(current));
@@ -988,13 +1076,6 @@ async function drawOverlay() {
 }
 
 $('#export').addEventListener('click', exportBundle);
-$('#copyjson').addEventListener('click', async () => {
-  if (!current) return;
-  const { observations, ...core } = current;
-  await navigator.clipboard.writeText(JSON.stringify(core, null, 2));
-  const b = $('#copyjson');
-  b.textContent = 'Copied';
-  setTimeout(() => { b.textContent = 'Copy JSON'; }, 1400);
-});
+$('#send').addEventListener('click', sendToClaude);
 
 activeTab().then((t) => { try { $('#host').textContent = new URL(t.url).hostname; } catch { /* chrome:// */ } });

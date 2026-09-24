@@ -261,6 +261,17 @@ name is in `<title>` either way.
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
   blockers before claiming the remainder is polish.
 
+**The sidebar cannot speak MCP, and "Send to Claude" does not pretend to.** The
+server is a stdio process its client launches; a page can neither spawn it nor
+open a pipe to it, and native messaging would cost a per-OS host manifest
+install. So the button writes what the read tools take a path to — 
+`data/analysis.json` plus a layout per surface — under `Downloads/echoflow/`,
+and copies the line to paste. `echoflow_recent` then finds it without a path.
+Chrome knows the absolute path and the panel does not: read it back from the
+download record, and return null rather than a guess when the shape is not
+there — a non-matching `replace()` hands back the FILE path labelled as the
+directory.
+
 **The bundle root is `report/`, and everything that reads it must know.** When
 START HERE moved to the top, the MCP server kept resolving
 `<dir>/data/analysis.json` while `buildBundle` writes
@@ -307,7 +318,7 @@ in the scatter the band is derived from position, so hue is redundant.
 ```bash
 node scripts/sync-core.js    # the extension loads its own copy
 node test/run.js
-cd mcp && node test.mjs      # MCP protocol surface
+cd mcp && node test.mjs      # MCP protocol + the analyse/read round trip
 node test/overlay.mjs        # the overlay + grid detection, in a real browser
 node test/extension.mjs      # the built extension, loaded in a real Chrome
 ```

@@ -99,7 +99,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.6.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.7.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -207,7 +207,7 @@ cd mcp && npm install
 { "mcpServers": { "echoflow": { "command": "node", "args": ["/path/to/EchoFlow/mcp/server.js"] } } }
 ```
 
-Seven tools. The design constraint is context, not capability: an analysis is ~80KB
+Eight tools. The design constraint is context, not capability: an analysis is ~80KB
 of JSON, so every tool summarises by default and offers a narrower query to drill in.
 
 | Tool | |
@@ -218,6 +218,7 @@ of JSON, so every tool summarises by default and offers a narrower query to dril
 | `echoflow_tokens` | The extracted design system as css / dtcg / tailwind / shopify / json. |
 | `echoflow_structure` | Section skeleton for a surface. |
 | `echoflow_retrieval` | The machine-readability picture: crawler access, structured data, no-JS survival. |
+| `echoflow_recent` | Find audits already on disk, newest first — so "my latest audit" needs no path. |
 | `echoflow_explain` | What the tool measures and what a score does and does not mean. |
 
 ## Use it — Chrome sidebar
@@ -284,6 +285,21 @@ The measurements are unaffected, and the review's *What this surface cannot do*
 note says when it happened.
 
 Export writes the same bundle the CLI produces, as a `.zip`.
+
+**Send to Claude** hands the audit to the MCP server. It is a handoff, not a
+connection — and deliberately not called one: an extension cannot speak MCP,
+because the server is a stdio process its client launches and a page can
+neither spawn it nor open a pipe to it. What it does instead is write the files
+the read tools take a path to (`data/analysis.json` and a layout per surface)
+into `Downloads/echoflow/<site>-<date>/`, then copy the line to paste:
+
+```
+Read my EchoFlow audit at ~/Downloads/echoflow/shop-2026-09-24 —
+use echoflow_findings, echoflow_tokens and echoflow_retrieval on that path.
+```
+
+Or skip the path entirely and ask for your latest audit: `echoflow_recent`
+searches both where the CLI writes and where this button saves.
 
 ## The output bundle
 
@@ -356,9 +372,9 @@ CLI cannot disagree.
 
 ```bash
 node test/run.js         # 123 — core, calibration, retrieval, parity, operability, bundle
-cd mcp && node test.mjs  # 17  — MCP protocol surface
+cd mcp && node test.mjs  # 22  — MCP protocol surface
 node test/overlay.mjs    # 47  — the overlay and grid detection, in a real browser
-node test/extension.mjs  # 18  — the packaged extension, loaded in a real Chrome
+node test/extension.mjs  # 25  — the packaged extension, loaded in a real Chrome
 ```
 
 The last two need Chromium and skip cleanly without one. They exist because
