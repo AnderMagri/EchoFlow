@@ -1,7 +1,15 @@
 # EchoFlow 2.0
 
-**A Shopify consistency audit.** It answers one question: *how far is this site
-from a clean system, and what do I fix first?*
+**A Shopify readiness audit.** It answers two questions that turn out to be the
+same one: *how easily could this site become a Shopify store — and how
+consistent is it already?*
+
+Those are not separate measurements. A site running a coherent system ports as
+tokens and templates: extract once, rebuild once, done. A site that decides its
+colour, spacing and component style afresh on every page has to be rebuilt page
+by page. So the consistency score **is** the migration estimate, and the
+findings are the work it would take to bring the number up — whether you are
+porting the site or keeping it.
 
 Not a generic site analyser. Shopify is the product — for sites that **are** one
 or **will be** one.
