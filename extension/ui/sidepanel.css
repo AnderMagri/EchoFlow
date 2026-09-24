@@ -51,30 +51,30 @@ header {
 }
 
 .controls { padding:12px 14px; border-bottom:1px solid var(--hair); }
-.axes { display:flex; margin-bottom:10px; }
-/* A segmented toggle rather than three loose checkboxes. Real inputs
-   underneath — visually hidden, still focusable — so keyboard and screen
-   readers get a checkbox group and the styling is only paint. */
+.axes { display:flex; gap:6px; margin-bottom:10px; }
+/* Three buttons, selected by a tick rather than by a fill.
+   The first version filled the selected ones with ink — the same weight as
+   the primary CTA right below, so a filter competed with the main action and
+   the state read as "this is the button to press". State is the tick; colour
+   only steps from faint to ink. Real inputs underneath, visually hidden but
+   still focusable, so the styling is paint and not a replacement. */
 .axes .axis { flex:1; display:block; cursor:pointer; }
 .axes .axis input {
   position:absolute; width:1px; height:1px; margin:-1px; padding:0;
   overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
 }
 .axes .axis span {
-  display:block; text-align:center; font-size:11.5px; font-weight:600;
-  padding:7px 4px; color:var(--faint); background:transparent;
-  border:1px solid var(--hair-strong); border-left-width:0;
-  transition:background .12s ease, color .12s ease;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+  font-size:11.5px; font-weight:500; padding:6px 4px;
+  color:var(--faint); border:1px solid var(--hair-strong); background:transparent;
 }
-.axes .axis:first-child span { border-left-width:1px; }
-.axes .axis:hover span { color:var(--muted); background:var(--raised); }
-.axes .axis input:checked + span {
-  background:var(--ink); color:var(--bg); border-color:var(--ink);
-}
-/* The filled neighbour owns the shared edge, or the seam goes double-weight. */
-.axes .axis input:checked + span { position:relative; z-index:1; }
-.axes .axis input:focus-visible + span { outline:2px solid var(--accent); outline-offset:-2px; }
-@media (prefers-reduced-motion: reduce) { .axes .axis span { transition:none; } }
+/* Reserved, not conditional: showing the tick by appearing would shift every
+   label sideways on each toggle. */
+.axes .axis .tick { font-style:normal; font-size:10px; line-height:1; visibility:hidden; }
+.axes .axis input:checked + span { color:var(--ink); border-color:var(--ink); font-weight:600; }
+.axes .axis input:checked + span .tick { visibility:visible; }
+.axes .axis:hover span { border-color:var(--muted); }
+.axes .axis input:focus-visible + span { outline:2px solid var(--accent); outline-offset:1px; }
 
 .btn {
   border:1px solid var(--hair-strong); background:transparent; border-radius:4px;

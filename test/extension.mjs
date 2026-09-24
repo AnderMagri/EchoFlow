@@ -133,9 +133,9 @@ for (const id of ['scan', 'add', 'auto', 'export', 'send']) {
   check(ui.controls.includes(id), `the ${id} control is present`);
 }
 
-// The axes are a segmented toggle now, but the inputs underneath are still
-// real checkboxes — the styling is paint, not a replacement. If that ever
-// stops being true, the control looks the same and silently stops working.
+// The axes are styled buttons now, but the inputs underneath are still real
+// checkboxes — the styling is paint, not a replacement. If that ever stops
+// being true, the control looks the same and silently stops working.
 {
   const axes = await panel.evaluate(() => ({
     inputs: document.querySelectorAll('#axes input[type="checkbox"]').length,
@@ -150,7 +150,7 @@ for (const id of ['scan', 'add', 'auto', 'export', 'send']) {
   await panel.waitForTimeout(150);
   const after = await panel.evaluate(() =>
     [...document.querySelectorAll('#axes input:checked')].map((i) => i.value));
-  check(after.join() === 'design,engine', `clicking a segment toggles it (${after.join(', ')})`);
+  check(after.join() === 'design,engine', `clicking one toggles it (${after.join(', ')})`);
   await panel.click('#axes .axis:nth-child(2) span');
   await panel.waitForTimeout(150);
   check(await panel.evaluate(() => document.querySelectorAll('#axes input:checked').length) === 3,
