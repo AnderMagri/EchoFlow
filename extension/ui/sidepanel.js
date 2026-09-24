@@ -894,27 +894,77 @@ function renderStructure() {
 
 // --- export ----------------------------------------------------------------
 
+/** Ports the MCP server's ingest listener tries, in the same order. */
+const INGEST_PORTS = [8787, 8788, 8789, 8790];
+
+/**
+ * Push the audit straight into the running MCP server.
+ *
+ * The extension still cannot speak MCP — that is a stdio process its client
+ * launches — but it does not need to. The server opens a small loopback
+ * listener whose only job is to RECEIVE an audit, and this posts to it. The
+ * server writes the bundle into its own audit folder and every existing tool
+ * finds it.
+ *
+ * Returns null when nothing is listening, which is the normal case if Claude
+ * is not running or the MCP server is not configured. The caller falls back
+ * to saving a file rather than failing.
+ */
+async function pushToServer(analysis) {
+  for (const port of INGEST_PORTS) {
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      // Identify the service before posting an audit at it. Something else may
+      // well own this port, and it should not receive a few megabytes of JSON.
+      const health = await fetch(`${base}/health`, { signal: AbortSignal.timeout(400) });
+      if (!health.ok) continue;
+      const who = await health.json();
+      if (who?.service !== 'echoflow-ingest') continue;
+
+      const res = await fetch(`${base}/ingest`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-echoflow-ingest': '1' },
+        body: JSON.stringify(analysis),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `server said ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      // A closed port is not an error worth reporting; a server that answered
+      // and then refused is.
+      if (err?.name === 'TimeoutError' || err instanceof TypeError) continue;
+      throw err;
+    }
+  }
+  return null;
+}
+
 /**
  * Hand the audit to Claude.
  *
- * NOT a connection, and it deliberately is not called one. An extension cannot
- * speak MCP: the server is a stdio process the MCP client launches, and a page
- * can neither spawn it nor open a pipe to it. Native messaging could bridge
- * that, at the cost of a per-OS host manifest install — which is exactly the
- * friction this tool just spent a release removing.
- *
- * What is real is that every MCP read tool takes a PATH. So write the files
- * those tools read, somewhere predictable, and hand back the line to paste.
- * `Copy JSON` put 80KB on the clipboard and left the rest to the reader.
+ * Two routes, and the first one is the point: if the MCP server is running,
+ * the audit goes straight to it over loopback and nobody downloads anything.
+ * Saving files was the first attempt at this and had it backwards — the whole
+ * value of handing an audit to Claude is that it does not have to be filed
+ * first. That path survives only as the fallback for when the server is not
+ * there.
  */
 async function sendToClaude() {
   if (!current) return;
   const btn = $('#send');
   const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Saving…';
+  btn.textContent = 'Sending…';
 
   try {
+    const pushed = await pushToServer(current);
+    if (pushed) {
+      btn.textContent = 'Sent ✓';
+      $('#hint').innerHTML = `Sent to the EchoFlow MCP server — <b>${esc(pushed.site)}</b>,
+        ${pushed.findings} findings. Ask Claude for your latest EchoFlow audit; nothing was downloaded.`;
+      return;
+    }
+    btn.textContent = 'Saving…';
     const files = buildBundle(current);
     const site = current.site.replace(/[^a-z0-9.-]/gi, '-');
     const stamp = new Date().toISOString().slice(0, 10);
@@ -951,10 +1001,11 @@ async function sendToClaude() {
       : `Read my EchoFlow audit — it is the newest folder under Downloads/${dir}. Use echoflow_findings on it.`;
     await navigator.clipboard.writeText(line);
 
-    btn.textContent = 'Copied ✓';
-    $('#hint').innerHTML = `Saved <b>${esc(wanted.length)}</b> file${wanted.length === 1 ? '' : 's'} to
-      <code>${esc(absolute || 'Downloads/' + dir)}</code>. The line to paste into Claude is on your clipboard —
-      or just ask it for your latest EchoFlow audit.`;
+    btn.textContent = 'Saved ✓';
+    $('#hint').innerHTML = `<b>The MCP server is not running</b>, so this was saved instead:
+      ${esc(wanted.length)} file${wanted.length === 1 ? '' : 's'} in <code>${esc(absolute || 'Downloads/' + dir)}</code>,
+      and the line to paste is on your clipboard. Start Claude with the EchoFlow MCP server configured and
+      this button sends directly, with no download.`;
   } catch (err) {
     $('#hint').innerHTML = `<span class="warn">${esc(err.message)}</span>`;
     btn.textContent = label;

@@ -24,6 +24,7 @@ import { existsSync } from 'node:fs';
 import { dirname, extname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { startIngest } from '../mcp/ingest.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
@@ -184,14 +185,13 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
 
 // --- Send to Claude ---------------------------------------------------------
 //
-// The handoff to the MCP server. An extension cannot speak MCP — the server is
-// a stdio process its client launches — so this writes the files the read tools
-// take a path to, and copies the line to paste.
+// Two routes, and the first is the point: with the MCP server running the audit
+// goes straight to it over loopback and nothing is downloaded. Saving files is
+// only the fallback for when the server is not there.
 //
 // Playwright rewrites every download target to a GUID in its own directory, so
-// the PATH this produces cannot be asserted here. What can be is the thing that
-// actually matters: that the right files are written, and that their contents
-// are what the MCP tools read.
+// the fallback's PATH cannot be asserted here. Its CONTENTS can, and that is
+// what the MCP tools actually read.
 {
   // Drive the real buttons first. The run above imported core/ into the page
   // and analysed there, which leaves the PANEL's own state empty — sendToClaude
@@ -208,6 +208,32 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
   const collected = await panel.evaluate(() => +document.querySelector('#pagecount').textContent);
   check(collected === 2, `the panel collected both pages through its own buttons (${collected})`);
 
+  // Route 1: a listener is running. This is the case that must not download.
+  const received = [];
+  const ingest = await startIngest({ onAudit: async (a) => { received.push(a); return '/audits/' + a.site; } });
+  check(!!ingest, 'the ingest listener starts');
+
+  const pushed = await panel.evaluate(async () => {
+    const before = (await chrome.downloads.search({ limit: 100 })).length;
+    document.querySelector('#send').click();
+    await new Promise((r) => setTimeout(r, 4000));
+    return {
+      hint: document.querySelector('#hint').textContent,
+      downloadsAdded: (await chrome.downloads.search({ limit: 100 })).length - before,
+    };
+  });
+  check(received.length === 1, `the audit reaches the server (${received.length})`);
+  check(received[0] && typeof received[0].consistency?.overall === 'number'
+    && received[0].findings?.length > 0,
+    'complete, with its score and findings');
+  check(received[0]?.observations?.length === 2,
+    'and its observations, so the server can build layouts from it');
+  check(pushed.downloadsAdded === 0, `nothing was downloaded (${pushed.downloadsAdded} new files)`);
+  check(/nothing was downloaded/i.test(pushed.hint), 'and the panel says so');
+
+  await ingest.close();
+
+  // Route 2: no listener. It must fall back rather than fail.
   const written = await panel.evaluate(async () => {
     const before = (await chrome.downloads.search({ limit: 100 })).length;
     document.querySelector('#send').click();
@@ -218,7 +244,7 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
     const items = await chrome.downloads.search({ limit: 100 });
     return items.filter((i) => i.state === 'complete').map((i) => i.filename);
   });
-  check(written.length >= 2, `it writes the analysis and at least one layout (${written.length} files)`);
+  check(written.length >= 2, `with no server it falls back to files (${written.length})`);
 
   let analysis = null, layout = null;
   for (const f of written) {
@@ -235,7 +261,8 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
   check(!!layout, 'and a layout, so echoflow_structure has something to read');
 
   const hint = await panel.evaluate(() => document.querySelector('#hint')?.textContent || '');
-  check(/clipboard/i.test(hint), 'and it says the line to paste is on the clipboard');
+  check(/clipboard/i.test(hint), 'and says the line to paste is on the clipboard');
+  check(/not running/i.test(hint), 'and explains why it had to save rather than send');
 }
 
 await ctx.close();

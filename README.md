@@ -99,7 +99,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.7.1**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.8.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -286,20 +286,24 @@ note says when it happened.
 
 Export writes the same bundle the CLI produces, as a `.zip`.
 
-**Send to Claude** hands the audit to the MCP server. It is a handoff, not a
-connection — and deliberately not called one: an extension cannot speak MCP,
-because the server is a stdio process its client launches and a page can
-neither spawn it nor open a pipe to it. What it does instead is write the files
-the read tools take a path to (`data/analysis.json` and a layout per surface)
-into `Downloads/echoflow/<site>-<date>/`, then copy the line to paste:
+**Send to Claude** pushes the audit straight into the running MCP server.
+Nothing is downloaded and there is no path to paste — click it, then ask Claude
+for your latest EchoFlow audit.
 
-```
-Read my EchoFlow audit at ~/Downloads/echoflow/shop-2026-09-24 —
-use echoflow_findings, echoflow_tokens and echoflow_retrieval on that path.
-```
+The extension still cannot speak MCP (that is a stdio process its client
+launches), so the server opens a small **loopback listener** whose only job is
+to receive one. The extension posts to `127.0.0.1`, the server writes the
+bundle into its own audit folder, and every existing tool finds it.
 
-Or skip the path entirely and ask for your latest audit: `echoflow_recent`
-searches both where the CLI writes and where this button saves.
+It is a port on your machine, so: bound to `127.0.0.1` only, never `0.0.0.0`;
+a custom header is required, which a web page cannot add without a CORS
+preflight that is answered only for `chrome-extension://` origins; and the body
+is size-capped and shape-checked before anything is written.
+
+If the server is not running — Claude closed, or the MCP server not configured
+— the button falls back to saving `data/analysis.json` and a layout per surface
+into `Downloads/echoflow/<site>-<date>/` and copying the line to paste. It says
+which of the two happened, and why.
 
 ## The output bundle
 
@@ -372,9 +376,9 @@ CLI cannot disagree.
 
 ```bash
 node test/run.js         # 123 — core, calibration, retrieval, parity, operability, bundle
-cd mcp && node test.mjs  # 22  — MCP protocol surface
+cd mcp && node test.mjs  # 31  — MCP protocol surface
 node test/overlay.mjs    # 47  — the overlay and grid detection, in a real browser
-node test/extension.mjs  # 25  — the packaged extension, loaded in a real Chrome
+node test/extension.mjs  # 33  — the packaged extension, loaded in a real Chrome
 ```
 
 The last two need Chromium and skip cleanly without one. They exist because

@@ -33,6 +33,7 @@ import {
 import { collectPages } from '../analyzer/src/collect/browser.js';
 import { discoverPages } from '../core/discover.js';
 import { collectSiteSignals } from '../analyzer/src/collect/retrieval.js';
+import { startIngest } from './ingest.js';
 
 const DEFAULT_OUT = process.env.ECHOFLOW_OUT || resolve(homedir(), '.echoflow', 'audits');
 
@@ -515,6 +516,29 @@ server.registerTool('echoflow_retrieval', {
 });
 
 // --- start -----------------------------------------------------------------
+
+/**
+ * Accept audits pushed from the Chrome sidebar.
+ *
+ * The extension cannot speak MCP, so it posts the analysis here and this
+ * server writes the bundle into its own audit directory — the same place
+ * echoflow_analyze writes, so every existing tool finds it and
+ * echoflow_recent lists it. Nobody downloads anything.
+ *
+ * Failure is not fatal: if every port is taken, or the listener cannot start,
+ * the server runs exactly as before and the extension falls back to saving a
+ * file. Logging goes to stderr, because stdout is the MCP transport.
+ */
+const ingest = await startIngest({
+  log: (m) => process.stderr.write(`[echoflow] ${m}\n`),
+  onAudit: async (analysis) => {
+    const site = (analysis.site || 'audit').replace(/[^a-z0-9.-]/gi, '-');
+    const stamp = new Date().toISOString().slice(0, 10);
+    return writeBundle(analysis, resolve(DEFAULT_OUT, `${site}-${stamp}`));
+  },
+}).catch(() => null);
+
+if (ingest) process.stderr.write(`[echoflow] ingest listening on 127.0.0.1:${ingest.port}\n`);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

@@ -261,7 +261,18 @@ name is in `<title>` either way.
   `meta-ready-to-port` in `synthesis.js`) must check the finding pile for
   blockers before claiming the remainder is polish.
 
-**The sidebar cannot speak MCP, and "Send to Claude" does not pretend to.** The
+**"Send to Claude" pushes over loopback; downloading is the FALLBACK.** The
+first version had this backwards — it saved files and handed over a path, which
+is the opposite of handing an audit to Claude. `mcp/ingest.js` opens a receive-
+only HTTP listener (127.0.0.1, ports 8787–8790) and the extension posts the
+analysis to it; the server writes the bundle where it already keeps audits, so
+every tool finds it. Three rules, because it is a port on someone's machine:
+loopback only, a custom header that a web page cannot add without a preflight
+answered solely for `chrome-extension://` origins, and a size cap with a shape
+check before anything is written. A failed listener is never fatal — the server
+runs as before and the extension falls back to saving files.
+
+**The sidebar still cannot speak MCP, and the fallback does not pretend to.** The
 server is a stdio process its client launches; a page can neither spawn it nor
 open a pipe to it, and native messaging would cost a per-OS host manifest
 install. So the button writes what the read tools take a path to — 

@@ -115,6 +115,45 @@ ok(/Try:/.test(err.content[0].text), 'and the error suggests a next step');
   }
 }
 
+// --- ingest -----------------------------------------------------------------
+//
+// The loopback listener the Chrome sidebar posts to. It is a port on someone's
+// machine, so the refusals matter as much as the acceptance.
+{
+  const { startIngest } = await import('./ingest.js');
+  const got = [];
+  const ing = await startIngest({ ports: [8891, 8892], onAudit: async (a) => { got.push(a); return '/audits/' + a.site; } });
+  ok(!!ing, 'the ingest listener starts');
+  const base = `http://127.0.0.1:${ing.port}`;
+  const EXT = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+  const H = { 'content-type': 'application/json', 'x-echoflow-ingest': '1' };
+
+  const health = await (await fetch(`${base}/health`, { headers: { origin: EXT } })).json();
+  ok(health.service === 'echoflow-ingest', 'health identifies the service, so the extension can find the port');
+
+  const audit = { site: 'shop.example.com', consistency: { overall: 73 }, findings: [{ id: 'x' }] };
+  const res = await fetch(`${base}/ingest`, { method: 'POST', headers: { ...H, origin: EXT }, body: JSON.stringify(audit) });
+  const body = await res.json();
+  ok(res.status === 200 && body.ok, 'an audit from an extension is accepted');
+  ok(got.length === 1 && got[0].site === 'shop.example.com', 'and arrives intact');
+
+  // A web page you visit can POST to localhost with a simple request. It
+  // cannot add a custom header without preflight, and preflight is refused.
+  const noHeader = await fetch(`${base}/ingest`, {
+    method: 'POST', headers: { 'content-type': 'application/json', origin: EXT }, body: '{}' });
+  ok(noHeader.status === 400, 'a POST without the custom header is refused');
+  const webPage = await fetch(`${base}/ingest`, { method: 'POST', headers: { ...H, origin: 'https://evil.example.com' }, body: '{}' });
+  ok(webPage.status === 403, 'a POST from a web page origin is refused');
+  const preflight = await fetch(`${base}/ingest`, { method: 'OPTIONS', headers: { origin: 'https://evil.example.com' } });
+  ok(preflight.status === 403, 'and it cannot obtain preflight permission');
+
+  const junk = await fetch(`${base}/ingest`, { method: 'POST', headers: { ...H, origin: EXT }, body: '{"hello":1}' });
+  ok(junk.status === 422, 'JSON that is not an analysis is rejected, not filed as one');
+  ok(got.length === 1, 'and none of the refused requests reached the handler');
+
+  await ing.close();
+}
+
 fixtureServer.close();
 await client.close();
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
