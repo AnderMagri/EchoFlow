@@ -48,11 +48,14 @@ if (!existsSync(join(EXT, 'core/analyze.js'))) {
 // Serve the fixture storefront.
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.txt': 'text/plain' };
 const fixtures = resolve(here, 'fixture-site');
+const brandFixtures = resolve(here, 'fixture-brand');
 const server = createServer(async (req, res) => {
   let rel = decodeURIComponent(req.url.split('?')[0]);
   if (rel.endsWith('/')) rel += 'index.html';
-  const path = resolve(fixtures, '.' + rel);
-  if (!path.startsWith(fixtures)) { res.writeHead(403).end(); return; }
+  const isBrand = rel.startsWith('/brand/');
+  const base = isBrand ? brandFixtures : fixtures;
+  const path = resolve(base, '.' + (isBrand ? rel.slice(6) : rel));
+  if (!path.startsWith(base)) { res.writeHead(403).end(); return; }
   try {
     const body = await readFile(path);
     res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' }).end(body);
@@ -285,6 +288,51 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
   // every download to a GUID, so the harness always sees the second.
   check(fell.asks.some((a) => /Read my EchoFlow audit/.test(a)),
     'and offers the line to paste');
+}
+
+// --- what the collector reads off a page ------------------------------------
+{
+  // A black-branded store with red sale badges. Reported from a real
+  // storefront that was told its brand colour was red.
+  const shop = await ctx.newPage();
+  await shop.goto(`${origin}/brand/black-brand.html`, { waitUntil: 'load' });
+  const brand = await panel.evaluate(async (base) => {
+    const { collectFromDocument } = await import('../core/collect-dom.js');
+    const { analyze } = await import('../core/analyze.js');
+    const [t] = await chrome.tabs.query({ url: base + '/brand/black-brand.html' });
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId: t.id }, func: collectFromDocument,
+      args: [{ surface: 'plp', viewportLabel: 'desktop' }], world: 'MAIN',
+    });
+    const a = analyze({ observations: [r.result], axes: ['design'], site: 'b' });
+    return { button: r.result.roles?.primaryButton?.background, color: a.tokens.color };
+  }, origin);
+  check(brand.button === 'rgb(0, 0, 0)', `the collector reads the black action button (${brand.button})`);
+  check(brand.color.primary === '#000000',
+    `and the brand colour is black, not the sale badge (${brand.color.primary})`);
+  check(brand.color.accents.includes('#d0021b'), 'with the badge red kept as an accent');
+  await shop.close();
+
+  // Google's stylesheet is cross-origin, so its @font-face rules are invisible
+  // to .cssRules — the families are only knowable from the stylesheet URL.
+  const fonts = await ctx.newPage();
+  await fonts.route('**fonts.googleapis.com**', (r) =>
+    r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await fonts.goto(`${origin}/brand/google-fonts.html`, { waitUntil: 'load' });
+  const gf = await panel.evaluate(async (base) => {
+    const { collectFromDocument } = await import('../core/collect-dom.js');
+    const [t] = await chrome.tabs.query({ url: base + '/brand/google-fonts.html' });
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId: t.id }, func: collectFromDocument,
+      args: [{ surface: 'content', viewportLabel: 'desktop' }], world: 'MAIN',
+    });
+    return r.result.engine.googleFonts;
+  }, origin);
+  check(gf.includes('Inter') && gf.includes('Playfair Display'),
+    `css2 families are parsed, spaces and all (${gf.join(', ')})`);
+  check(gf.includes('Lora') && gf.includes('Open Sans'),
+    'and the older pipe-separated css v1 shape too');
+  await fonts.close();
 }
 
 await ctx.close();

@@ -245,6 +245,21 @@ name is in `<title>` either way.
   `label`): the `border` shorthand makes a band and a box indistinguishable by
   style alone, which fooled the first verification pass into counting boxes as
   columns.
+- **The brand colour is the MAIN ACTION's colour, including black.** It used to
+  require `chroma > 6` and fall back to the most-used chromatic value
+  otherwise. On a black-branded store that is catastrophic: the black button is
+  discarded for "not being a colour" and the winner by frequency is the sale
+  badge. Reported from a real storefront whose logo and buttons are black and
+  which was told its brand colour was red. A monochrome brand is not a missing
+  brand. `primarySource` says whether it came from the action or from raw
+  frequency, and `primaryIsNeutral` lets the UI say "monochrome" rather than
+  imply a hue. A button the same colour as the surface is an outlined button —
+  the page showing through, not a choice — so it is not used.
+- **Google Fonts are read off the STYLESHEET URL, not `@font-face`.** Google
+  serves its CSS cross-origin, so `.cssRules` throws and the font-face loop
+  never sees those families at all. `engine.googleFonts` parses `family=` from
+  any `fonts.googleapis.com` href — css2 repeats the parameter, css v1
+  separates with `|` — and also claims any face served from `fonts.gstatic.com`.
 - **Classify controls by role, not by class name.** A `div.chip` is not
   tappable. Name-based classification is how an audit turns into damage.
 - **Viewports are USABLE heights** (`USABLE_VIEWPORT`): mobile 390×**640**,

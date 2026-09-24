@@ -558,6 +558,11 @@ function renderReview() {
   if (!t) { out.innerHTML = scoreBlock() + '<div class="empty">Run the Design axis to see the extracted system.</div>'; return; }
 
   const loadable = injectFonts();
+  // Families the page loads from Google, keyed lower-case so a stack written
+  // "playfair display" still matches the "Playfair Display" in the URL.
+  const googleFonts = new Map(collected
+    .flatMap((o) => o.engine?.googleFonts || [])
+    .map((name) => [name.toLowerCase(), name]));
   const typ = t.typography;
   const maxSpace = Math.max(...t.spacing.steps, ...t.spacing.strays.map((s) => s.value), 1);
 
@@ -567,6 +572,11 @@ function renderReview() {
     ${t.color.primary ? `<div class="sw"><i style="background:${esc(t.color.primary)}"></i>${esc(t.color.primary)}<b>primary</b></div>` : '<div class="sw">none detected</div>'}
     ${t.color.accents.map((c) => `<div class="sw"><i style="background:${esc(c)}"></i>${esc(c)}</div>`).join('')}
   </div>
+  <p class="legend">${t.color.primarySource === 'action'
+    ? `Taken from the main action button${t.color.primaryIsNeutral ? ' — this brand is <b>monochrome</b>, and that is the answer, not a missing one' : ''}. Accents beside it are every other colour in the palette, which on a sale page usually includes the badge red.`
+    : t.color.primary
+      ? 'No primary action button was found, so this is the <b>most-used</b> colour on the page — which is a weaker claim. Collect a page with a clear call to action for a better reading.'
+      : 'No brand colour could be measured on this page.'}</p>
 
   <h3>Neutral ramp <span>${plural(t.color.neutral.length, 'step')}</span></h3>
   <div class="sw-row">
@@ -578,11 +588,14 @@ function renderReview() {
   ${typ.families.all.slice(0, 6).map((f) => {
     const fam = firstFamily(f.stack);
     const have = loadable.has(fam.toLowerCase());
+    const google = googleFonts.get(fam.toLowerCase());
     // Prefer the captured webfont; fall back to the raw stack, which still
     // renders correctly for system faces.
     const ff = have ? `"EF ${esc(cssEscape(fam))}", ${esc(f.stack)}` : esc(f.stack);
     return `<div class="spec" data-family="${esc(fam)}" data-captured="${have}">
-      <div class="name"><b>${esc(fam)}</b><span>${plural(f.uses, 'use')}</span></div>
+      <div class="name"><b>${esc(fam)}</b>${google
+        ? `<a class="gf" href="https://fonts.google.com/specimen/${encodeURIComponent(google).replace(/%20/g, '+')}" target="_blank" rel="noreferrer">Google Fonts &#8599;</a>`
+        : ''}<span>${plural(f.uses, 'use')}</span></div>
       <div class="sample" style="font-family:${ff}">${SAMPLE}</div>
       <div class="sample small" style="font-family:${ff}">${SAMPLE_BODY}</div>
       <div class="unavail" hidden></div>

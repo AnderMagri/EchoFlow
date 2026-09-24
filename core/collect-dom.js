@@ -416,6 +416,45 @@ export function collectFromDocument(options) {
     }
   } catch (e) { /* stylesheet access denied */ }
 
+  // --- Google Fonts -------------------------------------------------------
+  // Read off the STYLESHEET URL, not the @font-face rules. Google serves its
+  // CSS from another origin, so .cssRules throws on it and the loop above
+  // never sees those faces at all — the families are only knowable from the
+  // href. Two URL shapes are in the wild: css2 repeats `family=`, css v1 puts
+  // them in one parameter separated by `|`.
+  var googleFonts = [];
+  try {
+    var sheetHrefs = [];
+    for (var gi = 0; gi < document.styleSheets.length; gi++) {
+      if (document.styleSheets[gi].href) sheetHrefs.push(document.styleSheets[gi].href);
+    }
+    var linkEls = document.querySelectorAll('link[rel~="stylesheet" i][href], link[rel="preload" i][as="style"][href]');
+    for (var li = 0; li < linkEls.length; li++) sheetHrefs.push(linkEls[li].href);
+
+    for (var hi = 0; hi < sheetHrefs.length; hi++) {
+      var h = sheetHrefs[hi];
+      if (h.indexOf('fonts.googleapis.com') === -1) continue;
+      var q = h.split('?')[1] || '';
+      var params = q.split('&');
+      for (var pi = 0; pi < params.length; pi++) {
+        if (params[pi].indexOf('family=') !== 0) continue;
+        var raw = decodeURIComponent(params[pi].slice(7).replace(/\+/g, ' '));
+        var parts = raw.split('|');
+        for (var fi2 = 0; fi2 < parts.length; fi2++) {
+          // Strip the axis spec: "Inter:wght@400..700" -> "Inter".
+          var name = parts[fi2].split(':')[0].trim();
+          if (name && googleFonts.indexOf(name) === -1) googleFonts.push(name);
+        }
+      }
+    }
+    // A face served from fonts.gstatic.com is a Google font even when the
+    // stylesheet was self-hosted and the family never appeared in a URL.
+    for (var ffi = 0; ffi < fontFaces.length; ffi++) {
+      if (fontFaces[ffi].src.indexOf('fonts.gstatic.com') === -1) continue;
+      if (googleFonts.indexOf(fontFaces[ffi].family) === -1) googleFonts.push(fontFaces[ffi].family);
+    }
+  } catch (e) { /* nothing readable */ }
+
   var vitals = { lcp: null, cls: null, inp: null, ttfb: null };
   try {
     var nav = performance.getEntriesByType('navigation')[0];
@@ -987,6 +1026,7 @@ export function collectFromDocument(options) {
       platform: detectedPlatform,
       platformSignals: platformHits,
       fontFaces: fontFaces,
+      googleFonts: googleFonts,
       theme: (window.Shopify && window.Shopify.theme && window.Shopify.theme.name) || null,
       themeVersion: (window.Shopify && window.Shopify.theme && window.Shopify.theme.theme_store_id) || null,
       requests: requests, transferBytes: transferBytes,

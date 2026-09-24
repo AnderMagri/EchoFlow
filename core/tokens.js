@@ -53,24 +53,6 @@ function buildColors(chromatic, neutral, observations) {
   const chromaClusters = cluster(chromatic, colorDistance, TOLERANCES.colorChromatic);
   const neutralClusters = cluster(neutral, colorDistance, TOLERANCES.colorNeutral);
 
-  // The primary is the brand colour the site spends on its main action, if we
-  // saw one; otherwise the most-used chromatic value. Reading it off the button
-  // beats reading it off raw frequency, because the most-used chromatic colour
-  // on a site is often a link blue nobody chose.
-  const buttonBg = observations
-    .map((o) => o.roles?.primaryButton?.background)
-    .map((c) => (c ? toHex(parseColor(c) || {}) : null))
-    .filter(Boolean)[0];
-
-  const primary = buttonBg && chroma(parseColor(buttonBg)) > 6
-    ? buttonBg
-    : chromaClusters[0]?.leader || null;
-
-  const accents = chromaClusters
-    .map((c) => c.leader)
-    .filter((c) => c !== primary)
-    .slice(0, 5);
-
   // Neutrals sorted light -> dark become a usable ramp. This ordering is the
   // whole value: an unordered list of greys is what the site already has.
   const ramp = neutralClusters
@@ -80,8 +62,48 @@ function buildColors(chromatic, neutral, observations) {
   const surface = ramp[0]?.hex || '#ffffff';
   const ink = ramp[ramp.length - 1]?.hex || '#000000';
 
+  /**
+   * The primary is whatever the site spends on its MAIN ACTION — including
+   * black.
+   *
+   * This used to require the button to be chromatic (`chroma > 6`), and fell
+   * back to the most-used chromatic colour when it was not. On a black-branded
+   * store that is catastrophic: the black button is discarded for "not being a
+   * colour", and the winner by frequency is the sale badge. Reported from a
+   * real storefront whose logo and buttons are black and which was told its
+   * brand colour was red.
+   *
+   * A monochrome brand is not a missing brand. Reading the action is the
+   * measurement; the chroma test was an assumption laid over it.
+   */
+  const buttonBg = mostCommon(observations
+    .map((o) => o.roles?.primaryButton?.background)
+    .map((c) => {
+      const parsed = c ? parseColor(c) : null;
+      // A transparent or ghost button says nothing about a brand colour.
+      return parsed && parsed.a !== 0 ? toHex(parsed) : null;
+    })
+    .filter(Boolean));
+
+  // A button the same colour as the page is an outlined button: it is the
+  // page surface showing through, not a choice about brand.
+  const actionColor = buttonBg && buttonBg !== surface ? buttonBg : null;
+
+  const primary = actionColor || chromaClusters[0]?.leader || null;
+  const primarySource = actionColor ? 'action' : primary ? 'frequency' : null;
+
+  const accents = chromaClusters
+    .map((c) => c.leader)
+    .filter((c) => c !== primary)
+    .slice(0, 5);
+
   return {
     primary,
+    // How the primary was decided, and whether it is a neutral. Without this
+    // the UI cannot tell "the brand is black" from "we could not find one",
+    // and would go on implying every brand has a hue.
+    primarySource,
+    primaryIsNeutral: primary ? chroma(parseColor(primary)) <= 6 : false,
     accents,
     neutral: ramp.map((r, i) => ({ name: rampName(i, ramp.length), hex: r.hex, uses: r.uses })),
     semantic: { surface, ink },
@@ -89,6 +111,14 @@ function buildColors(chromatic, neutral, observations) {
     // compute here because we already have every colour in hand.
     contrastWarnings: contrastWarnings(primary, surface, ink),
   };
+}
+
+/** The value seen most often; ties go to the first, which is page order. */
+function mostCommon(values) {
+  if (!values.length) return null;
+  const tally = new Map();
+  for (const v of values) tally.set(v, (tally.get(v) || 0) + 1);
+  return [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
 function contrastWarnings(primary, surface, ink) {

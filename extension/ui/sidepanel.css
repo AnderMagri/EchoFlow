@@ -259,6 +259,11 @@ h3 span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--fa
   background:var(--raised); color:var(--muted); padding:2px 6px; margin:0 4px 4px 0;
 }
 .kv dd code { font-family:var(--mono); font-size:10.5px; }
+.spec .gf {
+  font-size:10px; color:var(--accent); text-decoration:none;
+  border-bottom:1px solid currentColor; margin-left:7px; white-space:nowrap;
+}
+.spec .gf:hover { opacity:.75; }
 .eng-bars { margin-top:8px; }
 .eng-row { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:11.5px; }
 .eng-row .k { font-family:var(--mono); font-size:9.5px; text-transform:uppercase; color:var(--faint); min-width:34px; flex:none; }

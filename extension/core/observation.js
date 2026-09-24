@@ -154,7 +154,7 @@ export function normalizeObservation(raw) {
     },
     engine: {
       scripts: [], apps: [], isShopify: false, platform: 'unknown', platformSignals: {},
-      fontFaces: [], theme: null, themeVersion: null,
+      fontFaces: [], googleFonts: [], theme: null, themeVersion: null,
       requests: 0, transferBytes: 0,
       vitals: { lcp: null, cls: null, inp: null, ttfb: null },
       sections: [], ...(raw.engine || {}),

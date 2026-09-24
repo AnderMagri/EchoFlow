@@ -1314,6 +1314,64 @@ t('byOwner partitions the findings with no overlap', () => {
 });
 
 
+// --- brand colour -----------------------------------------------------------
+
+/** A storefront whose brand is black and whose only hue is a sale badge. */
+const blackBrand = () => {
+  const base = messySite()[0];
+  return [{
+    ...base,
+    roles: { ...base.roles, primaryButton: { background: 'rgb(0, 0, 0)', label: 'Add to bag' } },
+    styles: {
+      ...base.styles,
+      // The real key names. Writing `backgroundColor`/`color` here left the
+      // base fixture's own palette in place and the test measured that
+      // instead — a fixture that does not say what it means is worse than none.
+      colorText: [{ value: '#111111', count: 50 }, { value: '#d0021b', count: 16 }],
+      colorBackground: [
+        { value: '#ffffff', count: 40 },
+        { value: '#d0021b', count: 18 },   // sixteen sale badges: the most-used hue
+        { value: '#f2f2f2', count: 16 },
+        { value: '#000000', count: 3 },
+      ],
+      colorBorder: [{ value: '#e6e6e6', count: 20 }],
+    },
+  }];
+};
+
+t('a black brand is black, not the sale badge', () => {
+  // Reported from a real storefront: logo and buttons black, sale flags red,
+  // and the audit announced red as the brand colour. The primary used to
+  // require chroma > 6, so a black button was discarded for "not being a
+  // colour" and the winner by frequency was the badge.
+  const t2 = analyze({ observations: blackBrand(), axes: ['design'], site: 'b' }).tokens;
+  eq(t2.color.primary, '#000000', 'the main action is the brand colour, whatever its hue');
+  eq(t2.color.primarySource, 'action', 'and it says it came from the action');
+  ok(t2.color.primaryIsNeutral, 'flagged as monochrome, so the UI need not imply a hue');
+  ok(t2.color.accents.includes('#d0021b'), 'the sale red is an accent, not the brand');
+});
+
+t('with no action button the primary falls back, and says so', () => {
+  // A weaker claim has to be labelled as one rather than presented the same way.
+  const [o] = blackBrand();
+  const t2 = analyze({
+    observations: [{ ...o, roles: { ...o.roles, primaryButton: null } }],
+    axes: ['design'], site: 'b',
+  }).tokens;
+  eq(t2.color.primarySource, 'frequency', 'the source is reported honestly');
+  eq(t2.color.primary, '#d0021b', 'and it is the most-used colour, for want of anything better');
+});
+
+t('an outlined button is the page showing through, not a brand colour', () => {
+  const [o] = blackBrand();
+  const t2 = analyze({
+    observations: [{ ...o, roles: { ...o.roles, primaryButton: { background: '#ffffff' } } }],
+    axes: ['design'], site: 'b',
+  }).tokens;
+  eq(t2.color.primarySource, 'frequency',
+    'a button the same colour as the surface tells us nothing and is not used');
+});
+
 // --- the GEO view -----------------------------------------------------------
 
 t('GEO is a query over the pile, not a fourth axis', () => {
