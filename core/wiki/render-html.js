@@ -44,6 +44,14 @@ const CLIENT_THRESHOLD = 40;
  * neutral ramp is overridden to achromatic greys on a pure #ffffff or #000000
  * ground, which is what the mode is called.
  *
+ * **The ground is CHOSEN, not inherited.** The first version had one mono mode
+ * that followed `prefers-color-scheme`, so an auditor on a dark OS could not
+ * get a white report at all — and a report is a deliverable, printed and
+ * pasted into decks, where the ground is a decision rather than a system
+ * preference. White and black are therefore separate modes with no media query
+ * between them. Only `colour` still follows the reader's setting, because
+ * there the question is legibility rather than output.
+ *
  * Severity becomes a ramp from ink to pale instead of four hues. That is not a
  * loss: the bands were already labelled everywhere they appear, and in the
  * scatter the band is derived from position, so colour was the redundant
@@ -59,8 +67,7 @@ const CLIENT_THRESHOLD = 40;
  * - **Nothing else.** Links lose their accent, so they get an underline back —
  *   without it, in mono, a link is unmarked body text.
  */
-export const MONO_CSS = `
-:root[data-ui="mono"] {
+const MONO_WHITE = `
   --bg: #ffffff; --surface: #ffffff; --raised: #f2f2f2;
   --border: #e0e0e0; --border-strong: #c6c6c6;
   --ink: #000000; --muted: #595959; --faint: #8c8c8c;
@@ -71,25 +78,30 @@ export const MONO_CSS = `
   --band-high: #404040;     --band-high-ink: #ffffff;
   --band-medium: #737373;   --band-medium-ink: #ffffff;
   --band-low: #b3b3b3;      --band-low-ink: #000000;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-ui="mono"]:not([data-theme="light"]) {
-    --bg: #000000; --surface: #0a0a0a; --raised: #171717;
-    --border: #2e2e2e; --border-strong: #454545;
-    --ink: #ffffff; --muted: #a6a6a6; --faint: #767676;
-    --accent: #ffffff;
-    --critical: #ffffff; --high: #c4c4c4; --medium: #949494; --low: #767676;
-    --critical-bg: #2b2b2b; --high-bg: #242424; --medium-bg: #1c1c1c; --low-bg: #141414;
-    --band-critical: #ffffff; --band-critical-ink: #000000;
-    --band-high: #c4c4c4;     --band-high-ink: #000000;
-    --band-medium: #8c8c8c;   --band-medium-ink: #000000;
-    --band-low: #595959;      --band-low-ink: #ffffff;
-  }
-}
+`;
+
+const MONO_BLACK = `
+  --bg: #000000; --surface: #0a0a0a; --raised: #171717;
+  --border: #2e2e2e; --border-strong: #454545;
+  --ink: #ffffff; --muted: #a6a6a6; --faint: #767676;
+  --accent: #ffffff;
+  --critical: #ffffff; --high: #c4c4c4; --medium: #949494; --low: #767676;
+  --critical-bg: #2b2b2b; --high-bg: #242424; --medium-bg: #1c1c1c; --low-bg: #141414;
+  --band-critical: #ffffff; --band-critical-ink: #000000;
+  --band-high: #c4c4c4;     --band-high-ink: #000000;
+  --band-medium: #8c8c8c;   --band-medium-ink: #000000;
+  --band-low: #595959;      --band-low-ink: #ffffff;
+`;
+
+export const MONO_CSS = `
+:root[data-ui="white"] {${MONO_WHITE}}
+:root[data-ui="black"] {${MONO_BLACK}}
 /* Without the accent there is nothing left to mark a link with. */
-:root[data-ui="mono"] a { text-decoration: underline; text-underline-offset: 2px; }
-:root[data-ui="mono"] nav.tabs a, :root[data-ui="mono"] .route,
-:root[data-ui="mono"] .menu-links a { text-decoration: none; }
+:root[data-ui="white"] a, :root[data-ui="black"] a {
+  text-decoration: underline; text-underline-offset: 2px;
+}
+:root[data-ui] nav.tabs a, :root[data-ui] .route,
+:root[data-ui] .menu-links a { text-decoration: none; }
 `;
 
 export const WIKI_CSS = `

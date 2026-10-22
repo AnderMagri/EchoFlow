@@ -37,12 +37,16 @@ import { sectionSkeleton } from '../observation.js';
  * the browser extension (which zips it client-side).
  *
  * @param {import('../analyze.js').AnalysisResult} analysis
- * @param {{ui?: 'colour'|'mono'}} [options] `ui` is the interface mode the
- *   report is rendered in — the auditor's choice in the panel, carried into
- *   what the client receives so the two look like one tool.
+ * @param {{ui?: 'colour'|'white'|'black'}} [options] `ui` is the interface mode
+ *   the report is rendered in — the auditor's choice in the panel, carried into
+ *   what the client receives so the two look like one tool. `white` and `black`
+ *   are the monochrome grounds, chosen rather than inherited from the reader's
+ *   colour scheme: a report is a deliverable, and which ground it is printed on
+ *   is a decision. `colour` follows the reader.
  * @returns {Record<string,string>}
  */
 export function buildBundle(analysis, { ui = 'colour' } = {}) {
+  const mode = ui === 'white' || ui === 'black' ? ui : 'colour';
   const model = buildWikiModel(analysis);
   /** @type {Record<string,string>} */
   const raw = {};
@@ -156,16 +160,16 @@ export function buildBundle(analysis, { ui = 'colour' } = {}) {
   // here: no renderer should have to know. Every page already paints through
   // tokens, so the attribute is the whole of the mode — there is no second
   // stylesheet to keep in step and no chart to re-draw.
-  if (ui === 'mono') {
+  if (mode !== 'colour') {
     for (const [path, contents] of Object.entries(bundled)) {
-      if (path.endsWith('.html')) bundled[path] = asMono(contents);
+      if (path.endsWith('.html')) bundled[path] = withUi(contents, mode);
     }
   }
   return bundled;
 }
 
 /**
- * Mark a page monochrome.
+ * Mark a page's interface mode.
  *
  * Every page in the bundle is emitted by `layout()`, `renderStartHere` or
  * `renderStructureHTML`, and all three open with the same `<html lang="en">`.
@@ -173,7 +177,8 @@ export function buildBundle(analysis, { ui = 'colour' } = {}) {
  * renderer ever opens its document differently it fails there rather than
  * shipping one page in colour.
  */
-const asMono = (html) => html.replace('<html lang="en">', '<html lang="en" data-ui="mono">');
+const withUi = (html, ui) =>
+  html.replace('<html lang="en">', `<html lang="en" data-ui="${ui}">`);
 
 const json = (o) => JSON.stringify(o, null, 2) + '\n';
 

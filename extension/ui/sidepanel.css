@@ -29,6 +29,12 @@
   }
 }
 /* ---- black and white ----
+   The ground is CHOSEN, not inherited: White and Black are separate modes with
+   no media query between them. One mono mode following prefers-color-scheme
+   meant an auditor on a dark OS could not get a white report at all, and a
+   report is a deliverable — printed, pasted into decks — where the ground is a
+   decision. Only Colour still follows the system setting.
+
    The interface, not the evidence. Swatches are painted with an inline
    background and no token can reach them, so a report of a red storefront
    still shows red here however the chrome is drawn — a monochrome swatch
@@ -45,19 +51,17 @@
    Declared after the dark block and with an attribute, so it outranks both
    base themes; the dark variant repeats every token the light one sets, or
    the light values would leak into dark mode. */
-:root[data-ui="mono"] {
+:root[data-ui="white"] {
   --bg:#ffffff; --raised:#f2f2f2; --hair:#e0e0e0; --hair-strong:#c6c6c6;
   --ink:#000000; --muted:#595959; --faint:#8c8c8c;
   --accent:#000000;
   --critical:#000000; --high:#404040; --medium:#666666; --low:#8c8c8c;
 }
-@media (prefers-color-scheme: dark) {
-  :root[data-ui="mono"] {
-    --bg:#000000; --raised:#171717; --hair:#2e2e2e; --hair-strong:#454545;
-    --ink:#ffffff; --muted:#a6a6a6; --faint:#767676;
-    --accent:#ffffff;
-    --critical:#ffffff; --high:#c4c4c4; --medium:#949494; --low:#767676;
-  }
+:root[data-ui="black"] {
+  --bg:#000000; --raised:#171717; --hair:#2e2e2e; --hair-strong:#454545;
+  --ink:#ffffff; --muted:#a6a6a6; --faint:#767676;
+  --accent:#ffffff;
+  --critical:#ffffff; --high:#c4c4c4; --medium:#949494; --low:#767676;
 }
 
 * { box-sizing:border-box; }
@@ -79,7 +83,7 @@ header {
 .brand em { font-style:normal; color:var(--faint); font-weight:400; }
 .host {
   margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--faint);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:108px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:72px;
 }
 
 .controls { padding:12px 14px; border-bottom:1px solid var(--hair); }
@@ -114,7 +118,7 @@ header {
 .ui-mode { display:flex; border:1px solid var(--hair-strong); border-radius:4px; overflow:hidden; flex:none; }
 .ui-mode button {
   border:0; background:transparent; color:var(--faint); cursor:pointer;
-  font-size:10px; font-weight:500; padding:3px 6px; line-height:1.5;
+  font-size:10px; font-weight:500; padding:3px 5px; line-height:1.5;
 }
 .ui-mode button + button { border-left:1px solid var(--hair-strong); }
 .ui-mode button[aria-pressed="true"] { color:var(--ink); font-weight:650; background:var(--raised); }

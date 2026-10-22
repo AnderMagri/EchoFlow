@@ -29,7 +29,8 @@ Options
   --limit <n>            max pages in a site run (default: 12)
   --out <dir>            output directory (default: ./echoflow-<host>)
   --no-probe             skip the crawler probe (a handful of extra requests)
-  --mono                 render the report in black and white (swatches stay in colour)
+  --ui <colour|white|black>  black and white on a white or black ground
+                         (swatches stay in colour either way)
   --quiet                only print the verdict
 
 Scope rule
@@ -97,7 +98,7 @@ async function main() {
   log(`\nAnalysing ${observations.length} observation${observations.length === 1 ? '' : 's'}`);
   const analysis = analyze({ observations, axes, site: target.hostname, siteSignals });
 
-  const files = buildBundle(analysis, { ui: argv.includes('--mono') ? 'mono' : 'colour' });
+  const files = buildBundle(analysis, { ui: opt('ui', 'colour') });
   await clearPreviousBundle(outDir, log);
   for (const [path, contents] of Object.entries(files)) {
     const full = resolve(outDir, path);

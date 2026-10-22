@@ -391,8 +391,8 @@ palette for state** (severity). Never colour alone — every band is labelled, a
 in the scatter the band is derived from position, so hue is redundant.
 
 **Black and white is one attribute, not a second rendering.** `buildBundle(a,
-{ ui: 'mono' })` stamps `data-ui="mono"` on `<html>` in one place, exactly where
-the `report/` move happens, and `MONO_CSS` does the rest. No renderer and no
+{ ui: 'white' })` — or `'black'` — stamps `data-ui` on `<html>` in one place,
+exactly where the `report/` move happens, and `MONO_CSS` does the rest. No renderer and no
 chart branches on the mode, and a test asserts the two bundles differ by that
 attribute and nothing else. This only works because the status palette is
 `var(--band-critical)` and not a hex written into the SVG — keep it that way.
@@ -402,6 +402,15 @@ warm paper (`#fbfbfa` on `#16160f`). Overriding only the severity tokens left
 that underneath and produced a warm monochrome, which reads as a wash rather
 than as B&W. The whole neutral ramp is achromatic on a pure `#ffffff` or
 `#000000` ground, and a test walks every hex in `MONO_CSS` asserting r == g == b.
+
+**The ground is CHOSEN, not inherited.** `white` and `black` are separate modes
+with NO media query between them — a test asserts `MONO_CSS` contains no
+`@media` at all. One mono mode following `prefers-color-scheme` meant an auditor
+on a dark OS could not produce a white report, and the report is a deliverable:
+printed, pasted into decks, where the ground is a decision rather than a system
+preference. Only `colour` still follows the reader, because there the question
+is legibility rather than output. Colour is the ABSENCE of the attribute, not
+`data-ui="colour"` — one state, not two spellings of it.
 
 That the mode costs nothing is the payoff of "never colour alone": severity
 becomes a ramp from ink to pale, and since every band already carries its word

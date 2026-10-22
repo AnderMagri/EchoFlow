@@ -239,17 +239,17 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
 // specificity of an attribute override against two prefers-color-scheme blocks
 // is exactly the kind of thing that reads correct and computes wrong.
 const uiStart = await panel.evaluate(() => ({
-  exists: !!document.querySelector('#uimode button[data-ui="mono"]'),
-  buttons: document.querySelectorAll('#uimode button').length,
+  modes: [...document.querySelectorAll('#uimode button')].map((b) => b.dataset.ui).join(','),
   attr: document.documentElement.dataset.ui || null,
   pressed: document.querySelector('#uimode button[aria-pressed="true"]')?.dataset.ui || null,
 }));
-check(uiStart.exists && uiStart.buttons === 2, `a colour/B&W switch, two buttons (${uiStart.buttons})`);
-check(uiStart.attr === 'colour' && uiStart.pressed === 'colour', 'colour by default, and it says so');
+check(uiStart.modes === 'colour,white,black', `three modes to pick from (${uiStart.modes})`);
+check(uiStart.attr === null && uiStart.pressed === 'colour',
+  'colour by default, and it is the absence of an override rather than a spelling of one');
 
 const monoPanel = await panel.evaluate(async () => {
   const before = getComputedStyle(document.documentElement).getPropertyValue('--critical').trim();
-  document.querySelector('#uimode button[data-ui="mono"]').click();
+  document.querySelector('#uimode button[data-ui="white"]').click();
   await new Promise((r) => setTimeout(r, 60));
   const cs = getComputedStyle(document.documentElement);
   const stored = await chrome.storage.local.get('uiMode').catch(() => ({}));
@@ -263,20 +263,33 @@ const monoPanel = await panel.evaluate(async () => {
     stored: stored?.uiMode || null,
   };
 });
-check(monoPanel.attr === 'mono' && monoPanel.pressed === 'mono', 'clicking B&W switches the panel');
+check(monoPanel.attr === 'white' && monoPanel.pressed === 'white', 'clicking White switches the panel');
 check(monoPanel.before !== monoPanel.after,
   `and the severity colour really changes (${monoPanel.before} to ${monoPanel.after})`);
 check(monoPanel.after === monoPanel.ink && monoPanel.accent === monoPanel.ink,
   `severity and accent collapse onto ink (${monoPanel.ink})`);
-// Black and white means the ground too. Overriding only the severity tokens
-// left the warm paper theme underneath, which is a warm wash, not B&W.
-const ground = await panel.evaluate(() => {
-  const bg = getComputedStyle(document.body).backgroundColor;
-  const [r, g, b] = bg.match(/\d+/g).map(Number);
-  return { bg, pure: (r === 0 && g === 0 && b === 0) || (r === 255 && g === 255 && b === 255), grey: r === g && g === b };
+// The ground is chosen, not inherited. This Chrome reports a dark colour
+// scheme or a light one depending on the machine; either way White must give
+// white, or an auditor on a dark OS can never produce a white report.
+// Emulated dark, so "whatever the system says" is actually exercised rather
+// than asserted on whatever this machine happens to prefer.
+await panel.emulateMedia({ colorScheme: 'dark' });
+const grounds = await panel.evaluate(async () => {
+  const out = {};
+  for (const mode of ['white', 'black']) {
+    document.querySelector(`#uimode button[data-ui="${mode}"]`).click();
+    await new Promise((r) => setTimeout(r, 40));
+    out[mode] = getComputedStyle(document.body).backgroundColor;
+  }
+  out.prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return out;
 });
-check(ground.grey && ground.pure, `the panel's ground is pure white or black (${ground.bg})`);
-check(monoPanel.stored === 'mono', 'the choice is stored, so it survives the panel closing');
+check(grounds.white === 'rgb(255, 255, 255)',
+  `White is white whatever the system says (${grounds.white}, prefers-dark: ${grounds.prefersDark})`);
+check(grounds.black === 'rgb(0, 0, 0)', `and Black is black (${grounds.black})`);
+check(grounds.prefersDark === true, 'and the dark preference really was in force for that check');
+await panel.emulateMedia({ colorScheme: null });
+check(monoPanel.stored === 'white', 'the choice is stored, so it survives the panel closing');
 
 // The export has to follow the switch — that is the whole point of putting it
 // in the panel rather than in the report.
@@ -284,16 +297,16 @@ const monoExport = await panel.evaluate(async () => {
   const { buildBundle } = await import('../core/wiki/bundle.js');
   const a = window.__efLast;
   if (!a) return { skipped: true };
-  const files = buildBundle(a, { ui: 'mono' });
+  const files = buildBundle(a, { ui: 'white' });
   const pages = Object.keys(files).filter((k) => k.endsWith('.html'));
   return {
     pages: pages.length,
-    allMarked: pages.every((k) => /<html[^>]*data-ui="mono"/.test(files[k])),
+    allMarked: pages.every((k) => /<html[^>]*data-ui="white"/.test(files[k])),
   };
 });
 check(monoExport.skipped || (monoExport.pages > 0 && monoExport.allMarked),
   monoExport.skipped ? 'export follows the switch (no analysis retained to re-export)'
-    : `every page of a B&W export is marked (${monoExport.pages})`);
+    : `every page of a White export is marked (${monoExport.pages})`);
 
 // Back to colour, so nothing downstream in this run inherits the mode.
 await panel.evaluate(() => document.querySelector('#uimode button[data-ui="colour"]').click());

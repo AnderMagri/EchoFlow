@@ -1267,20 +1267,30 @@ async function drawOverlay() {
 }
 
 /**
- * Colour or black and white.
+ * Colour, white or black.
  *
  * One choice, two surfaces: it repaints the panel and it is what the exported
  * bundle is rendered in, because the panel is the auditor's screen and the
  * bundle is what the client receives and they should not look like two tools.
  *
+ * White and black are separate modes rather than one monochrome mode following
+ * the system setting. With the system deciding, an auditor on a dark OS could
+ * not produce a white report at all — and the report is a deliverable, printed
+ * and pasted into decks, where the ground is a decision. Colour still follows
+ * the system, because there the question is legibility, not output.
+ *
  * Stored rather than remembered, so it survives the panel closing — which it
  * does every time the sidebar is dismissed.
  */
+const UI_MODES = ['colour', 'white', 'black'];
 let uiMode = 'colour';
 
 function applyUi(mode) {
-  uiMode = mode === 'mono' ? 'mono' : 'colour';
-  document.documentElement.dataset.ui = uiMode;
+  uiMode = UI_MODES.includes(mode) ? mode : 'colour';
+  // Colour is the absence of an override, so the attribute comes off entirely
+  // rather than being set to "colour" — one state, not two spellings of it.
+  if (uiMode === 'colour') delete document.documentElement.dataset.ui;
+  else document.documentElement.dataset.ui = uiMode;
   for (const b of $('#uimode').querySelectorAll('button')) {
     b.setAttribute('aria-pressed', String(b.dataset.ui === uiMode));
   }
