@@ -109,7 +109,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.15.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.16.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -377,8 +377,10 @@ Inline SVG, no library, light and dark.
 forever, and they would drift.
 
 **Colour or black and white.** The switch in the panel header repaints the panel
-and is what the exported report is rendered in — one choice, both surfaces. In
-B&W, severity becomes a ramp from ink to pale instead of four hues; nothing is
+and is what the exported report is rendered in — one choice, both surfaces. B&W
+means no hue anywhere: achromatic greys on a pure white or pure black ground,
+following the system light/dark setting. Severity becomes a ramp from ink to
+pale instead of four hues; nothing is
 lost, because every band was already labelled and the scatter derives its band
 from position, so colour was never the only channel. Colour swatches stay in
 colour whatever the mode: those are measurements of the site, and a grey one

@@ -268,6 +268,14 @@ check(monoPanel.before !== monoPanel.after,
   `and the severity colour really changes (${monoPanel.before} to ${monoPanel.after})`);
 check(monoPanel.after === monoPanel.ink && monoPanel.accent === monoPanel.ink,
   `severity and accent collapse onto ink (${monoPanel.ink})`);
+// Black and white means the ground too. Overriding only the severity tokens
+// left the warm paper theme underneath, which is a warm wash, not B&W.
+const ground = await panel.evaluate(() => {
+  const bg = getComputedStyle(document.body).backgroundColor;
+  const [r, g, b] = bg.match(/\d+/g).map(Number);
+  return { bg, pure: (r === 0 && g === 0 && b === 0) || (r === 255 && g === 255 && b === 255), grey: r === g && g === b };
+});
+check(ground.grey && ground.pure, `the panel's ground is pure white or black (${ground.bg})`);
 check(monoPanel.stored === 'mono', 'the choice is stored, so it survives the panel closing');
 
 // The export has to follow the switch — that is the whole point of putting it

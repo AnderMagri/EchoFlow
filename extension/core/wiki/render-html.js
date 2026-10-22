@@ -38,6 +38,12 @@ const CLIENT_THRESHOLD = 40;
  * tokens, so the whole report turns monochrome without a renderer, a chart or a
  * single line of markup knowing it happened.
  *
+ * Black and white means NO hue, including in the neutrals. The default theme is
+ * warm paper — #fbfbfa on #16160f — and leaving it in place produced a warm
+ * monochrome, which is a different thing and reads as a wash. So the whole
+ * neutral ramp is overridden to achromatic greys on a pure #ffffff or #000000
+ * ground, which is what the mode is called.
+ *
  * Severity becomes a ramp from ink to pale instead of four hues. That is not a
  * loss: the bands were already labelled everywhere they appear, and in the
  * scatter the band is derived from position, so colour was the redundant
@@ -55,23 +61,29 @@ const CLIENT_THRESHOLD = 40;
  */
 export const MONO_CSS = `
 :root[data-ui="mono"] {
-  --accent: #16160f;
-  --critical: #16160f; --high: #46463f; --medium: #6c6c63; --low: #8e8e86;
-  --critical-bg: #e8e8e3; --high-bg: #eeeee9; --medium-bg: #f3f3ef; --low-bg: #f7f7f4;
-  --band-critical: #16160f; --band-critical-ink: #ffffff;
-  --band-high: #46463f;     --band-high-ink: #ffffff;
-  --band-medium: #76766c;   --band-medium-ink: #ffffff;
-  --band-low: #adada5;      --band-low-ink: #16160f;
+  --bg: #ffffff; --surface: #ffffff; --raised: #f2f2f2;
+  --border: #e0e0e0; --border-strong: #c6c6c6;
+  --ink: #000000; --muted: #595959; --faint: #8c8c8c;
+  --accent: #000000;
+  --critical: #000000; --high: #404040; --medium: #666666; --low: #8c8c8c;
+  --critical-bg: #e8e8e8; --high-bg: #efefef; --medium-bg: #f5f5f5; --low-bg: #fafafa;
+  --band-critical: #000000; --band-critical-ink: #ffffff;
+  --band-high: #404040;     --band-high-ink: #ffffff;
+  --band-medium: #737373;   --band-medium-ink: #ffffff;
+  --band-low: #b3b3b3;      --band-low-ink: #000000;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-ui="mono"]:not([data-theme="light"]) {
-    --accent: #eeeee8;
-    --critical: #eeeee8; --high: #bdbdb3; --medium: #91918a; --low: #78786f;
-    --critical-bg: #2e2e28; --high-bg: #272722; --medium-bg: #21211d; --low-bg: #1c1c18;
-    --band-critical: #eeeee8; --band-critical-ink: #14140f;
-    --band-high: #b0b0a6;     --band-high-ink: #14140f;
-    --band-medium: #7a7a71;   --band-medium-ink: #14140f;
-    --band-low: #4e4e47;      --band-low-ink: #eeeee8;
+    --bg: #000000; --surface: #0a0a0a; --raised: #171717;
+    --border: #2e2e2e; --border-strong: #454545;
+    --ink: #ffffff; --muted: #a6a6a6; --faint: #767676;
+    --accent: #ffffff;
+    --critical: #ffffff; --high: #c4c4c4; --medium: #949494; --low: #767676;
+    --critical-bg: #2b2b2b; --high-bg: #242424; --medium-bg: #1c1c1c; --low-bg: #141414;
+    --band-critical: #ffffff; --band-critical-ink: #000000;
+    --band-high: #c4c4c4;     --band-high-ink: #000000;
+    --band-medium: #8c8c8c;   --band-medium-ink: #000000;
+    --band-low: #595959;      --band-low-ink: #ffffff;
   }
 }
 /* Without the accent there is nothing left to mark a link with. */

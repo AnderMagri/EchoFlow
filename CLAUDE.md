@@ -397,6 +397,12 @@ chart branches on the mode, and a test asserts the two bundles differ by that
 attribute and nothing else. This only works because the status palette is
 `var(--band-critical)` and not a hex written into the SVG — keep it that way.
 
+**Black and white means no hue, the neutrals included.** The default theme is
+warm paper (`#fbfbfa` on `#16160f`). Overriding only the severity tokens left
+that underneath and produced a warm monochrome, which reads as a wash rather
+than as B&W. The whole neutral ramp is achromatic on a pure `#ffffff` or
+`#000000` ground, and a test walks every hex in `MONO_CSS` asserting r == g == b.
+
 That the mode costs nothing is the payoff of "never colour alone": severity
 becomes a ramp from ink to pale, and since every band already carries its word
 and the scatter derives the band from position, nothing is lost. The panel has

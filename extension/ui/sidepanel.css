@@ -34,6 +34,11 @@
    still shows red here however the chrome is drawn — a monochrome swatch
    would be a lie about the site.
 
+   No hue anywhere, the neutrals included. The default theme is warm paper and
+   leaving it under a monochrome severity ramp produced a warm wash rather than
+   black and white, so the whole ramp is achromatic on a pure white or pure
+   black ground.
+
    Severity becomes a ramp from ink to pale instead of four hues. The bands
    carry their word everywhere they appear, so hue was the redundant channel.
 
@@ -41,13 +46,17 @@
    base themes; the dark variant repeats every token the light one sets, or
    the light values would leak into dark mode. */
 :root[data-ui="mono"] {
-  --accent:#14140f;
-  --critical:#14140f; --high:#46463f; --medium:#6c6c63; --low:#8e8e86;
+  --bg:#ffffff; --raised:#f2f2f2; --hair:#e0e0e0; --hair-strong:#c6c6c6;
+  --ink:#000000; --muted:#595959; --faint:#8c8c8c;
+  --accent:#000000;
+  --critical:#000000; --high:#404040; --medium:#666666; --low:#8c8c8c;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-ui="mono"] {
-    --accent:#f0f0ea;
-    --critical:#f0f0ea; --high:#bdbdb3; --medium:#91918a; --low:#76766e;
+    --bg:#000000; --raised:#171717; --hair:#2e2e2e; --hair-strong:#454545;
+    --ink:#ffffff; --muted:#a6a6a6; --faint:#767676;
+    --accent:#ffffff;
+    --critical:#ffffff; --high:#c4c4c4; --medium:#949494; --low:#767676;
   }
 }
 

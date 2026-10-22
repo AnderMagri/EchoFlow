@@ -26,6 +26,7 @@ import { evaluateAnswerability } from '../core/answerability.js';
 import { evaluateParity } from '../core/parity.js';
 import { evaluateOperability } from '../core/operability.js';
 import { buildBundle } from '../core/wiki/bundle.js';
+import { MONO_CSS } from '../core/wiki/render-html.js';
 import { buildWikiModel } from '../core/wiki/model.js';
 import { discoverPages, isPageUrl, QUOTA } from '../core/discover.js';
 import { cleanSite, messySite } from './fixtures.js';
@@ -1093,6 +1094,25 @@ t('the status palette is a variable everywhere, so nothing paints a fixed hue', 
       ok(!/#(d03b3b|ec835a|fab219|0ca30c)/i.test(svg), `${path} draws no literal band colour`);
     }
   }
+});
+
+t('black and white has no hue in it at all', () => {
+  // Overriding only the severity tokens left the warm paper theme underneath —
+  // #fbfbfa on #16160f — which is a warm monochrome, not black and white, and
+  // reads as a wash. Every neutral in the block has to be achromatic, and the
+  // ground has to be pure, or the mode does not do what it is called.
+  const mono = MONO_CSS.match(/:root\[data-ui="mono"\][^{]*\{([\s\S]*?)\}/g) || [];
+  ok(mono.length >= 2, `both schemes are declared (${mono.length})`);
+
+  for (const block of mono) {
+    for (const [, name, hex] of block.matchAll(/(--[a-z-]+):\s*#([0-9a-f]{6})/gi)) {
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      ok(r === g && g === b, `${name} is grey, not tinted (#${hex})`);
+    }
+  }
+
+  ok(/--bg:\s*#ffffff/.test(MONO_CSS), 'the light ground is white');
+  ok(/--bg:\s*#000000/.test(MONO_CSS), 'and the dark ground is black');
 });
 
 t('swatches stay in colour, because they are the evidence', () => {
