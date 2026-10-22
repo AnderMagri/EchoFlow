@@ -592,18 +592,9 @@ function renderReview() {
   const loadable = injectFonts();
   // Families the page loads from Google, keyed lower-case so a stack written
   // "playfair display" still matches the "Playfair Display" in the URL.
-  const googleFonts = new Map(collected
-    .flatMap((o) => o.engine?.googleFonts || [])
-    .map((name) => [name.toLowerCase(), name]));
-  // Where each family's file is served from, so a missing Google link reads as
-  // "this font is not from Google" rather than "the link is broken".
-  const fontHost = new Map(collected
-    .flatMap((o) => o.engine?.fontFaces || [])
-    .map((f) => {
-      try { return [f.family.toLowerCase(), new URL(f.src).hostname.replace(/^www\./, '')]; }
-      catch { return null; }
-    })
-    .filter(Boolean));
+  // Provenance comes off the token seed, which is where it is computed — the
+  // wiki reads the same field, so the panel and the client deliverable cannot
+  // disagree about where a typeface comes from.
   const typ = t.typography;
   const maxSpace = Math.max(...t.spacing.steps, ...t.spacing.strays.map((s) => s.value), 1);
 
@@ -626,8 +617,9 @@ function renderReview() {
   ${typ.families.all.slice(0, 6).map((f) => {
     const fam = firstFamily(f.stack);
     const have = loadable.has(fam.toLowerCase());
-    const google = googleFonts.get(fam.toLowerCase());
-    const host = fontHost.get(fam.toLowerCase());
+    const src = f.source || { kind: 'system' };
+    const google = src.kind === 'google' ? src.googleName : null;
+    const host = src.kind === 'webfont' ? src.host : null;
     /**
      * Where the face is SERVED FROM, which is the only thing a page can show.
      *

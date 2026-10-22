@@ -70,6 +70,21 @@ export function buildWikiModel(analysis) {
     });
   }
 
+  // Every finding, in priority order, on one page.
+  //
+  // They were reachable only through the axis, owner and surface pages — each
+  // a partial view — and the verdict page shows the top twelve. So a bundle
+  // handed to a client had no single screen that said "here is everything",
+  // which is the first thing anyone looks for. Another query over the same
+  // pile, linked not copied, like every other page here.
+  pages.push({
+    slug: 'findings',
+    kind: 'findings',
+    title: 'All findings',
+    summary: `Every finding, highest priority first. ${findings.length} in total — the axis, owner and surface pages are the same records filtered by a different question.`,
+    findingIds: findings.map((f) => f.id),
+  });
+
   // The GEO page. A query over the same pile, like every other page here — the
   // findings on it are the ones already on the Engine axis page, reached by the
   // question "can a machine use this store" instead of "what kind of problem is
@@ -109,7 +124,7 @@ export function buildWikiModel(analysis) {
     pages.push({
       slug: 'tokens',
       kind: 'tokens',
-      title: 'Design system seed',
+      title: 'Design review',
       summary: 'The system this site is implicitly running, extracted as tokens you can build with.',
       findingIds: [],
     });

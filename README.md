@@ -109,7 +109,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.13.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.14.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -340,12 +340,25 @@ Unzip it and there is exactly one thing to open:
 START HERE.html    the verdict, the charts, and a menu of every page
 report/
   site/            static HTML. Host it anywhere. The client's copy.
-  pages/           markdown with front-matter — verdict, per axis, per owner, per surface.
+    findings.html    every finding in one list, highest priority first
+    tokens.html      the design review — colour by role, typefaces, scale, spacing, shape
+    geo.html         what a machine can read
+    structure-*.html the page as boxes, one per surface
+  pages/           markdown with front-matter — the same pages, for an agent to read.
   findings/        one file per finding, stable filename.
   data/            JSON — the source everything else is rendered from.
   CLAUDE.md        how an AI agent should navigate the folder.
   manifest.json    index of the bundle.
 ```
+
+Everything the side panel shows is in here. The **design review** page carries
+the same sections the panel does — colour by role, every typeface with where it
+is served from, the type scale, the spacing rhythm and shape — because the panel
+is the auditor's screen and the bundle is what the client actually receives; a
+section that existed only on the first one was not in the deliverable at all.
+`findings.html` is the complete pile in priority order: the axis, owner,
+page-type and GEO pages are that same pile asked a narrower question, linked
+rather than copied.
 
 `START HERE.html` is **self-contained** — its own styles, its own charts, no
 external file. Move the folder, re-zip it, copy it half-way, and it still opens

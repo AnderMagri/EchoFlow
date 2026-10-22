@@ -51,6 +51,7 @@ export function renderStartHere(model, structurePages = []) {
   const hasOwnerPage = (o) => model.pages.some((p) => p.slug === `for-${o}`);
 
   const geo = model.pages.find((p) => p.kind === 'geo');
+  const all = model.pages.find((p) => p.kind === 'findings');
   const structure = structurePages[0] || null;
 
   /**
@@ -90,8 +91,9 @@ export function renderStartHere(model, structurePages = []) {
       heading: 'Reference',
       links: [
         { slug: 'index', label: 'Full report' },
+        ...(all ? [{ slug: 'findings', label: 'All findings', count: countFor(all) }] : []),
         ...(geo ? [{ slug: 'geo', label: 'Machine readability', count: countFor(geo) }] : []),
-        ...pagesOfKind('tokens').map((p) => ({ slug: p.slug, label: 'Design system seed' })),
+        ...pagesOfKind('tokens').map((p) => ({ slug: p.slug, label: 'Design review' })),
         ...structurePages.map((p) => ({ slug: p.slug, label: `Structure: ${p.surface.toUpperCase()}` })),
       ],
     },
@@ -235,14 +237,19 @@ ${problems.slice(0, 6).map((f) => `<li><b>${esc(f.title)}</b><br>${esc(f.recomme
     <b>Full report</b>
     <span>Every finding with its evidence, by axis and by page. Has a Full/Client density toggle.</span>
   </a>
+  ${all ? `<a class="route" href="report/site/findings.html">
+    <b>All findings</b>
+    <span>Every record in one list, highest priority first. The axis, owner and page-type views are this same pile asked a narrower question.</span>
+    <span class="cnt">${all.findingIds.length} finding${all.findingIds.length === 1 ? '' : 's'}</span>
+  </a>` : ''}
   ${geo ? `<a class="route" href="report/site/geo.html">
     <b>Machine readability</b>
     <span>What an answer engine, a crawler or a shopping agent can read — crawler access, structured data, answerability, and how far an agent gets along the buy path.</span>
     <span class="cnt">${geo.findingIds.length} finding${geo.findingIds.length === 1 ? '' : 's'}</span>
   </a>` : ''}
   ${model.pages.some((p) => p.kind === 'tokens') ? `<a class="route" href="report/site/tokens.html">
-    <b>Design system seed</b>
-    <span>The palette, type scale and spacing the site is implicitly running — exported as CSS, Figma tokens, Tailwind and Shopify settings.</span>
+    <b>Design review</b>
+    <span>Colour by role, every typeface with where it is served from, the type scale, spacing rhythm and shape — exported as CSS, Figma tokens, Tailwind and Shopify settings.</span>
   </a>` : ''}
   ${structure ? `<a class="route" href="report/site/${esc(structure.slug)}.html">
     <b>Page structure</b>

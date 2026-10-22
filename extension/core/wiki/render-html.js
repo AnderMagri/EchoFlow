@@ -531,8 +531,8 @@ ${sections || '<p class="empty">Nothing found on this surface.</p>'}`;
 export function renderTokensHTML(model) {
   const t = model.tokens;
   const body = `
-<h1>Design system seed</h1>
-<p class="lede">The system this site is implicitly running — extracted as something you can build with.</p>
+<h1>Design review</h1>
+<p class="lede">The system this site is implicitly running — colour, type, spacing and shape as measured, then exported as something you can build with.</p>
 <div class="note">This is a <strong>starting point, not a finished system</strong>. It reflects what the site does today, mistakes included. Review it before shipping.</div>
 
 <h2>Colour</h2>
@@ -550,7 +550,27 @@ ${t.color.contrastWarnings.length ? `<div class="note"><strong>Contrast warnings
 ${t.color.contrastWarnings.map((w) => `<li><code>${esc(w.pair)}</code> is ${w.ratio}:1, needs ${w.required}:1. ${esc(w.note)}</li>`).join('')}
 </ul></div>` : ''}
 
-<h2>Typography</h2>
+<h2>Typefaces</h2>
+<p style="color:var(--muted);font-size:13.5px">Where each family is served from. A
+family can be in Google's catalogue and still be loaded from somewhere else — Shopify's
+font picker does exactly that — so the Google link is only given when the page really
+does load from Google.</p>
+<table>
+<thead><tr><th>Family</th><th>Served from</th><th class="num">Uses</th></tr></thead>
+<tbody>${t.typography.families.all.map((f) => {
+    const src = f.source || { kind: 'system' };
+    const where = src.kind === 'google'
+      ? `<a href="https://fonts.google.com/specimen/${encodeURIComponent(src.googleName).replace(/%20/g, '+')}">Google Fonts</a>`
+      : src.kind === 'webfont'
+        ? `webfont &middot; <code>${esc(src.host || 'unknown host')}</code>`
+        : 'system, or no <code>@font-face</code> on the page';
+    return `<tr><td><strong>${esc(String(f.stack).split(',')[0].replace(/^["']|["']$/g, ''))}</strong><br>
+      <span style="color:var(--faint);font-size:12px">${esc(f.stack)}</span></td>
+      <td>${where}</td><td class="num">${f.uses}</td></tr>`;
+  }).join('')}</tbody>
+</table>
+
+<h2>Type scale</h2>
 <table>
 <thead><tr><th>Step</th><th class="num">Size</th><th class="num">Uses</th></tr></thead>
 <tbody>${t.typography.scale.map((s) => `<tr><td>${esc(s.name)}</td><td class="num">${s.px}px</td><td class="num">${s.uses}</td></tr>`).join('')}</tbody>
@@ -564,6 +584,15 @@ base ${t.typography.bodyPx}px · detected ratio ${t.typography.ratio ?? 'none co
 <h2>Spacing</h2>
 <p style="color:var(--muted);font-size:14px">Base unit <strong>${t.spacing.base}px</strong>, honoured by ${Math.round(t.spacing.adherence * 100)}% of values. Steps: ${t.spacing.steps.map((s) => `<code>${s}px</code>`).join(' ')}</p>
 
+<h2>Shape</h2>
+<table>
+<thead><tr><th>Corner radii</th><th>Shadows</th></tr></thead>
+<tbody><tr>
+  <td>${t.radius.steps.length ? t.radius.steps.map((r) => `<code>${r.px}px</code>`).join(' ') : 'none used'}</td>
+  <td>${t.shadow.steps.length ? t.shadow.steps.map((sh) => `<code>${esc(sh.name)}</code>`).join(' ') : 'none used'}</td>
+</tr></tbody>
+</table>
+
 <h2>Exports</h2>
 <p style="color:var(--muted);font-size:14px">Each of these is a real file in <code>data/</code>, ready to use:
 <code>tokens.css</code>, <code>tokens.dtcg.json</code>, <code>tokens.tailwind.js</code>, <code>shopify-settings.json</code>.</p>
@@ -571,9 +600,37 @@ base ${t.typography.bodyPx}px · detected ratio ${t.typography.ratio ?? 'none co
 <pre class="code">${esc(t.formats.css)}</pre>
 <h3>Shopify theme settings</h3>
 <pre class="code">${esc(JSON.stringify(t.formats.shopify, null, 2))}</pre>`;
-  return layout({ title: 'Design system seed', site: model.site, nav: navFor(model, 'tokens'), body, generatedAt: model.generatedAt });
+  return layout({ title: 'Design review', site: model.site, nav: navFor(model, 'tokens'), body, generatedAt: model.generatedAt });
 }
 
+
+/**
+ * Every finding on one page, highest priority first.
+ *
+ * The axis, owner and surface pages are each a partial view, and the verdict
+ * shows only the top twelve — so nothing in the bundle answered "show me
+ * everything", which is the first thing a reader looks for.
+ */
+export function renderAllFindingsHTML(page, model) {
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const problems = findings.filter((f) => f.kind !== 'strength');
+  const strengths = findings.filter((f) => f.kind === 'strength');
+
+  const body = `
+<h1>All findings</h1>
+<p class="lede">${esc(page.summary)}</p>
+${pageHeader(findings)}
+<div class="note">The number on each finding is its <strong>priority</strong> — impact multiplied by how easy the fix is, so something big and cheap outranks something big and slow. Every record here also appears on its axis, owner and surface page; this is the same pile, not a copy.</div>
+
+<h2>Problems <span class="count">${problems.length}</span></h2>
+<div data-section>
+${problems.length ? problems.map(findingCard).join('\n') : '<p class="empty">Nothing found.</p>'}
+</div>
+${strengths.length ? `<h2>Working well <span class="count">${strengths.length}</span></h2>
+<div data-section>${strengths.map(findingCard).join('\n')}</div>` : ''}`;
+
+  return layout({ title: 'All findings', site: model.site, nav: navFor(model, 'findings'), body, generatedAt: model.generatedAt });
+}
 
 /**
  * The GEO page — can a machine find, read and act on this store?

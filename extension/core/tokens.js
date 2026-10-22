@@ -228,13 +228,53 @@ function buildTypography(observations) {
   const heading = families[0]?.stack || null;
   const body = families[1]?.stack || families[0]?.stack || null;
 
+  // Provenance belongs here, not in a renderer. The sidebar worked it out
+  // inline, so the wiki — the thing that actually goes to a client — knew
+  // nothing about where a typeface comes from. One implementation, both
+  // surfaces, and they cannot drift.
+  const sourced = families.map((f) => ({ ...f, source: fontSource(firstFamily(f.stack), observations) }));
+
   return {
-    families: { heading, body, all: families },
+    families: { heading, body, all: sourced },
     scale,
     weights,
     bodyPx,
     ratio: detectRatio(sizes.map((s) => s.px)),
   };
+}
+
+const firstFamily = (stack) => String(stack).split(',')[0].trim().replace(/^["']|["']$/g, '');
+
+/**
+ * Where a typeface is served from.
+ *
+ * Served-from is not available-on: a family can be in Google's catalogue and
+ * loaded from somewhere else entirely — Shopify's font picker does exactly
+ * that. So the Google answer is only given when the page really does load from
+ * Google, and the rest name the host instead of guessing.
+ *
+ * @returns {{kind:'google'|'webfont'|'system', host:string|null, googleName:string|null}}
+ */
+function fontSource(family, observations) {
+  const key = family.toLowerCase();
+
+  const google = observations
+    .flatMap((o) => o.engine?.googleFonts || [])
+    .find((name) => name.toLowerCase() === key);
+  if (google) return { kind: 'google', host: 'fonts.googleapis.com', googleName: google };
+
+  const face = observations
+    .flatMap((o) => o.engine?.fontFaces || [])
+    .find((f) => f.family.toLowerCase() === key);
+  if (face) {
+    let host = null;
+    try { host = new URL(face.src).hostname.replace(/^www\./, ''); } catch { /* unparseable src */ }
+    return { kind: 'webfont', host, googleName: null };
+  }
+
+  // No @font-face anywhere for this family: a system stack, or loaded in a way
+  // the page does not expose. Both are "we did not see a file".
+  return { kind: 'system', host: null, googleName: null };
 }
 
 /**

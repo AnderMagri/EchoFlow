@@ -971,6 +971,69 @@ t('START HERE links to the structure pages', () => {
   }
 });
 
+t('the bundle carries every finding on one page', () => {
+  // The axis, owner, surface and GEO pages are each a partial view and the
+  // verdict page shows the top twelve, so a bundle handed to a client had no
+  // screen that answered "show me everything" — the first thing a reader looks
+  // for. Another query over the same pile, not a second copy.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const model = buildWikiModel(analysis);
+  const files = buildBundle(analysis);
+
+  ok(files['report/site/findings.html'], 'the static wiki has an all-findings page');
+  ok(files['report/pages/findings.md'], 'and so does the agent-readable half');
+
+  const html = files['report/site/findings.html'];
+  const md = files['report/pages/findings.md'];
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  for (const f of model.findings) {
+    ok(html.includes(esc(f.title)), `the HTML page carries ${f.id}`);
+    ok(md.includes(`findings/${f.id}.md`), `the markdown page links ${f.id}`);
+  }
+  eq([...md.matchAll(/\.\.\/findings\/[^)]+\.md/g)].length, model.findings.length,
+    'every finding exactly once — a complete list, not a selection');
+  ok(/scored: false/.test(md), 'and declares it is not a score, like every other filtered view');
+});
+
+t('the Design review page carries typeface provenance and shape', () => {
+  // The sidebar's Design review showed colour roles, typefaces with where each
+  // one is served from, the type scale, spacing and shape. The wiki's copy —
+  // the one the client actually receives — had Colour, Typography, Spacing and
+  // Exports, so two sections existed only on the auditor's screen.
+  const obs = messySite().map((o, i) => (i ? o : {
+    ...o,
+    engine: {
+      ...o.engine,
+      googleFonts: ['Roboto'],
+      fontFaces: [{ family: 'Open Sans', src: 'https://cdn.shop.example/fonts/open-sans.woff2' }],
+    },
+  }));
+  const files = buildBundle(analyze({ observations: obs, site: 'm' }));
+  const html = files['report/site/tokens.html'];
+  ok(html, 'the bundle has a design review page');
+
+  ok(/<h1>Design review<\/h1>/.test(html), 'named for what it is, not "design system seed"');
+  ok(html.includes('<h2>Typefaces</h2>'), 'typefaces are a section of their own');
+  ok(html.includes('<h2>Shape</h2>'), 'and so is shape');
+
+  // All three provenance states, because absence is only meaningful if the
+  // present cases are stated too: served from Google, self-hosted, system.
+  ok(/fonts\.google\.com\/specimen\/Roboto/.test(html),
+    'a family the page really loads from Google gets the direct specimen link');
+  ok(html.includes('cdn.shop.example'),
+    'a self-hosted face names its host rather than claiming a catalogue');
+  ok(/Georgia[\s\S]{0,400}?system/.test(html), 'and a system family says so');
+
+  const t = analyze({ observations: obs, site: 'm' }).tokens;
+  ok(t.radius.steps.length && t.shadow.steps.length, 'there is shape to report');
+  const shape = html.slice(html.indexOf('<h2>Shape</h2>'));
+  for (const step of t.radius.steps) {
+    ok(shape.includes(`${step.px}px`), `the shape section reports the ${step.px}px radius`);
+  }
+  ok(shape.includes(t.shadow.steps[0].name), 'and names the shadow steps');
+});
+
 t('START HERE is self-contained and links into report/', () => {
   const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
   const start = files['START HERE.html'];

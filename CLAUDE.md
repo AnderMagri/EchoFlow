@@ -360,6 +360,20 @@ routes and no way to reach an axis, surface or GEO page — the landing screen o
 a wiki was the one screen you could not navigate from. The menu is built from
 `model.pages`, plus a sticky top bar, and a test asserts every page is linked.
 
+**The panel and the bundle must show the same things.** The side panel is the
+auditor's screen; the bundle is what the client receives. Design review had
+colour roles, typefaces with provenance, the type scale, spacing and shape in
+the panel, while the bundle's copy of that page had Colour, Typography, Spacing
+and Exports — so two sections existed only on the screen nobody is handed. When
+a section is added to one, it goes in the other.
+
+**There is one page that is the whole pile.** `site/findings.html` and
+`pages/findings.md` list every finding by priority. The axis, owner, surface and
+GEO pages are each a *filtered* view and the verdict page shows the top twelve,
+so without it no screen in the bundle answered "show me everything" — which is
+the first thing a reader looks for. It is still one query over one pile: no
+score, no ranking of its own, nothing copied.
+
 **Structure pages are NOT in `model.pages`.** The bundler builds them from the
 observations, so `renderStartHere` takes them as a second argument. The old code
 asked `model.pages` whether any existed, which is never true — so no report ever

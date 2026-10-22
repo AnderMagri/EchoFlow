@@ -223,6 +223,40 @@ export function renderSurfacePage(page, model) {
   ].join('\n');
 }
 
+/**
+ * Every finding on one page, highest priority first.
+ *
+ * The axis, owner and surface pages are each a partial view, so an agent had
+ * to union four tables to get the whole pile. One file does it instead.
+ */
+export function renderAllFindingsPage(page, model) {
+  const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  const problems = findings.filter((f) => f.kind !== 'strength');
+  const strengths = findings.filter((f) => f.kind === 'strength');
+
+  return frontMatter({
+    type: 'findings',
+    site: model.site,
+    findings_count: findings.length,
+    problems: problems.length,
+    strengths: strengths.length,
+    // Not a score and not a ranking — the same pile, ordered by priority.
+    scored: false,
+  }) + [
+    '# All findings',
+    '',
+    page.summary,
+    '',
+    '_Every record in the audit, ordered by priority (impact \u00d7 ease of fix). The axis, owner, surface and GEO pages are this same pile filtered by a different question — linked, never copied._',
+    '',
+    `## Problems (${problems.length})`,
+    '',
+    problems.length ? findingTable(problems) : '_Nothing found._',
+    '',
+    ...(strengths.length ? [`## Working well (${strengths.length})`, '', findingTable(strengths), ''] : []),
+  ].join('\n');
+}
+
 function findingTable(findings) {
   return [
     '| Priority | Band | Axis | Finding |',
