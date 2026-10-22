@@ -1011,12 +1011,13 @@ t('the Design review page carries typeface provenance and shape', () => {
     },
   }));
   const files = buildBundle(analyze({ observations: obs, site: 'm' }));
-  const html = files['report/site/tokens.html'];
-  ok(html, 'the bundle has a design review page');
+  const html = files['report/site/axis-design.html'];
+  ok(html, 'the bundle has a design page');
+  ok(!files['report/site/tokens.html'], 'and no separate design review page beside it');
 
-  ok(/<h1>Design review<\/h1>/.test(html), 'named for what it is, not "design system seed"');
-  ok(html.includes('<h2>Typefaces</h2>'), 'typefaces are a section of their own');
-  ok(html.includes('<h2>Shape</h2>'), 'and so is shape');
+  ok(/<h1>Design<\/h1>/.test(html), 'named for the team that reads it');
+  ok(html.includes('>Typefaces</h3>'), 'typefaces are a section of their own');
+  ok(html.includes('>Shape</h3>'), 'and so is shape');
 
   // All three provenance states, because absence is only meaningful if the
   // present cases are stated too: served from Google, self-hosted, system.
@@ -1028,11 +1029,44 @@ t('the Design review page carries typeface provenance and shape', () => {
 
   const t = analyze({ observations: obs, site: 'm' }).tokens;
   ok(t.radius.steps.length && t.shadow.steps.length, 'there is shape to report');
-  const shape = html.slice(html.indexOf('<h2>Shape</h2>'));
+  const shape = html.slice(html.indexOf('>Shape</h3>'));
   for (const step of t.radius.steps) {
     ok(shape.includes(`${step.px}px`), `the shape section reports the ${step.px}px radius`);
   }
   ok(shape.includes(t.shadow.steps[0].name), 'and names the shadow steps');
+});
+
+t('design is one page, not three', () => {
+  // "Design" (the axis) and "For design" (the owner) sat next to each other in
+  // the nav, and the measured system sat on a third tab called Design review —
+  // so a designer looking for the type scale had to guess which of three to
+  // open, and reported the fonts missing from the report entirely.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const model = buildWikiModel(analysis);
+  const files = buildBundle(analysis);
+
+  ok(!model.pages.some((p) => p.kind === 'tokens'), 'no separate design review page');
+  ok(!model.pages.some((p) => p.owner === 'design'), 'and no separate owner page for design');
+  ok(!files['report/site/tokens.html'] && !files['report/pages/tokens.md'], 'neither is written out');
+  ok(model.pages.some((p) => p.owner === 'marketing'), 'the other owner pages are untouched');
+  ok(model.pages.some((p) => p.owner === 'engineering'), 'both of them');
+
+  const design = model.pages.find((p) => p.axis === 'design');
+  ok(design.review, 'the design axis page carries the measured system');
+  ok(Array.isArray(design.ownedElsewhereIds), 'and what design owns on other axes');
+
+  // Everything the design team fixes is reachable from that one page.
+  const owned = analysis.findings.filter((f) => f.owner === 'design').map((f) => f.id);
+  const onPage = new Set([...design.findingIds, ...design.ownedElsewhereIds]);
+  for (const id of owned) ok(onPage.has(id), `${id} is on the design page`);
+
+  // But the score still means what it says.
+  const scored = new Set(design.findingIds);
+  for (const id of design.ownedElsewhereIds) {
+    ok(!scored.has(id), 'nothing counted twice');
+    eq(analysis.findings.find((f) => f.id === id).axis === 'design', false,
+      'and nothing in "also yours" is a design-axis finding the score already covers');
+  }
 });
 
 t('the two halves of the design review say the same things', () => {
@@ -1043,22 +1077,30 @@ t('the two halves of the design review say the same things', () => {
   // got two names and no sources. Headings, because that is the level the
   // drift happened at: a whole section missing from one side.
   const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
-  const html = files['report/site/tokens.html'];
-  const md = files['report/pages/tokens.md'];
+  const html = files['report/site/axis-design.html'];
+  const md = files['report/pages/axis-design.md'];
 
-  const htmlSections = [...html.matchAll(/<h2>([^<]+)<\/h2>/g)].map((m) => m[1].trim());
-  const mdSections = md.split('\n').filter((l) => /^## /.test(l)).map((l) => l.slice(3).trim());
-  eq(mdSections.join(' | '), htmlSections.join(' | '), 'same sections, same order');
+  // h2 is the page's own spine, h3 the review sections inside it. Both halves
+  // must carry both levels, which is the drift this guards against: the HTML
+  // grew a Typefaces section and the markdown did not.
+  const strip = (x) => x.replace(/<[^>]+>/g, '').replace(/\s+\d+$/, '').trim();
+  const htmlH = (n) => [...html.matchAll(new RegExp(`<h${n}[^>]*>([\\s\\S]*?)</h${n}>`, 'g'))].map((m) => strip(m[1]));
+  const mdH = (n) => md.split('\n').filter((l) => new RegExp(`^#{${n}} `).test(l)).map((l) => l.slice(n + 1).trim());
 
-  eq(/<h1>([^<]+)<\/h1>/.exec(html)[1], 'Design review', 'and the HTML calls it the design review');
-  ok(md.startsWith('---') && /^# Design review$/m.test(md), 'and so does the markdown');
+  eq(mdH(2).join(' | '), htmlH(2).join(' | '), 'same sections, same order');
+  eq(mdH(3).join(' | '), htmlH(3).join(' | '), 'and the same review sections inside them');
+  eq(htmlH(3).join(' | '), 'Colour | Typefaces | Type scale | Spacing | Shape | Exports',
+    'which are the review sections, now on the design page');
+
+  eq(/<h1>([^<]+)<\/h1>/.exec(html)[1], 'Design', 'the HTML page is just called Design');
+  ok(md.startsWith('---') && /^# Design$/m.test(md), 'and so is the markdown');
 });
 
 t('the markdown names every typeface and where it is served from', () => {
   // "The wiki still has no font names" — it did, in the HTML. The half an
   // agent reads named two families and no sources at all.
   const analysis = analyze({ observations: messySite(), site: 'm' });
-  const md = buildBundle(analysis)['report/pages/tokens.md'];
+  const md = buildBundle(analysis)['report/pages/axis-design.md'];
   for (const f of analysis.tokens.typography.families.all) {
     const name = String(f.stack).split(',')[0].replace(/^["']|["']$/g, '').trim();
     ok(md.includes(`**${name}**`), `${name} is named`);
@@ -1154,8 +1196,8 @@ t('swatches stay in colour, because they are the evidence', () => {
   // grey swatch would be a claim about the store that is simply false.
   const analysis = analyze({ observations: messySite(), site: 'm' });
   const files = buildBundle(analysis, { ui: 'white' });
-  const tokens = files['report/site/tokens.html'];
-  ok(tokens, 'there is a design review page');
+  const tokens = files['report/site/axis-design.html'];
+  ok(tokens, 'there is a design page');
 
   const hexes = (tokens.match(/background:(#[0-9a-f]{6})/gi) || [])
     .map((m) => m.split(':')[1].toLowerCase());

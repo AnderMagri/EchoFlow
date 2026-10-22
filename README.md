@@ -109,7 +109,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.19.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.20.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -341,7 +341,9 @@ START HERE.html    the verdict, the charts, and a menu of every page
 report/
   site/            static HTML. Host it anywhere. The client's copy.
     findings.html    every finding in one list, highest priority first
-    tokens.html      the design review — colour by role, typefaces, scale, spacing, shape
+    axis-design.html the Design page — every finding the design team owns, and
+                     the measured system: colour by role, typefaces and where
+                     each is served from, the type scale, spacing, shape
     geo.html         what a machine can read
     structure-*.html the page as boxes, one per surface
   pages/           markdown with front-matter — the same pages, for an agent to read.
@@ -351,11 +353,13 @@ report/
   manifest.json    index of the bundle.
 ```
 
-Everything the side panel shows is in here. The **design review** page carries
-the same sections the panel does — colour by role, every typeface with where it
-is served from, the type scale, the spacing rhythm and shape — because the panel
-is the auditor's screen and the bundle is what the client actually receives; a
-section that existed only on the first one was not in the deliverable at all.
+Everything the side panel shows is in here. **Design is one page**: the axis
+score and its dimensions, every finding the design team owns, and the measured
+system underneath — colour by role, every typeface with where it is served from,
+the type scale, the spacing rhythm and shape. It used to be three tabs (Design,
+For design, Design review) for one audience, which is how people ended up
+concluding the fonts were not in the report at all. Marketing and engineering
+keep their own pages; they have no axis of the same name to collide with.
 `findings.html` is the complete pile in priority order: the axis, owner,
 page-type and GEO pages are that same pile asked a narrower question, linked
 rather than copied.

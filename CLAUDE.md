@@ -84,6 +84,22 @@ says nothing about ownership.
 
 **Never add a per-owner score.** The one ranking model stands.
 
+**Design is ONE page.** The axis page, the owner page and the design review were
+three tabs for one audience: the nav read "Design … For design … Design
+review", and a designer looking for the type scale had to guess which to open.
+Reported as the fonts being missing from the report altogether. So `axis-design`
+carries the dimensions, the design-axis findings, the findings design owns on
+other axes, and the measured system, with a jump list at the top because the
+page is long. `ownerFor()` is unchanged and the tags still mean two different
+things — this is a merge of two VIEWS, not of the two questions.
+
+The score still covers the axis only, so the two finding lists stay separate:
+**Design drift** is what the number measures, **Also yours to fix** is owned by
+design and scored elsewhere (tap targets, fold geometry). Flattening them would
+make the score a claim about findings it does not cover. Marketing and
+engineering keep their own owner pages — they have no axis of the same name to
+collide with.
+
 The **GEO page** (`geo`) is the same thing again: `geoGroupFor()` in
 `finding.js` maps check ids into five groups (access, structured, answerability,
 operability, parity), and the page is a filtered view carrying **no score**.
@@ -373,7 +389,9 @@ auditor's screen; the bundle is what the client receives. Design review had
 colour roles, typefaces with provenance, the type scale, spacing and shape in
 the panel, while the bundle's copy of that page had Colour, Typography, Spacing
 and Exports — so two sections existed only on the screen nobody is handed. When
-a section is added to one, it goes in the other.
+a section is added to one, it goes in the other. In the bundle it now lives as
+`<h3>` sections under **The system as measured** on `axis-design`; the panel
+keeps its own Design review tab, because a panel has no nav to collide with.
 
 **There is one page that is the whole pile.** `site/findings.html` and
 `pages/findings.md` list every finding by priority. The axis, owner, surface and

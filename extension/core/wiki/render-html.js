@@ -291,6 +291,12 @@ pre.code {
   font-size: 13.5px; color: var(--muted); margin: 16px 0;
 }
 .empty { color: var(--faint); font-style: italic; padding: 18px 0; }
+/* A long page needs a way in. Design carries the dimensions, two finding lists
+   and the whole measured system, and the fonts were reported missing when they
+   were simply below the fold of a page nobody scrolled. */
+p.jump { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px;
+  color: var(--faint); margin: 0 0 20px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border); }
 .hidden-by-density { display: none !important; }
 footer.site {
   border-top: 1px solid var(--border); margin-top: 56px; padding-top: 18px;
@@ -539,6 +545,10 @@ const reading = (s) => (s == null ? 'not measured'
 
 export function renderAxisHTML(page, model) {
   const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  // Design absorbed its owner page and the design review, so that page carries
+  // two finding lists and the measured system. Every other axis renders as it
+  // always did: these are both empty.
+  const mine = (page.ownedElsewhereIds || []).map((id) => model.findingIndex[id]).filter(Boolean);
   const groups = Object.entries(model.consistency.byGroup || {})
     .filter(([, g]) => g.axis === page.axis)
     .sort((a, b) => (a[1].score ?? 999) - (b[1].score ?? 999))
@@ -548,9 +558,20 @@ export function renderAxisHTML(page, model) {
 <h1>${esc(page.title)}</h1>
 <p class="lede">${esc(page.summary)}</p>
 ${pageHeader(findings)}
+${page.review ? `<p class="jump">On this page:
+  <a href="#dimensions">Dimensions</a>
+  <a href="#findings">Design drift</a>
+  ${mine.length ? '<a href="#also">Also yours to fix</a>' : ''}
+  <a href="#colour">Colour</a>
+  <a href="#typefaces">Typefaces</a>
+  <a href="#type-scale">Type scale</a>
+  <a href="#spacing">Spacing</a>
+  <a href="#shape">Shape</a>
+  <a href="#exports">Exports</a>
+</p>` : ''}
 ${scoreBars(groups, { title: `Where the ${AXIS_LABELS[page.axis].toLowerCase()} score comes from` })}
 
-<h2>Dimensions</h2>
+<h2 id="dimensions">Dimensions</h2>
 <table>
 <thead><tr><th>Dimension</th><th class="num">Score</th><th>Scope</th></tr></thead>
 <tbody>
@@ -561,10 +582,15 @@ ${page.dimensions.map((d) => `<tr${d.score == null ? ' class="unmeasured"' : ''}
 </tbody>
 </table>
 
-<h2>Findings</h2>
+<h2 id="findings">${page.review ? 'Design drift' : 'Findings'} <span class="count">${findings.length}</span></h2>
+${page.review ? '<p class="lede small">What the score above measures: places this site disagrees with itself.</p>' : ''}
 <div data-section>
 ${findings.length ? findings.map(findingCard).join('\n') : '<p class="empty">Nothing found on this axis.</p>'}
-</div>`;
+</div>
+${mine.length ? `<h2 id="also">Also yours to fix <span class="count">${mine.length}</span></h2>
+<div class="note">These are the design team's to fix but sit on another axis, so the score above does not measure them. Tap targets and fold geometry are UX findings decided by whoever draws the screen.</div>
+<div data-section>${mine.map(findingCard).join('\n')}</div>` : ''}
+${designReviewSections(model)}`;
   return layout({ title: page.title, site: model.site, nav: navFor(model, page.slug), body, generatedAt: model.generatedAt });
 }
 
@@ -591,14 +617,23 @@ ${sections || '<p class="empty">Nothing found on this surface.</p>'}`;
   return layout({ title: page.title, site: model.site, nav: navFor(model, page.slug), body, generatedAt: model.generatedAt });
 }
 
-export function renderTokensHTML(model) {
+/**
+ * The measured system, as sections of the Design page.
+ *
+ * This was its own tab called "Design review", one of three places a designer
+ * had to choose between — alongside "Design" (the axis) and "For design" (the
+ * owner) — and it was reported as the fonts being missing from the report
+ * altogether. It is not a separate document: it is what the design findings
+ * are findings ABOUT, so it belongs on the page of the people who own them.
+ */
+function designReviewSections(model) {
   const t = model.tokens;
-  const body = `
-<h1>Design review</h1>
-<p class="lede">The system this site is implicitly running — colour, type, spacing and shape as measured, then exported as something you can build with.</p>
-<div class="note">This is a <strong>starting point, not a finished system</strong>. It reflects what the site does today, mistakes included. Review it before shipping.</div>
+  if (!t) return '';
+  return `
+<h2 id="system">The system as measured</h2>
+<p class="lede small">What this site is implicitly running — colour, type, spacing and shape as measured, then exported as something you can build with. A <strong>starting point, not a finished system</strong>: it reflects what the site does today, mistakes included.</p>
 
-<h2>Colour</h2>
+<h3 id="colour">Colour</h3>
 <p style="color:var(--muted);font-size:14px">Classified by the <strong>role</strong> each colour plays, because that is what a rendered page can actually show. Nothing here is called a brand colour: a page has no access to a brand, only to where paint was applied.</p>
 ${[
   ['Action', t.color.action ? [{ hex: t.color.action }] : [], 'The main call to action, read off the button itself.'],
@@ -606,14 +641,14 @@ ${[
   ['Ink', t.color.ink, 'What text is set in.'],
   ['Line', t.color.line, 'Borders and dividers.'],
   ['Accent', t.color.accents, 'Chromatic colours doing none of the above, named by where they were seen.'],
-].map(([name, list, note]) => `<h3>${esc(name)} <span style="color:var(--faint);font-weight:400;font-size:13px">${list.length ? '' : '— none found'}</span></h3>
+].map(([name, list, note]) => `<h4>${esc(name)} <span style="color:var(--faint);font-weight:400;font-size:13px">${list.length ? '' : '— none found'}</span></h4>
 <p style="color:var(--muted);font-size:13.5px;margin:0 0 8px">${esc(note)}</p>
 ${list.length ? `<div class="swatches">${list.map((c) => `<div class="sw"><i style="background:${esc(c.hex)}"></i>${esc(c.hex)}${c.where ? `<br><span style="color:var(--faint)">${esc(c.where.join(' · '))}</span>` : ''}</div>`).join('')}</div>` : ''}`).join('')}
 ${t.color.contrastWarnings.length ? `<div class="note"><strong>Contrast warnings</strong><ul style="margin:6px 0 0;padding-left:18px">
 ${t.color.contrastWarnings.map((w) => `<li><code>${esc(w.pair)}</code> is ${w.ratio}:1, needs ${w.required}:1. ${esc(w.note)}</li>`).join('')}
 </ul></div>` : ''}
 
-<h2>Typefaces</h2>
+<h3 id="typefaces">Typefaces</h3>
 <p style="color:var(--muted);font-size:13.5px">Where each family is served from. A
 family can be in Google's catalogue and still be loaded from somewhere else — Shopify's
 font picker does exactly that — so the Google link is only given when the page really
@@ -633,7 +668,7 @@ does load from Google.</p>
   }).join('')}</tbody>
 </table>
 
-<h2>Type scale</h2>
+<h3 id="type-scale">Type scale</h3>
 <table>
 <thead><tr><th>Step</th><th class="num">Size</th><th class="num">Uses</th></tr></thead>
 <tbody>${t.typography.scale.map((s) => `<tr><td>${esc(s.name)}</td><td class="num">${s.px}px</td><td class="num">${s.uses}</td></tr>`).join('')}</tbody>
@@ -644,10 +679,10 @@ body <code>${esc(t.typography.families.body || '—')}</code> ·
 base ${t.typography.bodyPx}px · detected ratio ${t.typography.ratio ?? 'none consistent'}
 </p>
 
-<h2>Spacing</h2>
+<h3 id="spacing">Spacing</h3>
 <p style="color:var(--muted);font-size:14px">Base unit <strong>${t.spacing.base}px</strong>, honoured by ${Math.round(t.spacing.adherence * 100)}% of values. Steps: ${t.spacing.steps.map((s) => `<code>${s}px</code>`).join(' ')}</p>
 
-<h2>Shape</h2>
+<h3 id="shape">Shape</h3>
 <table>
 <thead><tr><th>Corner radii</th><th>Shadows</th></tr></thead>
 <tbody><tr>
@@ -656,14 +691,13 @@ base ${t.typography.bodyPx}px · detected ratio ${t.typography.ratio ?? 'none co
 </tr></tbody>
 </table>
 
-<h2>Exports</h2>
+<h3 id="exports">Exports</h3>
 <p style="color:var(--muted);font-size:14px">Each of these is a real file in <code>data/</code>, ready to use:
 <code>tokens.css</code>, <code>tokens.dtcg.json</code>, <code>tokens.tailwind.js</code>, <code>shopify-settings.json</code>.</p>
-<h3>CSS custom properties</h3>
+<h4>CSS custom properties</h4>
 <pre class="code">${esc(t.formats.css)}</pre>
-<h3>Shopify theme settings</h3>
+<h4>Shopify theme settings</h4>
 <pre class="code">${esc(JSON.stringify(t.formats.shopify, null, 2))}</pre>`;
-  return layout({ title: 'Design review', site: model.site, nav: navFor(model, 'tokens'), body, generatedAt: model.generatedAt });
 }
 
 

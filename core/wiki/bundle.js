@@ -20,11 +20,11 @@
 import { atDensity, buildWikiModel } from './model.js';
 import {
   renderAllFindingsPage, renderAxisPage, renderFinding, renderGeoPage, renderIndex, renderOwnerPage,
-  renderSurfacePage, renderTokensPage,
+  renderSurfacePage,
 } from './render-md.js';
 import {
   WIKI_CSS, WIKI_JS, renderAllFindingsHTML, renderAxisHTML, renderGeoHTML, renderIndexHTML, renderOwnerHTML,
-  renderSurfaceHTML, renderTokensHTML,
+  renderSurfaceHTML,
 } from './render-html.js';
 import { AXIS_LABELS, OWNER_LABELS } from '../finding.js';
 import { renderStartHere } from './render-start.js';
@@ -85,7 +85,6 @@ export function buildBundle(analysis, { ui = 'colour' } = {}) {
     else if (page.kind === 'surface') files[`pages/${page.slug}.md`] = renderSurfacePage(page, model);
     else if (page.kind === 'geo') files['pages/geo.md'] = renderGeoPage(page, model);
     else if (page.kind === 'findings') files['pages/findings.md'] = renderAllFindingsPage(page, model);
-    else if (page.kind === 'tokens') files['pages/tokens.md'] = renderTokensPage(model);
   }
 
   // --- site/ : the hostable static wiki ------------------------------------
@@ -98,7 +97,6 @@ export function buildBundle(analysis, { ui = 'colour' } = {}) {
     else if (page.kind === 'surface') files[`site/${page.slug}.html`] = renderSurfaceHTML(page, model);
     else if (page.kind === 'geo') files['site/geo.html'] = renderGeoHTML(page, model);
     else if (page.kind === 'findings') files['site/findings.html'] = renderAllFindingsHTML(page, model);
-    else if (page.kind === 'tokens') files['site/tokens.html'] = renderTokensHTML(model);
   }
 
   // --- structure/ : the page as boxes --------------------------------------
@@ -138,7 +136,6 @@ export function buildBundle(analysis, { ui = 'colour' } = {}) {
       else if (page.kind === 'surface') files[`site/${page.slug}.html`] = withNav(renderSurfaceHTML(page, model), nav);
       else if (page.kind === 'geo') files['site/geo.html'] = withNav(renderGeoHTML(page, model), nav);
       else if (page.kind === 'findings') files['site/findings.html'] = withNav(renderAllFindingsHTML(page, model), nav);
-      else if (page.kind === 'tokens') files['site/tokens.html'] = withNav(renderTokensHTML(model), nav);
     }
     files['site/index.html'] = withNav(renderIndexHTML(model), navWithStructure(model, structurePages, 'index'));
     files['pages/structure.md'] = renderStructureMD(structurePages, model);
@@ -312,6 +309,7 @@ If prose and JSON ever disagree, the JSON is right.
 | \`data/tokens.*\` | Design system seed in 4 formats | You are rebuilding the front end |
 | \`findings/<id>.md\` | One finding, self-contained, YAML front-matter | You want one finding without loading the report |
 | \`pages/findings.md\` | Every finding in one table, by priority | You want the whole pile, not a filtered view |
+| \`pages/axis-design.md\` | Design findings + the measured system | You are rebuilding the look of the site |
 | \`pages/*.md\` | Human-readable report, front-matter on every file | You want the narrative |
 | \`site/*.html\` | Static hostable wiki for the client | You are publishing, not reading |
 
@@ -415,8 +413,9 @@ Open \`site/index.html\` in any browser. No server, no build step, no internet
 connection required. To share it, host the \`site/\` folder anywhere static.
 
 - \`site/findings.html\` — every finding in one list, highest priority first.
-- \`site/tokens.html\` — the design review: colour by role, typefaces and where
-  each is served from, the type scale, spacing rhythm and shape.
+- \`site/axis-design.html\` — everything the design team owns, and the measured
+  system underneath it: colour by role, typefaces and where each is served
+  from, the type scale, spacing rhythm and shape.
 - \`site/structure-*.html\` — the page as boxes, if layouts were captured.
 
 The report has two densities, toggled in the header:

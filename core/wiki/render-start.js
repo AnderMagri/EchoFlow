@@ -93,7 +93,6 @@ export function renderStartHere(model, structurePages = []) {
         { slug: 'index', label: 'Full report' },
         ...(all ? [{ slug: 'findings', label: 'All findings', count: countFor(all) }] : []),
         ...(geo ? [{ slug: 'geo', label: 'Machine readability', count: countFor(geo) }] : []),
-        ...pagesOfKind('tokens').map((p) => ({ slug: p.slug, label: 'Design review' })),
         ...structurePages.map((p) => ({ slug: p.slug, label: `Structure: ${p.surface.toUpperCase()}` })),
       ],
     },
@@ -247,9 +246,9 @@ ${problems.slice(0, 6).map((f) => `<li><b>${esc(f.title)}</b><br>${esc(f.recomme
     <span>What an answer engine, a crawler or a shopping agent can read — crawler access, structured data, answerability, and how far an agent gets along the buy path.</span>
     <span class="cnt">${geo.findingIds.length} finding${geo.findingIds.length === 1 ? '' : 's'}</span>
   </a>` : ''}
-  ${model.pages.some((p) => p.kind === 'tokens') ? `<a class="route" href="report/site/tokens.html">
-    <b>Design review</b>
-    <span>Colour by role, every typeface with where it is served from, the type scale, spacing rhythm and shape — exported as CSS, Figma tokens, Tailwind and Shopify settings.</span>
+  ${model.pages.some((p) => p.review) ? `<a class="route" href="report/site/axis-design.html">
+    <b>Design</b>
+    <span>Everything the design team owns, with the measured system under it: colour by role, every typeface and where it is served from, the type scale, spacing rhythm and shape — exported as CSS, Figma tokens, Tailwind and Shopify settings.</span>
   </a>` : ''}
   ${structure ? `<a class="route" href="report/site/${esc(structure.slug)}.html">
     <b>Page structure</b>

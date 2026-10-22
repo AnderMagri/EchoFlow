@@ -170,12 +170,16 @@ const countPages = (m) => new Set(m.findings.map((f) => f.url).filter(Boolean)).
 /** An axis page — one of three, and a filter over the pile, not a silo. */
 export function renderAxisPage(page, model) {
   const findings = page.findingIds.map((id) => model.findingIndex[id]).filter(Boolean);
+  // Design absorbed its owner page and the design review. Every other axis
+  // renders as it always did: both of these are empty.
+  const mine = (page.ownedElsewhereIds || []).map((id) => model.findingIndex[id]).filter(Boolean);
   return frontMatter({
     type: 'axis',
     axis: page.axis,
     site: model.site,
     score: page.score,
     findings_count: findings.length,
+    ...(page.review ? { owned_elsewhere: mine.length, carries_design_review: true } : {}),
   }) + [
     `# ${page.title}`,
     '',
@@ -188,11 +192,22 @@ export function renderAxisPage(page, model) {
     ...page.dimensions.map((d) =>
       `| ${d.label} | ${d.score ?? `— _(${d.reason || 'not measured'})_`} | ${d.scope} | ${d.question} |`),
     '',
-    '## Findings',
+    page.review ? '## Design drift' : '## Findings',
     '',
+    page.review ? 'What the score above measures: places this site disagrees with itself.' : '',
+    page.review ? '' : null,
     findings.length ? findingTable(findings) : '_Nothing found on this axis._',
     '',
-  ].join('\n');
+    ...(mine.length ? [
+      '## Also yours to fix',
+      '',
+      "These are the design team's to fix but sit on another axis, so the score above does not measure them.",
+      '',
+      findingTable(mine),
+      '',
+    ] : []),
+    ...(page.review ? designReviewSections(model) : []),
+  ].filter((l) => l !== null).join('\n');
 }
 
 /** A surface page — the same findings, crossed by screen instead of by axis. */
@@ -276,23 +291,15 @@ function findingTable(findings) {
  * on an audited site got two names and no sources. A test now compares the
  * section headings of the two halves.
  */
-export function renderTokensPage(model) {
+function designReviewSections(model) {
   const t = model.tokens;
-  if (!t) return '';
-  return frontMatter({
-    type: 'tokens',
-    site: model.site,
-    action: t.color.action,
-    surface_steps: t.color.surface.length,
-    type_steps: t.typography.scale.length,
-    spacing_base: t.spacing.base,
-    type_ratio: t.typography.ratio,
-  }) + [
-    '# Design review',
+  if (!t) return [];
+  return [
+    '## The system as measured',
     '',
-    'The clusters the consistency pass had to compute anyway, emitted as a system you can build with. This is a **starting point, not a finished system** — it is what the site is implicitly running, including its mistakes.',
+    'What this site is implicitly running, emitted as a system you can build with. A **starting point, not a finished system** — it is what the site does today, including its mistakes.',
     '',
-    '## Colour',
+    '### Colour',
     '',
     `- **Action:** \`${t.color.action || 'none found'}\` — the main call to action, read off the button.`,
     `- **Surface:** ${t.color.surface.map((c) => `\`${c.hex}\``).join(' ') || 'none'}`,
@@ -313,7 +320,7 @@ export function renderTokensPage(model) {
       ...t.color.contrastWarnings.map((w) => `> - \`${w.pair}\` is ${w.ratio}:1, needs ${w.required}:1. ${w.note}`),
       '',
     ].join('\n') : '',
-    '## Typefaces',
+    '### Typefaces',
     '',
     '_Where each family is served from. A family can be in Google\'s catalogue and still be loaded from somewhere else — Shopify\'s font picker does exactly that — so the Google link is only given when the page really does load from Google._',
     '',
@@ -330,7 +337,7 @@ export function renderTokensPage(model) {
       return `| **${name}** | \`${f.stack}\` | ${where} | ${f.uses} |`;
     }),
     '',
-    '## Type scale',
+    '### Type scale',
     '',
     `- **Heading:** \`${t.typography.families.heading || '—'}\``,
     `- **Body:** \`${t.typography.families.body || '—'}\``,
@@ -340,18 +347,18 @@ export function renderTokensPage(model) {
     '|---|---|---|',
     ...t.typography.scale.map((s) => `| ${s.name} | ${s.px}px | ${s.uses} |`),
     '',
-    '## Spacing',
+    '### Spacing',
     '',
     `Base unit **${t.spacing.base}px**, honoured by ${Math.round(t.spacing.adherence * 100)}% of values.`,
     '',
     `Steps: ${t.spacing.steps.map((s) => `\`${s}px\``).join(' · ')}`,
     '',
-    '## Shape',
+    '### Shape',
     '',
     `- **Corner radii:** ${t.radius.steps.length ? t.radius.steps.map((r) => `\`${r.px}px\``).join(' · ') : 'none used'}`,
     `- **Shadows:** ${t.shadow.steps.length ? t.shadow.steps.map((sh) => `\`${sh.name}\``).join(' · ') : 'none used'}`,
     '',
-    '## Exports',
+    '### Exports',
     '',
     'Every format below is also a real file in `data/`, ready to use as-is:',
     '',
@@ -362,13 +369,13 @@ export function renderTokensPage(model) {
     '| Tailwind config | `data/tokens.tailwind.js` | Tailwind builds |',
     '| Shopify settings | `data/shopify-settings.json` | `config/settings_data.json` |',
     '',
-    '### CSS',
+    '#### CSS',
     '',
     '```css',
     t.formats.css,
     '```',
     '',
-  ].filter(Boolean).join('\n');
+  ].filter(Boolean);
 }
 
 

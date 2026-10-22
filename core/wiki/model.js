@@ -41,6 +41,16 @@ export function buildWikiModel(analysis) {
 
   for (const axis of axesPresent) {
     const axisFindings = findings.filter((f) => f.axis === axis);
+    // Design is one page, not three. "Design" (the axis) and "For design" (the
+    // owner) sat next to each other in the nav reading "Design ... Design",
+    // and the measured system sat on a third tab called Design review — so a
+    // designer looking for the type scale had to guess which of three to open,
+    // and reported the fonts missing entirely. The distinction between the two
+    // questions is real and still holds in the data; it was never worth two
+    // tabs to the one audience that reads both.
+    const mine = axis === 'design'
+      ? findings.filter((f) => f.owner === 'design' && f.axis !== 'design')
+      : [];
     pages.push({
       slug: `axis-${axis}`,
       kind: 'axis',
@@ -50,6 +60,13 @@ export function buildWikiModel(analysis) {
       summary: axisSummary(axis, consistency, axisFindings),
       dimensions: consistency.dimensions.filter((d) => d.axis === axis),
       findingIds: axisFindings.map((f) => f.id),
+      // Findings this team fixes that the score above does not measure. Kept
+      // as a separate list rather than merged into findingIds, because the
+      // score covers the axis and saying otherwise would be a lie about what
+      // the number means.
+      ownedElsewhereIds: mine.map((f) => f.id),
+      // The measured system, on the page of the people who own it.
+      review: axis === 'design' && !!analysis.tokens,
     });
   }
 
@@ -58,6 +75,8 @@ export function buildWikiModel(analysis) {
   // different people fix them. Same findings, reached by a different question:
   // not "what kind of problem" but "is this mine".
   for (const owner of OWNERS) {
+    // Design has no owner page: it is the axis page, above.
+    if (owner === 'design') continue;
     const ownerFindings = findings.filter((f) => f.owner === owner);
     if (!ownerFindings.length) continue;
     pages.push({
@@ -117,16 +136,6 @@ export function buildWikiModel(analysis) {
       // cannot give you.
       byAxis: Object.fromEntries(axesPresent.map((a) => [a, surfaceFindings.filter((f) => f.axis === a).map((f) => f.id)])),
       findingIds: surfaceFindings.map((f) => f.id),
-    });
-  }
-
-  if (analysis.tokens) {
-    pages.push({
-      slug: 'tokens',
-      kind: 'tokens',
-      title: 'Design review',
-      summary: 'The system this site is implicitly running, extracted as tokens you can build with.',
-      findingIds: [],
     });
   }
 
