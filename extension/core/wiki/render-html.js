@@ -590,7 +590,7 @@ ${findings.length ? findings.map(findingCard).join('\n') : '<p class="empty">Not
 ${mine.length ? `<h2 id="also">Also yours to fix <span class="count">${mine.length}</span></h2>
 <div class="note">These are the design team's to fix but sit on another axis, so the score above does not measure them. Tap targets and fold geometry are UX findings decided by whoever draws the screen.</div>
 <div data-section>${mine.map(findingCard).join('\n')}</div>` : ''}
-${designReviewSections(model)}`;
+${page.review ? designReviewSections(model) : ''}`;
   return layout({ title: page.title, site: model.site, nav: navFor(model, page.slug), body, generatedAt: model.generatedAt });
 }
 

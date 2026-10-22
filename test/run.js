@@ -1069,6 +1069,33 @@ t('design is one page, not three', () => {
   }
 });
 
+t('the measured system appears on exactly one page', () => {
+  // It shipped on all three axis pages once: designReviewSections() returns ''
+  // only when there are no tokens, so calling it unguarded put the whole
+  // colour, type and spacing review at the foot of UX and Engine too. The
+  // parity test compared the design page against itself and saw nothing.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(analysis);
+
+  // Headings, not bare words: "Type scale" is also the label of a dimension,
+  // and the verdict page lists every dimension.
+  for (const marker of ['The system as measured', '>Typefaces</h3>', '>Type scale</h3>']) {
+    const carriers = Object.keys(files)
+      .filter((k) => k.endsWith('.html') && files[k].includes(marker));
+    eq(carriers.join(', '), 'report/site/axis-design.html', `"${marker}" is on the design page and nowhere else`);
+  }
+
+  for (const marker of ['The system as measured', '### Typefaces']) {
+    const carriers = Object.keys(files)
+      .filter((k) => k.endsWith('.md') && files[k].includes(marker));
+    eq(carriers.join(', '), 'report/pages/axis-design.md', `"${marker}" likewise in the markdown half`);
+  }
+
+  // And the jump list that reaches it, for the same reason.
+  ok(files['report/site/axis-design.html'].includes('class="jump"'), 'the design page has its jump list');
+  ok(!files['report/site/axis-ux.html'].includes('class="jump"'), 'and no other axis page does');
+});
+
 t('the two halves of the design review say the same things', () => {
   // The markdown half is not a summary of the HTML half — it is what an agent
   // reads, and where "Send to Claude" points. It had the heading and body
