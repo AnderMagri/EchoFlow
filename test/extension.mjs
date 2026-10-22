@@ -81,6 +81,25 @@ try {
   process.exit(0);
 }
 
+// Chrome's red "Errors" button on chrome://extensions reports whatever ANY of
+// the extension's contexts logged — the service worker and every page it runs
+// in, not just the side panel. This suite watched the panel alone, so a worker
+// that threw on install, or an injection that failed on a real storefront,
+// could ship with every assertion green and a red button on the user's screen.
+const contextErrors = [];
+// Discovery probes URLs that may not exist, and a fixture page may reference an
+// asset it does not ship. Both are data about the page, not faults in the tool.
+const benign = (t) => /404|Failed to load resource|net::ERR_/.test(t);
+const watch = (where, target) => {
+  target.on('console', (m) => {
+    if (m.type() === 'error' && !benign(m.text())) contextErrors.push(`${where}: ${m.text()}`);
+  });
+  target.on('pageerror', (e) => contextErrors.push(`${where}: ${e.message}`));
+};
+ctx.on('serviceworker', (w) => watch('service worker', w));
+for (const w of ctx.serviceWorkers()) watch('service worker', w);
+ctx.on('page', (p) => watch(`page ${p.url().slice(0, 48) || 'about:blank'}`, p));
+
 console.log('\n  packaged extension\n');
 
 // --- does Chrome accept it at all? -----------------------------------------
@@ -484,5 +503,9 @@ check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
 
 await ctx.close();
 server.close();
+// Last, so it covers everything the run did rather than one moment in it.
+check(contextErrors.length === 0,
+  `no context logged an error Chrome would show on its card${contextErrors.length ? `: ${contextErrors[0]}` : ''}`);
+
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
