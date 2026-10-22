@@ -243,7 +243,7 @@ const uiStart = await panel.evaluate(() => ({
   attr: document.documentElement.dataset.ui || null,
   pressed: document.querySelector('#uimode button[aria-pressed="true"]')?.dataset.ui || null,
 }));
-check(uiStart.modes === 'colour,white,black', `three modes to pick from (${uiStart.modes})`);
+check(uiStart.modes === 'colour,white', `two modes to pick from (${uiStart.modes})`);
 check(uiStart.attr === null && uiStart.pressed === 'colour',
   'colour by default, and it is the absence of an override rather than a spelling of one');
 
@@ -275,19 +275,17 @@ check(monoPanel.after === monoPanel.ink && monoPanel.accent === monoPanel.ink,
 // than asserted on whatever this machine happens to prefer.
 await panel.emulateMedia({ colorScheme: 'dark' });
 const grounds = await panel.evaluate(async () => {
-  const out = {};
-  for (const mode of ['white', 'black']) {
-    document.querySelector(`#uimode button[data-ui="${mode}"]`).click();
-    await new Promise((r) => setTimeout(r, 40));
-    out[mode] = getComputedStyle(document.body).backgroundColor;
-  }
-  out.prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  return out;
+  document.querySelector('#uimode button[data-ui="white"]').click();
+  await new Promise((r) => setTimeout(r, 40));
+  return {
+    white: getComputedStyle(document.body).backgroundColor,
+    prefersDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+  };
 });
 check(grounds.white === 'rgb(255, 255, 255)',
   `White is white whatever the system says (${grounds.white}, prefers-dark: ${grounds.prefersDark})`);
-check(grounds.black === 'rgb(0, 0, 0)', `and Black is black (${grounds.black})`);
 check(grounds.prefersDark === true, 'and the dark preference really was in force for that check');
+
 await panel.emulateMedia({ colorScheme: null });
 check(monoPanel.stored === 'white', 'the choice is stored, so it survives the panel closing');
 

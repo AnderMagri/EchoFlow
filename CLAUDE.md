@@ -411,19 +411,24 @@ that underneath and produced a warm monochrome, which reads as a wash rather
 than as B&W. The whole neutral ramp is achromatic on a pure `#ffffff` or
 `#000000` ground, and a test walks every hex in `MONO_CSS` asserting r == g == b.
 
-**The ground is CHOSEN, not inherited.** `white` and `black` are separate modes
-with NO media query between them — a test asserts `MONO_CSS` contains no
-`@media` at all. One mono mode following `prefers-color-scheme` meant an auditor
-on a dark OS could not produce a white report, and the report is a deliverable:
-printed, pasted into decks, where the ground is a decision rather than a system
-preference. Only `colour` still follows the reader, because there the question
-is legibility rather than output. Colour is the ABSENCE of the attribute, not
+**The ground is CHOSEN, not inherited.** There is NO media query in `MONO_CSS`
+— a test asserts that — so `white` is white whatever the reader prefers. One
+mono mode following `prefers-color-scheme` meant an auditor on a dark OS could
+not produce a white report, and the report is a deliverable: printed, pasted
+into decks, where the ground is a decision rather than a system preference. Only
+`colour` still follows the reader, because there the question is legibility
+rather than output. Colour is the ABSENCE of the attribute, not
 `data-ui="colour"` — one state, not two spellings of it.
+
+A black ground existed briefly and was removed: a monochrome audit is a paper
+job, and black on screen with white on paper would have been two deliverables
+from one switch. A stored `black` resolves to `white`, not back to colour — that
+panel wanted monochrome.
 
 That the mode costs nothing is the payoff of "never colour alone": severity
 becomes a ramp from ink to pale, and since every band already carries its word
 and the scatter derives the band from position, nothing is lost. The panel has
-the same switch in its header (`:root[data-ui="mono"]` in `sidepanel.css`), the
+the same switch in its header (`:root[data-ui="white"]` in `sidepanel.css`), the
 choice is stored, and the export follows it — the panel is the auditor's screen
 and the bundle is the client's, so they must not look like two tools.
 

@@ -29,7 +29,7 @@ Options
   --limit <n>            max pages in a site run (default: 12)
   --out <dir>            output directory (default: ./echoflow-<host>)
   --no-probe             skip the crawler probe (a handful of extra requests)
-  --ui <colour|white|black>  black and white on a white or black ground
+  --ui <colour|white>    black and white on white, whatever your system prefers
                          (swatches stay in colour either way)
   --quiet                only print the verdict
 

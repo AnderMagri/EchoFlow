@@ -37,16 +37,16 @@ import { sectionSkeleton } from '../observation.js';
  * the browser extension (which zips it client-side).
  *
  * @param {import('../analyze.js').AnalysisResult} analysis
- * @param {{ui?: 'colour'|'white'|'black'}} [options] `ui` is the interface mode
- *   the report is rendered in — the auditor's choice in the panel, carried into
- *   what the client receives so the two look like one tool. `white` and `black`
- *   are the monochrome grounds, chosen rather than inherited from the reader's
- *   colour scheme: a report is a deliverable, and which ground it is printed on
- *   is a decision. `colour` follows the reader.
+ * @param {{ui?: 'colour'|'white'}} [options] `ui` is the interface mode the
+ *   report is rendered in — the auditor's choice in the panel, carried into
+ *   what the client receives so the two look like one tool. `white` is black
+ *   and white on white, and it does NOT follow the reader's colour scheme: a
+ *   report is a deliverable and the ground it prints on is a decision.
+ *   `colour` follows the reader.
  * @returns {Record<string,string>}
  */
 export function buildBundle(analysis, { ui = 'colour' } = {}) {
-  const mode = ui === 'white' || ui === 'black' ? ui : 'colour';
+  const mode = ui === 'white' ? 'white' : 'colour';
   const model = buildWikiModel(analysis);
   /** @type {Record<string,string>} */
   const raw = {};

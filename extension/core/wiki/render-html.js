@@ -48,9 +48,14 @@ const CLIENT_THRESHOLD = 40;
  * that followed `prefers-color-scheme`, so an auditor on a dark OS could not
  * get a white report at all — and a report is a deliverable, printed and
  * pasted into decks, where the ground is a decision rather than a system
- * preference. White and black are therefore separate modes with no media query
- * between them. Only `colour` still follows the reader's setting, because
- * there the question is legibility rather than output.
+ * preference. So there is NO media query here: white is white whatever the
+ * reader prefers. Only `colour` still follows that setting, because there the
+ * question is legibility rather than output.
+ *
+ * There was a black ground too, briefly. It went because a monochrome audit is
+ * something you print and paste into a deck, and that is a white-paper job;
+ * black on screen and white on paper would have been two deliverables from one
+ * switch. Someone who wants dark can have it in colour.
  *
  * Severity becomes a ramp from ink to pale instead of four hues. That is not a
  * loss: the bands were already labelled everywhere they appear, and in the
@@ -80,26 +85,10 @@ const MONO_WHITE = `
   --band-low: #b3b3b3;      --band-low-ink: #000000;
 `;
 
-const MONO_BLACK = `
-  --bg: #000000; --surface: #0a0a0a; --raised: #171717;
-  --border: #2e2e2e; --border-strong: #454545;
-  --ink: #ffffff; --muted: #a6a6a6; --faint: #767676;
-  --accent: #ffffff;
-  --critical: #ffffff; --high: #c4c4c4; --medium: #949494; --low: #767676;
-  --critical-bg: #2b2b2b; --high-bg: #242424; --medium-bg: #1c1c1c; --low-bg: #141414;
-  --band-critical: #ffffff; --band-critical-ink: #000000;
-  --band-high: #c4c4c4;     --band-high-ink: #000000;
-  --band-medium: #8c8c8c;   --band-medium-ink: #000000;
-  --band-low: #595959;      --band-low-ink: #ffffff;
-`;
-
 export const MONO_CSS = `
 :root[data-ui="white"] {${MONO_WHITE}}
-:root[data-ui="black"] {${MONO_BLACK}}
 /* Without the accent there is nothing left to mark a link with. */
-:root[data-ui="white"] a, :root[data-ui="black"] a {
-  text-decoration: underline; text-underline-offset: 2px;
-}
+:root[data-ui="white"] a { text-decoration: underline; text-underline-offset: 2px; }
 :root[data-ui] nav.tabs a, :root[data-ui] .route,
 :root[data-ui] .menu-links a { text-decoration: none; }
 `;

@@ -1074,14 +1074,12 @@ t('black and white is an attribute, not a second rendering', () => {
   // to have tokens at all is gone.
   const analysis = analyze({ observations: messySite(), site: 'm' });
   const colour = buildBundle(analysis);
-  for (const ui of ['white', 'black']) {
-    const mono = buildBundle(analysis, { ui });
-    eq(Object.keys(mono).join('|'), Object.keys(colour).join('|'), `${ui}: the same files either way`);
-    for (const path of Object.keys(colour)) {
-      if (!path.endsWith('.html')) { eq(mono[path], colour[path], `${ui}: ${path} is untouched`); continue; }
-      eq(mono[path].replace(` data-ui="${ui}"`, ''), colour[path],
-        `${ui}: ${path} differs by the attribute and nothing else`);
-    }
+  const mono = buildBundle(analysis, { ui: 'white' });
+  eq(Object.keys(mono).join('|'), Object.keys(colour).join('|'), 'the same files either way');
+  for (const path of Object.keys(colour)) {
+    if (!path.endsWith('.html')) { eq(mono[path], colour[path], `${path} is untouched`); continue; }
+    eq(mono[path].replace(' data-ui="white"', ''), colour[path],
+      `${path} differs by the attribute and nothing else`);
   }
 });
 
@@ -1089,13 +1087,11 @@ t('every page in a mono bundle is marked, and none in a colour one', () => {
   const analysis = analyze({ observations: messySite(), site: 'm' });
   const tagOf = (html) => html.match(/<html[^>]*>/)[0];
 
-  for (const ui of ['white', 'black']) {
-    const mono = buildBundle(analysis, { ui });
-    const monoPages = Object.keys(mono).filter((k) => k.endsWith('.html'));
-    ok(monoPages.length >= 6, `${ui}: there are pages to mark (${monoPages.length})`);
-    for (const p of monoPages) {
-      ok(tagOf(mono[p]).includes(`data-ui="${ui}"`), `${ui}: ${p} is marked`);
-    }
+  const mono = buildBundle(analysis, { ui: 'white' });
+  const monoPages = Object.keys(mono).filter((k) => k.endsWith('.html'));
+  ok(monoPages.length >= 6, `there are pages to mark (${monoPages.length})`);
+  for (const p of monoPages) {
+    ok(tagOf(mono[p]).includes('data-ui="white"'), `${p} is marked`);
   }
 
   const colour = buildBundle(analysis);
@@ -1113,8 +1109,7 @@ t('the mono attribute has rules to act on, in every stylesheet that ships', () =
     ['report/site/assets/wiki.css', files['report/site/assets/wiki.css']],
     ['START HERE.html', files['START HERE.html']],
   ]) {
-    ok(/:root\[data-ui="white"\]/.test(css), `${path} carries the white override`);
-    ok(/:root\[data-ui="black"\]/.test(css), `${path} carries the black override`);
+    ok(/:root\[data-ui="white"\]/.test(css), `${path} carries the override`);
     ok(/--band-critical:\s*#/.test(css), `${path} defines the band palette it overrides`);
   }
 });
@@ -1122,7 +1117,7 @@ t('the mono attribute has rules to act on, in every stylesheet that ships', () =
 t('the status palette is a variable everywhere, so nothing paints a fixed hue', () => {
   // Charts used to write the hex straight into the SVG, which is why a mono
   // mode would have meant re-rendering every chart.
-  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }), { ui: 'black' });
+  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }), { ui: 'white' });
   for (const [path, html] of Object.entries(files)) {
     if (!path.endsWith('.html')) continue;
     const charts = html.match(/<svg[\s\S]*?<\/svg>/g) || [];
@@ -1137,8 +1132,8 @@ t('black and white has no hue in it at all', () => {
   // #fbfbfa on #16160f — which is a warm monochrome, not black and white, and
   // reads as a wash. Every neutral in the block has to be achromatic, and the
   // ground has to be pure, or the mode does not do what it is called.
-  const blocks = MONO_CSS.match(/:root\[data-ui="(?:white|black)"\]\s*\{([\s\S]*?)\}/g) || [];
-  eq(blocks.length, 2, 'two grounds are declared');
+  const blocks = MONO_CSS.match(/:root\[data-ui="white"\]\s*\{([\s\S]*?)\}/g) || [];
+  eq(blocks.length, 1, 'the ground is declared once');
 
   for (const block of blocks) {
     for (const [, name, hex] of block.matchAll(/(--[a-z-]+):\s*#([0-9a-f]{6})/gi)) {
@@ -1148,7 +1143,7 @@ t('black and white has no hue in it at all', () => {
   }
 
   ok(/:root\[data-ui="white"\]\s*\{[^}]*--bg:\s*#ffffff/.test(MONO_CSS), 'white is white');
-  ok(/:root\[data-ui="black"\]\s*\{[^}]*--bg:\s*#000000/.test(MONO_CSS), 'black is black');
+  ok(!/data-ui="black"/.test(MONO_CSS), 'and there is no second ground left behind');
   // The ground is chosen, not inherited: an auditor on a dark OS must be able
   // to produce a white report, because a report is a deliverable.
   ok(!/@media/.test(MONO_CSS), 'and neither one asks the reader what they prefer');
@@ -1158,7 +1153,7 @@ t('swatches stay in colour, because they are the evidence', () => {
   // The interface goes monochrome; what the site actually paints does not. A
   // grey swatch would be a claim about the store that is simply false.
   const analysis = analyze({ observations: messySite(), site: 'm' });
-  const files = buildBundle(analysis, { ui: 'black' });
+  const files = buildBundle(analysis, { ui: 'white' });
   const tokens = files['report/site/tokens.html'];
   ok(tokens, 'there is a design review page');
 

@@ -29,11 +29,13 @@
   }
 }
 /* ---- black and white ----
-   The ground is CHOSEN, not inherited: White and Black are separate modes with
-   no media query between them. One mono mode following prefers-color-scheme
-   meant an auditor on a dark OS could not get a white report at all, and a
-   report is a deliverable — printed, pasted into decks — where the ground is a
-   decision. Only Colour still follows the system setting.
+   The ground is CHOSEN, not inherited: there is no media query here, so White
+   is white whatever the system is set to. One mono mode following
+   prefers-color-scheme meant an auditor on a dark OS could not get a white
+   report at all, and a report is a deliverable — printed, pasted into decks —
+   where the ground is a decision. Only Colour still follows the system setting.
+   A black ground existed briefly and went: a monochrome audit is a paper job,
+   and someone who wants dark can have it in colour.
 
    The interface, not the evidence. Swatches are painted with an inline
    background and no token can reach them, so a report of a red storefront
@@ -57,12 +59,6 @@
   --accent:#000000;
   --critical:#000000; --high:#404040; --medium:#666666; --low:#8c8c8c;
 }
-:root[data-ui="black"] {
-  --bg:#000000; --raised:#171717; --hair:#2e2e2e; --hair-strong:#454545;
-  --ink:#ffffff; --muted:#a6a6a6; --faint:#767676;
-  --accent:#ffffff;
-  --critical:#ffffff; --high:#c4c4c4; --medium:#949494; --low:#767676;
-}
 
 * { box-sizing:border-box; }
 html, body { height:100%; }
@@ -83,7 +79,7 @@ header {
 .brand em { font-style:normal; color:var(--faint); font-weight:400; }
 .host {
   margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--faint);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:72px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:96px;
 }
 
 .controls { padding:12px 14px; border-bottom:1px solid var(--hair); }

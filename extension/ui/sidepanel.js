@@ -1273,20 +1273,24 @@ async function drawOverlay() {
  * bundle is rendered in, because the panel is the auditor's screen and the
  * bundle is what the client receives and they should not look like two tools.
  *
- * White and black are separate modes rather than one monochrome mode following
- * the system setting. With the system deciding, an auditor on a dark OS could
- * not produce a white report at all — and the report is a deliverable, printed
- * and pasted into decks, where the ground is a decision. Colour still follows
- * the system, because there the question is legibility, not output.
+ * White does not follow the system setting. With the system deciding, an
+ * auditor on a dark OS could not produce a white report at all — and the
+ * report is a deliverable, printed and pasted into decks, where the ground is
+ * a decision. Colour still follows the system, because there the question is
+ * legibility, not output.
  *
  * Stored rather than remembered, so it survives the panel closing — which it
  * does every time the sidebar is dismissed.
  */
-const UI_MODES = ['colour', 'white', 'black'];
+const UI_MODES = ['colour', 'white'];
 let uiMode = 'colour';
 
 function applyUi(mode) {
-  uiMode = UI_MODES.includes(mode) ? mode : 'colour';
+  // A panel that stored 'black' before that ground was removed wanted
+  // monochrome, so it gets the one that is left rather than being sent back
+  // to colour.
+  const asked = mode === 'black' ? 'white' : mode;
+  uiMode = UI_MODES.includes(asked) ? asked : 'colour';
   // Colour is the absence of an override, so the attribute comes off entirely
   // rather than being set to "colour" — one state, not two spellings of it.
   if (uiMode === 'colour') delete document.documentElement.dataset.ui;

@@ -109,7 +109,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.18.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.19.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that
@@ -376,17 +376,15 @@ Inline SVG, no library, light and dark.
 — a filter, not a second export. Maintaining two designs would double the work
 forever, and they would drift.
 
-**Colour, White or Black.** The switch in the panel header repaints the panel and
-is what the exported report is rendered in — one choice, both surfaces. White and
-Black are black-and-white on a chosen ground: no hue anywhere, achromatic greys
-on pure `#ffffff` or `#000000`, and they do NOT follow your system setting — a
-report is a deliverable, and which ground it prints on is a decision. Colour
-still follows light/dark. Severity becomes a ramp from ink to pale instead of
+**Colour or White.** The switch in the panel header repaints the panel and is
+what the exported report is rendered in — one choice, both surfaces. White is
+black-and-white on white: no hue anywhere, achromatic greys on a pure `#ffffff`
+ground, and it does NOT follow your system setting — a report is a deliverable,
+and the ground it prints on is a decision. Colour still follows light/dark. Severity becomes a ramp from ink to pale instead of
 four hues; nothing is lost, because every band was already labelled and the
 scatter derives its band from position, so colour was never the only channel.
 Colour swatches stay in colour whatever the mode: those are measurements of the
-site, and a grey one would be a lie about it. From the CLI it is `--ui white` or
-`--ui black`.
+site, and a grey one would be a lie about it. From the CLI it is `--ui white`.
 
 **Built for Cowork.** Drop the folder in a synced directory and both you and Claude
 can work from it. `CLAUDE.md` states where the truth is, what `effort` means (it is
