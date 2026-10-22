@@ -1034,6 +1034,88 @@ t('the Design review page carries typeface provenance and shape', () => {
   ok(shape.includes(t.shadow.steps[0].name), 'and names the shadow steps');
 });
 
+t('black and white is an attribute, not a second rendering', () => {
+  // The whole point of painting through tokens: the mode is one attribute on
+  // <html> and nothing else in the bundle differs. If a renderer ever starts
+  // branching on the mode, the two bundles stop matching here and the reason
+  // to have tokens at all is gone.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const colour = buildBundle(analysis);
+  const mono = buildBundle(analysis, { ui: 'mono' });
+
+  eq(Object.keys(mono).join('|'), Object.keys(colour).join('|'), 'the same files either way');
+  for (const path of Object.keys(colour)) {
+    if (!path.endsWith('.html')) { eq(mono[path], colour[path], `${path} is untouched`); continue; }
+    eq(mono[path].replace(' data-ui="mono"', ''), colour[path],
+      `${path} differs by the attribute and nothing else`);
+  }
+});
+
+t('every page in a mono bundle is marked, and none in a colour one', () => {
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const tagOf = (html) => html.match(/<html[^>]*>/)[0];
+
+  const mono = buildBundle(analysis, { ui: 'mono' });
+  const monoPages = Object.keys(mono).filter((k) => k.endsWith('.html'));
+  ok(monoPages.length >= 6, `there are pages to mark (${monoPages.length})`);
+  for (const p of monoPages) {
+    ok(/data-ui="mono"/.test(tagOf(mono[p])), `${p} is marked`);
+  }
+
+  const colour = buildBundle(analysis);
+  for (const p of Object.keys(colour).filter((k) => k.endsWith('.html'))) {
+    ok(!/data-ui/.test(tagOf(colour[p])), `${p} is not marked in colour mode`);
+  }
+});
+
+t('the mono attribute has rules to act on, in every stylesheet that ships', () => {
+  // The attribute is inert without the override block. START HERE inlines its
+  // styles and the report links a stylesheet — both have to carry it, or one
+  // half of the bundle silently stays in colour.
+  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }), { ui: 'mono' });
+  for (const [path, css] of [
+    ['report/site/assets/wiki.css', files['report/site/assets/wiki.css']],
+    ['START HERE.html', files['START HERE.html']],
+  ]) {
+    ok(/:root\[data-ui="mono"\]/.test(css), `${path} carries the override`);
+    ok(/--band-critical:\s*#/.test(css), `${path} defines the band palette it overrides`);
+  }
+});
+
+t('the status palette is a variable everywhere, so nothing paints a fixed hue', () => {
+  // Charts used to write the hex straight into the SVG, which is why a mono
+  // mode would have meant re-rendering every chart.
+  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }), { ui: 'mono' });
+  for (const [path, html] of Object.entries(files)) {
+    if (!path.endsWith('.html')) continue;
+    const charts = html.match(/<svg[\s\S]*?<\/svg>/g) || [];
+    for (const svg of charts) {
+      ok(!/#(d03b3b|ec835a|fab219|0ca30c)/i.test(svg), `${path} draws no literal band colour`);
+    }
+  }
+});
+
+t('swatches stay in colour, because they are the evidence', () => {
+  // The interface goes monochrome; what the site actually paints does not. A
+  // grey swatch would be a claim about the store that is simply false.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const files = buildBundle(analysis, { ui: 'mono' });
+  const tokens = files['report/site/tokens.html'];
+  ok(tokens, 'there is a design review page');
+
+  const hexes = (tokens.match(/background:(#[0-9a-f]{6})/gi) || [])
+    .map((m) => m.split(':')[1].toLowerCase());
+  ok(hexes.length, `the page paints swatches (${hexes.length})`);
+  const measured = new Set([
+    ...(analysis.tokens.color.ink || []),
+    ...(analysis.tokens.color.surface || []),
+    ...(analysis.tokens.color.line || []),
+    ...(analysis.tokens.color.accents || []),
+  ].map((c) => String(c.hex || c).toLowerCase()));
+  ok(hexes.some((h) => measured.has(h)),
+    'and at least one of them is a colour actually measured on the site');
+});
+
 t('START HERE is self-contained and links into report/', () => {
   const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
   const start = files['START HERE.html'];

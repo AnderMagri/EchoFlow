@@ -28,6 +28,29 @@
     --critical:#e0826f; --high:#d6a55f; --medium:#a5bb80; --low:#76766e;
   }
 }
+/* ---- black and white ----
+   The interface, not the evidence. Swatches are painted with an inline
+   background and no token can reach them, so a report of a red storefront
+   still shows red here however the chrome is drawn — a monochrome swatch
+   would be a lie about the site.
+
+   Severity becomes a ramp from ink to pale instead of four hues. The bands
+   carry their word everywhere they appear, so hue was the redundant channel.
+
+   Declared after the dark block and with an attribute, so it outranks both
+   base themes; the dark variant repeats every token the light one sets, or
+   the light values would leak into dark mode. */
+:root[data-ui="mono"] {
+  --accent:#14140f;
+  --critical:#14140f; --high:#46463f; --medium:#6c6c63; --low:#8e8e86;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-ui="mono"] {
+    --accent:#f0f0ea;
+    --critical:#f0f0ea; --high:#bdbdb3; --medium:#91918a; --low:#76766e;
+  }
+}
+
 * { box-sizing:border-box; }
 html, body { height:100%; }
 body {
@@ -47,7 +70,7 @@ header {
 .brand em { font-style:normal; color:var(--faint); font-weight:400; }
 .host {
   margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--faint);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:108px;
 }
 
 .controls { padding:12px 14px; border-bottom:1px solid var(--hair); }
@@ -75,6 +98,18 @@ header {
 .axes .axis input:checked + span .tick { visibility:visible; }
 .axes .axis:hover span { border-color:var(--muted); }
 .axes .axis input:focus-visible + span { outline:2px solid var(--accent); outline-offset:1px; }
+
+/* State is weight and border, never a fill — the same reason the axis buttons
+   are not filled. This sits in the header beside the brand; a filled segment
+   up there pulls more attention than a display preference deserves. */
+.ui-mode { display:flex; border:1px solid var(--hair-strong); border-radius:4px; overflow:hidden; flex:none; }
+.ui-mode button {
+  border:0; background:transparent; color:var(--faint); cursor:pointer;
+  font-size:10px; font-weight:500; padding:3px 6px; line-height:1.5;
+}
+.ui-mode button + button { border-left:1px solid var(--hair-strong); }
+.ui-mode button[aria-pressed="true"] { color:var(--ink); font-weight:650; background:var(--raised); }
+.ui-mode button:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
 
 .btn {
   border:1px solid var(--hair-strong); background:transparent; border-radius:4px;

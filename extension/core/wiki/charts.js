@@ -21,15 +21,41 @@ const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-/** Status palette — fixed, never themed, never reused for a series. */
+/**
+ * Status palette — reserved for state, never reused for a series.
+ *
+ * These are CSS variables rather than literals so that the whole report can be
+ * rendered monochrome without re-rendering a single chart. The values live in
+ * CHART_CSS below; a black-and-white bundle redefines them and nothing here
+ * changes. Severity was never carried by hue alone — every band is labelled and
+ * in the scatter the band is derived from position — so the mono ramp loses a
+ * redundant channel, not the meaning.
+ */
 export const BAND_COLOR = {
-  critical: '#d03b3b',
-  high: '#ec835a',
-  medium: '#fab219',
-  low: '#0ca30c',
+  critical: 'var(--band-critical)',
+  high: 'var(--band-high)',
+  medium: 'var(--band-medium)',
+  low: 'var(--band-low)',
+};
+
+/**
+ * What to write ON a band. In colour every band is dark enough for white; in
+ * mono the ramp runs from ink to pale, so the text has to flip with it.
+ */
+export const BAND_INK = {
+  critical: 'var(--band-critical-ink)',
+  high: 'var(--band-high-ink)',
+  medium: 'var(--band-medium-ink)',
+  low: 'var(--band-low-ink)',
 };
 
 export const CHART_CSS = `
+:root {
+  --band-critical: #d03b3b; --band-critical-ink: #ffffff;
+  --band-high: #ec835a;     --band-high-ink: #ffffff;
+  --band-medium: #fab219;   --band-medium-ink: #ffffff;
+  --band-low: #0ca30c;      --band-low-ink: #ffffff;
+}
 .viz {
   --viz-ink: var(--ink);
   --viz-muted: var(--muted);
@@ -183,7 +209,7 @@ export function severityBar(bands, { title = 'Findings by severity' } = {}) {
     const w = (n / total) * W;
     const seg = `<g>
       <rect x="${cursor}" y="0" width="${Math.max(1, w - GAP)}" height="${BAR}" rx="3" fill="${BAND_COLOR[band]}"/>
-      ${w > 46 ? `<text class="v-value" x="${cursor + (w - GAP) / 2}" y="${BAR / 2 + 4}" text-anchor="middle" fill="#fff" style="font-weight:650">${n}</text>` : ''}
+      ${w > 46 ? `<text class="v-value" x="${cursor + (w - GAP) / 2}" y="${BAR / 2 + 4}" text-anchor="middle" fill="${BAND_INK[band]}" style="font-weight:650">${n}</text>` : ''}
       <rect class="v-hit" x="${cursor}" y="0" width="${Math.max(1, w - GAP)}" height="${BAR}"
         data-tip="<b>${band} — ${n}</b>${Math.round((n / total) * 100)}% of findings"/>
     </g>`;
@@ -246,7 +272,7 @@ export function impactEffortScatter(findings, { title = 'Impact against ease of 
     return `<g>
       <circle class="v-hit" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="11"
         data-tip="<b>${esc(f.title).slice(0, 90)}</b>priority ${f.priority} · impact ${f.impact}/10 · effort ${f.effort}/10 · ${esc(f.owner)}"/>
-      <circle class="v-dot" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5.5" fill="${BAND_COLOR[f.band] || '#888'}"/>
+      <circle class="v-dot" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5.5" fill="${BAND_COLOR[f.band] || 'var(--viz-faint)'}"/>
     </g>`;
   }).join('');
 

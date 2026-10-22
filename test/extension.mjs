@@ -209,6 +209,10 @@ const run = await panel.evaluate(async (base) => {
     siteSignals: { robots, origin: base },
   });
   const files = buildBundle(a);
+  // Kept for the black-and-white check below, so that test re-renders the
+  // bundle rather than re-collecting the site. Test scaffolding: nothing in
+  // the extension itself puts an analysis on window.
+  window.__efLast = a;
   return {
     pages: observations.length,
     staticFetched: observations.every((o) => o.retrieval.static?.fetched),
@@ -228,6 +232,63 @@ check(run.findings > 0, `and findings (${run.findings})`);
 check(run.robots, 'robots.txt is read from the extension origin');
 check(run.discovered > 0, `automatic discovery finds pages (${run.discovered})`);
 check(run.hasStart && run.hasGeo, 'the export builds a complete bundle');
+
+// --- black and white -------------------------------------------------------
+// One choice, two surfaces: it repaints the panel and it is what the exported
+// bundle is rendered in. Tested in the panel's own document because the
+// specificity of an attribute override against two prefers-color-scheme blocks
+// is exactly the kind of thing that reads correct and computes wrong.
+const uiStart = await panel.evaluate(() => ({
+  exists: !!document.querySelector('#uimode button[data-ui="mono"]'),
+  buttons: document.querySelectorAll('#uimode button').length,
+  attr: document.documentElement.dataset.ui || null,
+  pressed: document.querySelector('#uimode button[aria-pressed="true"]')?.dataset.ui || null,
+}));
+check(uiStart.exists && uiStart.buttons === 2, `a colour/B&W switch, two buttons (${uiStart.buttons})`);
+check(uiStart.attr === 'colour' && uiStart.pressed === 'colour', 'colour by default, and it says so');
+
+const monoPanel = await panel.evaluate(async () => {
+  const before = getComputedStyle(document.documentElement).getPropertyValue('--critical').trim();
+  document.querySelector('#uimode button[data-ui="mono"]').click();
+  await new Promise((r) => setTimeout(r, 60));
+  const cs = getComputedStyle(document.documentElement);
+  const stored = await chrome.storage.local.get('uiMode').catch(() => ({}));
+  return {
+    attr: document.documentElement.dataset.ui,
+    pressed: document.querySelector('#uimode button[aria-pressed="true"]')?.dataset.ui,
+    before,
+    after: cs.getPropertyValue('--critical').trim(),
+    accent: cs.getPropertyValue('--accent').trim(),
+    ink: cs.getPropertyValue('--ink').trim(),
+    stored: stored?.uiMode || null,
+  };
+});
+check(monoPanel.attr === 'mono' && monoPanel.pressed === 'mono', 'clicking B&W switches the panel');
+check(monoPanel.before !== monoPanel.after,
+  `and the severity colour really changes (${monoPanel.before} to ${monoPanel.after})`);
+check(monoPanel.after === monoPanel.ink && monoPanel.accent === monoPanel.ink,
+  `severity and accent collapse onto ink (${monoPanel.ink})`);
+check(monoPanel.stored === 'mono', 'the choice is stored, so it survives the panel closing');
+
+// The export has to follow the switch — that is the whole point of putting it
+// in the panel rather than in the report.
+const monoExport = await panel.evaluate(async () => {
+  const { buildBundle } = await import('../core/wiki/bundle.js');
+  const a = window.__efLast;
+  if (!a) return { skipped: true };
+  const files = buildBundle(a, { ui: 'mono' });
+  const pages = Object.keys(files).filter((k) => k.endsWith('.html'));
+  return {
+    pages: pages.length,
+    allMarked: pages.every((k) => /<html[^>]*data-ui="mono"/.test(files[k])),
+  };
+});
+check(monoExport.skipped || (monoExport.pages > 0 && monoExport.allMarked),
+  monoExport.skipped ? 'export follows the switch (no analysis retained to re-export)'
+    : `every page of a B&W export is marked (${monoExport.pages})`);
+
+// Back to colour, so nothing downstream in this run inherits the mode.
+await panel.evaluate(() => document.querySelector('#uimode button[data-ui="colour"]').click());
 
 // --- Send to Claude ---------------------------------------------------------
 //

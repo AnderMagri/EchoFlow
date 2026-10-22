@@ -390,6 +390,25 @@ follows the job: **ink for magnitude** (scores, counts), the **reserved status
 palette for state** (severity). Never colour alone — every band is labelled, and
 in the scatter the band is derived from position, so hue is redundant.
 
+**Black and white is one attribute, not a second rendering.** `buildBundle(a,
+{ ui: 'mono' })` stamps `data-ui="mono"` on `<html>` in one place, exactly where
+the `report/` move happens, and `MONO_CSS` does the rest. No renderer and no
+chart branches on the mode, and a test asserts the two bundles differ by that
+attribute and nothing else. This only works because the status palette is
+`var(--band-critical)` and not a hex written into the SVG — keep it that way.
+
+That the mode costs nothing is the payoff of "never colour alone": severity
+becomes a ramp from ink to pale, and since every band already carries its word
+and the scatter derives the band from position, nothing is lost. The panel has
+the same switch in its header (`:root[data-ui="mono"]` in `sidepanel.css`), the
+choice is stored, and the export follows it — the panel is the auditor's screen
+and the bundle is the client's, so they must not look like two tools.
+
+**Swatches never go monochrome.** They are painted with an inline
+`background:<hex>`, which no token can reach, because they are *evidence*: a
+grey swatch is a false claim about what the site paints. The same line divides
+the mode everywhere — chrome follows the switch, measurements do not.
+
 ## After changing core/
 
 ```bash

@@ -30,6 +30,56 @@ const CLIENT_THRESHOLD = 40;
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Black and white.
+ *
+ * An override block rather than a second stylesheet, keyed on an attribute the
+ * bundler stamps on `<html>`. Every page in the bundle already paints through
+ * tokens, so the whole report turns monochrome without a renderer, a chart or a
+ * single line of markup knowing it happened.
+ *
+ * Severity becomes a ramp from ink to pale instead of four hues. That is not a
+ * loss: the bands were already labelled everywhere they appear, and in the
+ * scatter the band is derived from position, so colour was the redundant
+ * channel. Ordering it by darkness arguably says more than hue did — critical
+ * is simply the heaviest mark on the page.
+ *
+ * Two things stay in colour on purpose:
+ *
+ * - **Swatches.** The measured palette is evidence. They are painted with an
+ *   inline `background:<hex>`, which no token can override, so a report of a
+ *   red storefront still shows red however the chrome is rendered. A monochrome
+ *   swatch would be a lie about the site.
+ * - **Nothing else.** Links lose their accent, so they get an underline back —
+ *   without it, in mono, a link is unmarked body text.
+ */
+export const MONO_CSS = `
+:root[data-ui="mono"] {
+  --accent: #16160f;
+  --critical: #16160f; --high: #46463f; --medium: #6c6c63; --low: #8e8e86;
+  --critical-bg: #e8e8e3; --high-bg: #eeeee9; --medium-bg: #f3f3ef; --low-bg: #f7f7f4;
+  --band-critical: #16160f; --band-critical-ink: #ffffff;
+  --band-high: #46463f;     --band-high-ink: #ffffff;
+  --band-medium: #76766c;   --band-medium-ink: #ffffff;
+  --band-low: #adada5;      --band-low-ink: #16160f;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-ui="mono"]:not([data-theme="light"]) {
+    --accent: #eeeee8;
+    --critical: #eeeee8; --high: #bdbdb3; --medium: #91918a; --low: #78786f;
+    --critical-bg: #2e2e28; --high-bg: #272722; --medium-bg: #21211d; --low-bg: #1c1c18;
+    --band-critical: #eeeee8; --band-critical-ink: #14140f;
+    --band-high: #b0b0a6;     --band-high-ink: #14140f;
+    --band-medium: #7a7a71;   --band-medium-ink: #14140f;
+    --band-low: #4e4e47;      --band-low-ink: #eeeee8;
+  }
+}
+/* Without the accent there is nothing left to mark a link with. */
+:root[data-ui="mono"] a { text-decoration: underline; text-underline-offset: 2px; }
+:root[data-ui="mono"] nav.tabs a, :root[data-ui="mono"] .route,
+:root[data-ui="mono"] .menu-links a { text-decoration: none; }
+`;
+
 export const WIKI_CSS = `
 :root {
   --bg: #fbfbfa; --surface: #ffffff; --raised: #f5f5f4;
@@ -240,7 +290,7 @@ footer.site {
   header.site .inner { gap: 10px; }
   nav.tabs { width: 100%; margin-left: 0; order: 3; }
 }
-` + CHART_CSS;
+` + CHART_CSS + MONO_CSS;
 
 export const WIKI_JS = CHART_JS + `
 (function () {

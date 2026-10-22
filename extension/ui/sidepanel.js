@@ -1095,7 +1095,7 @@ async function sendToClaude() {
       return;
     }
     btn.textContent = 'Saving…';
-    const files = buildBundle(current);
+    const files = buildBundle(current, { ui: uiMode });
     const site = current.site.replace(/[^a-z0-9.-]/gi, '-');
     const stamp = new Date().toISOString().slice(0, 10);
     const dir = `echoflow/${site}-${stamp}`;
@@ -1169,7 +1169,7 @@ async function bundleDir(id) {
 
 async function exportBundle() {
   if (!current) return;
-  const blob = createZip(buildBundle(current));
+  const blob = createZip(buildBundle(current, { ui: uiMode }));
   const url = URL.createObjectURL(blob);
   await chrome.downloads.download({
     url,
@@ -1265,6 +1265,39 @@ async function drawOverlay() {
     overlayInfo = null;
   }
 }
+
+/**
+ * Colour or black and white.
+ *
+ * One choice, two surfaces: it repaints the panel and it is what the exported
+ * bundle is rendered in, because the panel is the auditor's screen and the
+ * bundle is what the client receives and they should not look like two tools.
+ *
+ * Stored rather than remembered, so it survives the panel closing — which it
+ * does every time the sidebar is dismissed.
+ */
+let uiMode = 'colour';
+
+function applyUi(mode) {
+  uiMode = mode === 'mono' ? 'mono' : 'colour';
+  document.documentElement.dataset.ui = uiMode;
+  for (const b of $('#uimode').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.ui === uiMode));
+  }
+}
+
+$('#uimode').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-ui]');
+  if (!b) return;
+  applyUi(b.dataset.ui);
+  // Best effort: a panel that cannot remember the choice is still usable,
+  // and failing the click over it would not be.
+  try { chrome.storage.local.set({ uiMode }); } catch { /* no storage */ }
+});
+
+try {
+  chrome.storage.local.get('uiMode').then((v) => applyUi(v?.uiMode || 'colour'), () => {});
+} catch { /* not in an extension */ }
 
 $('#export').addEventListener('click', exportBundle);
 $('#send').addEventListener('click', sendToClaude);
