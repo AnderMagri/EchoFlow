@@ -109,7 +109,7 @@ need the others.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the **unzipped folder itself** — the one
    that contains `manifest.json`. Not the `.zip`, not a folder above it.
-5. The card should read **EchoFlow 2.0 · 2.17.0**. Click the EchoFlow icon in the
+5. The card should read **EchoFlow 2.0 · 2.18.0**. Click the EchoFlow icon in the
    toolbar to open the sidebar.
 
 Keep the unzipped folder where it is. Chrome loads the extension from that

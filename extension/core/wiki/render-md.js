@@ -266,7 +266,16 @@ function findingTable(findings) {
   ].join('\n');
 }
 
-/** The tokens page — the rebuild seed, in prose plus every export format. */
+/**
+ * The design review — the rebuild seed, in prose plus every export format.
+ *
+ * The markdown half of a page is not a summary of the HTML half: it is what an
+ * agent reads, and what "Send to Claude" ends up pointing at. This one had the
+ * heading and body families and nothing else while the HTML carried a typeface
+ * table with provenance and a shape section, so asking Claude about the fonts
+ * on an audited site got two names and no sources. A test now compares the
+ * section headings of the two halves.
+ */
 export function renderTokensPage(model) {
   const t = model.tokens;
   if (!t) return '';
@@ -279,7 +288,7 @@ export function renderTokensPage(model) {
     spacing_base: t.spacing.base,
     type_ratio: t.typography.ratio,
   }) + [
-    '# Design system seed',
+    '# Design review',
     '',
     'The clusters the consistency pass had to compute anyway, emitted as a system you can build with. This is a **starting point, not a finished system** — it is what the site is implicitly running, including its mistakes.',
     '',
@@ -304,7 +313,24 @@ export function renderTokensPage(model) {
       ...t.color.contrastWarnings.map((w) => `> - \`${w.pair}\` is ${w.ratio}:1, needs ${w.required}:1. ${w.note}`),
       '',
     ].join('\n') : '',
-    '## Typography',
+    '## Typefaces',
+    '',
+    '_Where each family is served from. A family can be in Google\'s catalogue and still be loaded from somewhere else — Shopify\'s font picker does exactly that — so the Google link is only given when the page really does load from Google._',
+    '',
+    '| Family | Full stack | Served from | Uses |',
+    '|---|---|---|---|',
+    ...(t.typography.families.all || []).map((f) => {
+      const name = String(f.stack).split(',')[0].replace(/^["']|["']$/g, '').trim();
+      const src = f.source || { kind: 'system' };
+      const where = src.kind === 'google'
+        ? `[Google Fonts](https://fonts.google.com/specimen/${encodeURIComponent(src.googleName).replace(/%20/g, '+')})`
+        : src.kind === 'webfont'
+          ? `webfont · \`${src.host || 'unknown host'}\``
+          : 'system, or no `@font-face` on the page';
+      return `| **${name}** | \`${f.stack}\` | ${where} | ${f.uses} |`;
+    }),
+    '',
+    '## Type scale',
     '',
     `- **Heading:** \`${t.typography.families.heading || '—'}\``,
     `- **Body:** \`${t.typography.families.body || '—'}\``,
@@ -319,6 +345,11 @@ export function renderTokensPage(model) {
     `Base unit **${t.spacing.base}px**, honoured by ${Math.round(t.spacing.adherence * 100)}% of values.`,
     '',
     `Steps: ${t.spacing.steps.map((s) => `\`${s}px\``).join(' · ')}`,
+    '',
+    '## Shape',
+    '',
+    `- **Corner radii:** ${t.radius.steps.length ? t.radius.steps.map((r) => `\`${r.px}px\``).join(' · ') : 'none used'}`,
+    `- **Shadows:** ${t.shadow.steps.length ? t.shadow.steps.map((sh) => `\`${sh.name}\``).join(' · ') : 'none used'}`,
     '',
     '## Exports',
     '',

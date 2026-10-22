@@ -1035,6 +1035,38 @@ t('the Design review page carries typeface provenance and shape', () => {
   ok(shape.includes(t.shadow.steps[0].name), 'and names the shadow steps');
 });
 
+t('the two halves of the design review say the same things', () => {
+  // The markdown half is not a summary of the HTML half — it is what an agent
+  // reads, and where "Send to Claude" points. It had the heading and body
+  // families and nothing else while the HTML carried a typeface table with
+  // provenance and a shape section, so asking Claude about the fonts on a site
+  // got two names and no sources. Headings, because that is the level the
+  // drift happened at: a whole section missing from one side.
+  const files = buildBundle(analyze({ observations: messySite(), site: 'm' }));
+  const html = files['report/site/tokens.html'];
+  const md = files['report/pages/tokens.md'];
+
+  const htmlSections = [...html.matchAll(/<h2>([^<]+)<\/h2>/g)].map((m) => m[1].trim());
+  const mdSections = md.split('\n').filter((l) => /^## /.test(l)).map((l) => l.slice(3).trim());
+  eq(mdSections.join(' | '), htmlSections.join(' | '), 'same sections, same order');
+
+  eq(/<h1>([^<]+)<\/h1>/.exec(html)[1], 'Design review', 'and the HTML calls it the design review');
+  ok(md.startsWith('---') && /^# Design review$/m.test(md), 'and so does the markdown');
+});
+
+t('the markdown names every typeface and where it is served from', () => {
+  // "The wiki still has no font names" — it did, in the HTML. The half an
+  // agent reads named two families and no sources at all.
+  const analysis = analyze({ observations: messySite(), site: 'm' });
+  const md = buildBundle(analysis)['report/pages/tokens.md'];
+  for (const f of analysis.tokens.typography.families.all) {
+    const name = String(f.stack).split(',')[0].replace(/^["']|["']$/g, '').trim();
+    ok(md.includes(`**${name}**`), `${name} is named`);
+    ok(md.includes(`| ${f.uses} |`), `${name} carries its usage count`);
+  }
+  ok(/served from|Served from/.test(md), 'and the table says what the column is');
+});
+
 t('black and white is an attribute, not a second rendering', () => {
   // The whole point of painting through tokens: the mode is one attribute on
   // <html> and nothing else in the bundle differs. If a renderer ever starts

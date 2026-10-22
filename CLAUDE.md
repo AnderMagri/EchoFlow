@@ -360,6 +360,14 @@ routes and no way to reach an axis, surface or GEO page — the landing screen o
 a wiki was the one screen you could not navigate from. The menu is built from
 `model.pages`, plus a sticky top bar, and a test asserts every page is linked.
 
+**The two halves of a page must say the same things.** `site/*.html` and
+`pages/*.md` are projections of one model, not a page and a summary of it — the
+markdown is what an agent reads and where "Send to Claude" points. The design
+review drifted: the HTML gained a Typefaces table with provenance and a Shape
+section while the markdown still had heading and body and nothing else, so
+asking Claude about the fonts on an audited site returned two names and no
+sources. A test compares the section headings of both halves of that page.
+
 **The panel and the bundle must show the same things.** The side panel is the
 auditor's screen; the bundle is what the client receives. Design review had
 colour roles, typefaces with provenance, the type scale, spacing and shape in
